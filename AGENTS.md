@@ -1,0 +1,557 @@
+# Startup Preferences per nuovi progetti
+
+Questo file raccoglie le preferenze operative da applicare come standard iniziale ai nuovi progetti software. Deriva da convenzioni maturate in precedenti progetti software.
+
+## Principi generali
+
+- Il progetto deve nascere con una struttura modulare, leggibile e mantenibile.
+- Evitare file monolitici: ogni funzionalita' rilevante deve avere moduli, componenti, servizi, hook o helper dedicati.
+- Preferire interventi piccoli, coerenti con l'architettura esistente e verificabili con test.
+- Evitare refactor non richiesti durante milestone funzionali, salvo quando sono necessari per completare in modo sicuro la milestone.
+- Non introdurre dipendenze senza una ragione concreta, documentata e coerente con il valore della funzionalita'.
+- Tenere sempre separati dominio, accesso ai dati, UI, configurazione, sicurezza, integrazioni esterne e test.
+- Ogni comportamento visibile all'utente deve essere documentato.
+- Ogni comportamento security-relevant deve essere documentato in `SECURITY_MODEL.md`.
+
+## Documenti obbligatori
+
+Ogni nuovo progetto deve contenere almeno:
+
+- `README.md`: pagina principale in stile GitHub, bilingue italiano/inglese, con descrizione, funzionalita', installazione, sviluppo, distribuzione, licenza e link ai documenti.
+- `ISTRUZIONI.md`: manuale utente completo in italiano.
+- `INSTRUCTIONS.md`: traduzione inglese completa del manuale utente.
+- `SECURITY_MODEL.md`: modello di sicurezza bilingue, con controlli implementati, limiti residui, rischi noti e raccomandazioni.
+- `PLAN.md`: piano di sviluppo per milestone funzionali, versioni, branch, criteri di accettazione e checklist di chiusura.
+- `MAP.md`: mappa ASCII della struttura del repository, con breve descrizione di cartelle, file principali, test, workflow e documentazione.
+- `AGENTS.md`: istruzioni operative per agenti e maintainer che lavorano sul repository.
+- `LICENSE`: licenza Apache License 2.0.
+
+Se il progetto espone superfici operative diverse, aggiungere quick start dedicati, per esempio:
+
+- `QUICK-START_CommandLine.md`
+- `QUICK-START_Chat.md`
+- `QUICK-START_Telegram.md`
+- `QUICK-START_Desktop.md`
+
+## Piano milestone
+
+`PLAN.md` deve essere scritto all'inizio del progetto e mantenuto aggiornato.
+
+Ogni milestone deve essere funzionale, non solo tecnica: deve consegnare un comportamento verificabile dall'utente o una base tecnica chiaramente necessaria per una funzionalita' successiva.
+
+Per ogni milestone indicare:
+
+- numero e titolo;
+- obiettivo;
+- branch previsto;
+- tipo incremento versione;
+- attivita' principali;
+- criteri di accettazione;
+- test richiesti;
+- documentazione da aggiornare;
+- stato.
+
+La checklist minima di chiusura milestone deve includere:
+
+- branch milestone creato;
+- implementazione completata;
+- test automatici eseguiti;
+- smoke test o verifica manuale eseguiti;
+- versione aggiornata quando previsto;
+- `README.md` aggiornato;
+- `ISTRUZIONI.md` aggiornato;
+- `INSTRUCTIONS.md` aggiornato;
+- `SECURITY_MODEL.md` aggiornato se cambia sicurezza, rete, segreti, storage, IPC, permessi, logging o distribuzione;
+- `MAP.md` aggiornato se cambia struttura, moduli, comandi, workflow, test o documentazione;
+- `AGENTS.md` aggiornato se cambiano regole operative;
+- `PLAN.md` aggiornato;
+- approvazione esplicita del progettista prima di merge, salvo istruzioni specifiche del progetto;
+- commit finale;
+- PR o merge verso `main`;
+- CI verificata su branch/PR e su `main`;
+- tag versione creato quando previsto;
+- release pubblicata solo quando prevista;
+- artifact e checksum verificati quando esiste una release;
+- branch obsoleto eliminato solo dopo merge e verifiche.
+
+## Branch, commit e merge
+
+- Sviluppare ogni milestone su un branch dedicato, per esempio `milestone/<numero>-<slug>`.
+- Per patch mirate usare un branch dedicato, per esempio `patch/<versione>-<slug>`.
+- Non fare merge su `main` finche' implementazione, test, documentazione e CI non sono verificati.
+- Fermarsi prima del merge se il progettista deve dare avallo.
+- Non cancellare il branch milestone prima che merge, tag, CI e release prevista siano verificati.
+- Non spostare tag gia' pubblicati salvo richiesta esplicita.
+- Dopo il merge, creare e pushare il tag coerente con la versione se la milestone produce una versione rilasciabile.
+
+## Versioning
+
+Usare versionamento semantico, adattato alla scala reale del progetto:
+
+- `+0.0.1`: patch piccola, bugfix, correzione documentale con impatto minimo o hardening circoscritto.
+- `+0.1.0`: nuova funzionalita' minore o miglioramento funzionale rilevante.
+- `+1.0.0`: milestone importante, cambio architetturale, nuova superficie principale o rilascio stabile.
+
+Quando la versione cambia, sincronizzarla in tutti i punti canonici del progetto, per esempio:
+
+- file `VERSION`, se presente;
+- `package.json`, `pyproject.toml` o equivalente;
+- modulo `__version__`, se presente;
+- README e manuali;
+- `PLAN.md`, `AGENTS.md`, `MAP.md`;
+- note release.
+
+Il tag Git deve seguire il formato `vX.Y.Z`.
+
+## Release
+
+- Le release automatiche o GitHub Actions di release devono essere attivate solo quando il programma raggiunge una versione funzionale.
+- Durante le prime milestone di sviluppo, evitare release inutili: CI, test e build sono sufficienti.
+- Generare una GitHub release solo quando le modifiche introducono nuove funzionalita' o milestone rilasciabili (`+0.1.0` o `+1.0.0`), oppure quando correggono falle di sicurezza gravi.
+- Per patch piccole, bugfix ordinari, correzioni documentali o hardening circoscritti (`+0.0.1`), chiedere sempre al progettista se creare o meno una GitHub release.
+- Quando una release e' prevista, generare artifact per Windows e macOS se applicabile.
+- Ogni release deve includere checksum SHA-256 degli artifact.
+- Se non sono disponibili certificati o credenziali di firma, distribuire artifact non firmati e documentare chiaramente avvisi SmartScreen/Gatekeeper.
+- Non configurare firma codice, notarizzazione o auto-update firmato senza credenziali esplicite e processo documentato.
+- Le note release devono indicare versione, cambi principali, limiti noti, piattaforme e checksum.
+
+## Architettura e struttura
+
+Il progetto non deve diventare monolitico. La struttura iniziale deve essere razionale e crescere per responsabilita'.
+
+Separare, quando applicabile:
+
+- entry point applicativo;
+- configurazione;
+- dominio;
+- servizi applicativi;
+- UI;
+- stato UI;
+- accesso filesystem;
+- persistenza/database;
+- integrazioni esterne;
+- client HTTP/API;
+- gestione segreti;
+- sicurezza;
+- i18n;
+- tema;
+- logging;
+- packaging;
+- test unitari;
+- test end-to-end;
+- script operativi;
+- workflow CI/release.
+
+Le dipendenze tra moduli devono essere esplicite e direzionate. Evitare import circolari.
+
+La logica riutilizzabile deve stare in moduli testabili, non sepolta nei componenti UI o negli entry point.
+
+## Configurazione
+
+Ogni progetto deve avere un file di configurazione centrale per parametri modificabili da utente esperto o sviluppatore.
+
+Esempi:
+
+- `config/app.config.json`
+- `app.config.json`
+- `myproject.toml`
+- `.env.example` solo come template, mai con segreti reali.
+
+Non hardcodare nei moduli funzionali parametri come:
+
+- provider API;
+- URL base;
+- modelli AI;
+- timeout;
+- limiti dimensione payload;
+- percorsi default;
+- nomi file generati;
+- intervalli autosave;
+- dimensioni canvas/finestra;
+- qualita' export;
+- lingua default;
+- tema default;
+- limiti history;
+- limiti concorrenza;
+- policy rete;
+- policy logging;
+- valori UI modificabili dall'utente.
+
+La configurazione deve essere validata all'avvio. I fallback sono ammessi solo per proteggere da configurazioni mancanti o corrotte, e devono essere documentati.
+
+I segreti non devono mai stare nella configurazione del repository.
+
+## Lingua e tema
+
+Se il progetto ha UI o testi utente, deve essere bilingue italiano/inglese.
+
+Regole:
+
+- rilevare automaticamente la lingua di sistema;
+- se la lingua di sistema non e' italiano, usare inglese;
+- permettere override manuale della lingua;
+- mantenere dizionari italiano e inglese sincronizzati;
+- evitare stringhe user-facing hardcoded fuori dai dizionari;
+- non tradurre automaticamente i contenuti creati dall'utente.
+
+Se il progetto ha UI grafica, deve supportare tema chiaro/scuro:
+
+- rilevare automaticamente il tema di sistema;
+- default automatico chiaro/scuro basato sul sistema operativo;
+- override manuale dell'utente;
+- persistenza della preferenza sia per la lingua sia per il tema;
+- verifica di leggibilita' di modali, checkbox, campi, dropdown, tooltip e stati disabilitati in entrambi i temi.
+
+## Sicurezza
+
+`SECURITY_MODEL.md` deve descrivere:
+
+- modello operativo;
+- superfici locali e remote;
+- gestione segreti;
+- configurazione;
+- rete;
+- logging;
+- persistenza;
+- permessi filesystem;
+- IPC o bridge privilegiati, se presenti;
+- validazione input;
+- limiti payload;
+- test di sicurezza;
+- limiti residui;
+- miglioramenti pianificati.
+
+Regole minime:
+
+- Non salvare API key, token, password o PIN in chiaro nel repository, nei file progetto, nei log, nei crash report o negli esempi.
+- Usare il keychain del sistema operativo o uno storage protetto quando disponibile.
+- Il renderer o la UI non devono accedere direttamente a segreti, filesystem privilegiato o API native: usare canali controllati.
+- Validare input e output sui confini: IPC, CLI, HTTP, plugin, MCP, Telegram, file importati, scheduler.
+- Sanitizzare errori e log prima di mostrarli o salvarli.
+- Non stampare mai segreti in output.
+- Limitare dati inviati a servizi remoti al minimo necessario.
+- Chiedere consenso esplicito prima di inviare contenuti utente o memoria locale a provider esterni.
+- Usare timeout espliciti per rete e task.
+- Preferire HTTPS e non disabilitare TLS; supportare CA bundle o trust store di sistema quando serve.
+- Bloccare path traversal e scritture fuori workspace.
+- Le operazioni distruttive devono richiedere conferma esplicita.
+- Log e audit log devono salvare metadata utili, non contenuti sensibili completi quando non necessario.
+- Gli strumenti agentici, plugin, skill o server MCP sono da trattare come istruzioni/processi non fidati: non possono concedere permessi o bypassare conferme.
+
+Per app Electron:
+
+- `contextIsolation: true`;
+- `nodeIntegration: false`;
+- `sandbox: true` quando possibile;
+- preload minimale;
+- IPC centralizzato e validato;
+- Content Security Policy esplicita;
+- blocco di navigazioni inattese e popup;
+- filesystem e segreti gestiti nel main process.
+
+Per CLI o agenti locali:
+
+- permessi workspace espliciti, per esempio `denied`, `read-only`, `confirm`, `full-auto`;
+- default conservativo;
+- diff o riepilogo prima delle scritture in modalita' `confirm`;
+- cancellazioni sempre confermate;
+- test per path traversal, permessi e assenza leak segreti.
+
+Per Telegram o altri controlli remoti:
+
+- token fuori repository;
+- allowlist obbligatoria di chat/user;
+- autenticazione o PIN quando opportuno;
+- rate limit;
+- conferma separata per operazioni sensibili;
+- redazione output;
+- log accessi senza token e senza testo completo quando non necessario;
+- blocco di modalita' pericolose da remoto salvo consenso progettuale esplicito.
+
+## Test e qualita'
+
+Ogni funzionalita' deve avere test ad hoc proporzionati al rischio.
+
+Tipi di test da considerare:
+
+- unit test per logica pura;
+- integration test per servizi, storage, configurazione e adapter;
+- test CLI per comandi;
+- test UI per flussi principali;
+- e2e Playwright o equivalente per app web/desktop;
+- smoke test su build pacchettizzata quando applicabile;
+- test sicurezza per segreti, permessi, IPC, path traversal, CSP, TLS e logging;
+- test packaging/distribuzione;
+- test negativi per input corrotti, payload troppo grandi e configurazioni invalide.
+
+I test devono essere isolati da:
+
+- credenziali reali;
+- keychain reale, salvo test manuali espliciti;
+- rete reale, salvo smoke test documentati;
+- dati privati dell'utente.
+
+La checklist di verifica va adattata allo stack. Esempi:
+
+```powershell
+npm run lint
+npm run typecheck
+npm run test
+npm run test:e2e
+npm run test:e2e:electron
+npm run build
+```
+
+```powershell
+python -B -m pytest -p no:cacheprovider
+python -m pip_audit . --progress-spinner off
+python -m bandit -q -c pyproject.toml -r src
+python -m myproject security audit .
+```
+
+Riportare sempre eventuali test non eseguiti e il motivo.
+
+## CI
+
+GitHub Actions deve coprire almeno:
+
+- installazione dipendenze;
+- controllo documenti obbligatori;
+- lint/typecheck;
+- test automatici;
+- build;
+- controlli sicurezza leggeri;
+- packaging smoke quando applicabile.
+
+Per progetti multipiattaforma, testare almeno Windows e macOS; aggiungere Linux se supportato.
+
+Dopo ogni push rilevante:
+
+- verificare la CI;
+- se fallisce, leggere i log;
+- correggere il problema se in scope;
+- pushare il fix;
+- ricontrollare la CI.
+
+## Packaging multipiattaforma
+
+Se il progetto e' distribuibile come app o tool:
+
+- supportare Windows e macOS quando applicabile;
+- documentare prerequisiti;
+- documentare installazione, aggiornamento e rimozione;
+- evitare artefatti locali privati nei pacchetti;
+- verificare che l'app funzioni fuori dal checkout sorgente;
+- generare checksum SHA-256;
+- documentare chiaramente se gli artifact non sono firmati.
+
+Se il progetto e' Python-only, preferire installazione isolata con `pipx`, `uv tool` o wheel.
+
+Se il progetto e' Electron, gestire con attenzione moduli nativi, rebuild per target Electron/Node e smoke test del pacchetto reale.
+
+## Documentazione utente
+
+Il README deve contenere:
+
+- nome progetto;
+- descrizione breve;
+- stato del progetto;
+- versione;
+- piattaforme;
+- licenza;
+- funzionalita' principali;
+- installazione;
+- uso rapido;
+- configurazione;
+- sicurezza e privacy in forma sintetica;
+- sviluppo locale;
+- test;
+- packaging/release;
+- link a `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAP.md`.
+
+`ISTRUZIONI.md` e `INSTRUCTIONS.md` devono contenere:
+
+- requisiti;
+- installazione;
+- primo avvio;
+- flussi principali;
+- configurazione;
+- comandi o controlli UI;
+- esempi pratici;
+- troubleshooting;
+- note sicurezza;
+- limiti noti.
+
+La documentazione deve evitare esempi con segreti reali.
+
+## Mappa repository
+
+`MAP.md` deve contenere una mappa ASCII aggiornata della struttura del repository.
+
+La mappa deve includere:
+
+- cartelle principali;
+- file sorgente principali;
+- configurazione;
+- script;
+- test;
+- workflow GitHub;
+- documentazione;
+- file generati o locali da non modificare manualmente.
+
+Ogni voce rilevante deve avere una breve descrizione.
+
+Aggiornare `MAP.md` nella stessa milestone che aggiunge, rimuove, rinomina o sposta file/moduli rilevanti.
+
+## UI e UX
+
+Se il progetto ha UI:
+
+- aprire direttamente sull'esperienza utile, non su una landing page, salvo progetti esplicitamente web/marketing;
+- usare pattern coerenti con il framework e il design esistente;
+- evitare card annidate e decorazioni inutili;
+- garantire leggibilita' desktop e mobile;
+- verificare overflow, modali, pulsanti, tooltip e testi lunghi;
+- usare controlli appropriati: toggle per booleani, slider/input per numeri, menu per opzioni, tab per viste, icone per azioni comuni;
+- rendere visibili stati di caricamento, errore, vuoto e successo;
+- non inserire testi in-app che descrivono ovvieta' tecniche o istruzioni che appartengono al manuale.
+
+## AI, provider esterni e privacy
+
+Se il progetto usa AI:
+
+- AI disattivata per default quando tratta contenuti utente sensibili, salvo scelta progettuale esplicita;
+- provider e modelli configurabili;
+- separare provider remoti da provider locali;
+- salvare API key nel keychain;
+- esporre alla UI solo stato della chiave, mai il valore;
+- richiedere consenso per chiamate API esterne;
+- richiedere consenso separato per inviare memoria locale o contenuti progetto a provider esterni;
+- documentare quali dati vengono inviati, a chi, quando e con quale logica;
+- gestire timeout, cancellazione e fallback;
+- sanitizzare errori provider;
+- testare assenza di segreti in prompt, log, config e fixture.
+
+## Memoria wiki e knowledge base LLM
+
+Se viene richiesto un sistema di "memoria wiki", knowledge base personale, wiki mantenuta da LLM o archivio incrementale di conoscenza, usare queste direttive come standard iniziale. Le direttive derivano da `llm-wiki.md` e devono essere adattate al dominio specifico del progetto.
+
+L'idea centrale e' costruire una wiki persistente e cumulativa, non un semplice sistema RAG che recupera chunk grezzi a ogni domanda. L'LLM deve leggere le fonti, estrarre conoscenza, integrarla in pagine markdown strutturate, aggiornare collegamenti e sintesi esistenti, segnalare contraddizioni e mantenere il patrimonio informativo nel tempo.
+
+La struttura deve distinguere tre livelli:
+
+- fonti raw: documenti, articoli, paper, immagini, dati e note originali; sono immutabili e restano la fonte di verita';
+- wiki: directory di file markdown generati e mantenuti dall'LLM, con pagine di sintesi, entita', concetti, confronti, overview e analisi;
+- schema operativo: documento di regole, per esempio `AGENTS.md` o un file dedicato, che descrive struttura, convenzioni, workflow, formati pagina e criteri di manutenzione.
+
+Le fonti raw non devono essere modificate dall'LLM. La wiki e' invece un artefatto mantenuto dall'LLM: l'utente cura le fonti, guida l'analisi e fa domande; l'LLM esegue sintesi, cross-reference, aggiornamenti, filing e bookkeeping.
+
+Workflow minimi:
+
+- ingest: quando arriva una nuova fonte, leggerla, discuterne i punti chiave se utile, creare o aggiornare una pagina di sintesi, aggiornare indice, pagine entita'/concetto correlate, collegamenti incrociati e log;
+- query: per rispondere a domande, leggere prima l'indice, poi le pagine rilevanti, sintetizzare con citazioni verso fonti o pagine wiki; quando una risposta produce valore duraturo, salvarla come nuova pagina o aggiornare pagine esistenti;
+- lint: periodicamente controllare contraddizioni, claim obsoleti, pagine orfane, concetti importanti senza pagina dedicata, cross-reference mancanti, lacune informative e possibili nuove fonti da cercare.
+
+La wiki deve includere almeno:
+
+- `index.md`: catalogo orientato al contenuto, con link a ogni pagina, riassunto di una riga, categoria e metadati utili come data o numero fonti;
+- `log.md`: registro cronologico append-only di ingest, query, lint e manutenzioni, con prefissi coerenti e parseabili, per esempio `## [2026-04-02] ingest | Titolo fonte`;
+- directory o convenzioni chiare per fonti, entita', concetti, sintesi, confronti, asset e output derivati.
+
+Regole operative:
+
+- preferire ingest una fonte alla volta quando serve supervisione qualitativa;
+- consentire batch ingest solo se il workflow e i controlli sono documentati;
+- mantenere citazioni e provenienza delle affermazioni importanti;
+- segnalare esplicitamente contraddizioni tra fonti o tra nuove fonti e pagine esistenti;
+- aggiornare pagine esistenti invece di duplicare conoscenza;
+- usare link markdown/Obsidian coerenti e mantenere pagine collegate;
+- usare YAML frontmatter solo se utile per tag, date, conteggi fonte o viste dinamiche;
+- trattare immagini e asset come fonti locali quando disponibili, scaricandoli in una cartella stabile se il progetto lo prevede;
+- documentare nel modello di sicurezza cosa viene letto, salvato, indicizzato o inviato a provider AI esterni.
+
+Strumenti opzionali:
+
+- Obsidian puo' essere usato come interfaccia di lettura, navigazione, graph view e revisione;
+- Obsidian Web Clipper puo' essere usato per acquisire articoli in markdown;
+- Marp puo' essere usato per generare presentazioni markdown dalla wiki;
+- Dataview puo' essere usato se le pagine hanno frontmatter strutturato;
+- strumenti locali come `qmd` o una ricerca markdown dedicata possono essere aggiunti quando `index.md` non basta piu'.
+
+La wiki deve essere trattata come un repository markdown versionabile: usare Git quando possibile, conservare cronologia, evitare riscritture distruttive non richieste e aggiornare schema, indice e log insieme alle pagine modificate.
+
+## File locali e workspace
+
+Se il progetto opera su file dell'utente:
+
+- definire una root workspace;
+- risolvere tutti i path rispetto alla root;
+- rifiutare path assoluti non autorizzati e segmenti `..`;
+- distinguere lettura, scrittura, cancellazione e operazioni distruttive;
+- usare conferme per scritture rischiose;
+- usare salvataggi atomici quando possibile;
+- mantenere audit log minimale per operazioni rilevanti;
+- documentare cosa viene salvato localmente e cosa puo' contenere dati sensibili.
+
+## Checklist iniziale per nuovo progetto
+
+Prima di iniziare lo sviluppo effettivo:
+
+- creare repository con licenza Apache 2.0;
+- scegliere stack e piattaforme target;
+- creare struttura modulare iniziale;
+- creare file configurazione centrale senza segreti;
+- creare `README.md` bilingue;
+- creare `ISTRUZIONI.md` e `INSTRUCTIONS.md`;
+- creare `SECURITY_MODEL.md`;
+- creare `MAP.md`;
+- creare `AGENTS.md`;
+- creare `PLAN.md` con milestone funzionali;
+- configurare test minimi;
+- configurare CI minima;
+- definire strategia versioning;
+- definire quando attivare release;
+- verificare che `.gitignore` escluda segreti, log, build output, cache e stato locale.
+
+## Checklist prima di chiudere una milestone
+
+- Worktree controllato.
+- Modifiche proprie comprese e isolate.
+- Nessuna modifica utente revertita.
+- Funzionalita' completata.
+- Test mirati aggiunti o aggiornati.
+- Test automatici eseguiti.
+- Verifica manuale eseguita se necessaria.
+- Configurazione aggiornata e validata.
+- Nessun parametro utile lasciato hardcoded senza motivo.
+- Nessun segreto tracciato.
+- Documentazione aggiornata.
+- `MAP.md` aggiornato se cambia struttura.
+- `SECURITY_MODEL.md` aggiornato se cambia superficie di rischio.
+- Versione aggiornata se previsto.
+- CI verificata.
+- Avallo del progettista ottenuto prima del merge, salvo istruzioni contrarie.
+- Merge, tag, push e release completati solo quando previsti.
+
+## Preferenze operative per agenti
+
+- Leggere prima `AGENTS.md`, `PLAN.md`, `README.md`, `MAP.md` e `SECURITY_MODEL.md`.
+- Controllare lo stato del worktree prima di modificare.
+- Non revertire modifiche non proprie.
+- Usare strumenti di ricerca rapidi come `rg`.
+- Usare patch piccole e leggibili.
+- Aggiornare documentazione insieme al codice.
+- Non aggiungere dipendenze o workflow senza motivazione.
+- Quando un task tocca UI, verificare layout e tema.
+- Quando un task tocca sicurezza, aggiornare test e `SECURITY_MODEL.md`.
+- Quando un task chiude una milestone, seguire la checklist completa e chiedere avallo prima di merge.
+
+## Note specifiche per LocalAgent Benchmark
+
+- Il comando di verifica locale è `python3 -m unittest discover -s tests -v`; eseguire anche `python3 -m compileall -q benchmark.py src cases tests` quando cambia codice Python.
+- Mantenere il runtime Python privo di dipendenze esterne finché non esiste una motivazione documentata.
+- Non modificare fixture o grader mentre un benchmark è in esecuzione.
+- Ogni nuovo caso deve avere prompt, fixture, grader con massimo 100 punti e un test di calibrazione che mantenga la fixture iniziale sotto la soglia di completamento.
+- Non includere credenziali, repository reali o dati privati nelle fixture.
+- Trattare `results/` come output locale potenzialmente sensibile; non versionarlo.
+- Il runner deve continuare a registrare configurazione, versioni, risposta, eventi, patch, stato Git e dettaglio dei check per rendere ogni punteggio verificabile.

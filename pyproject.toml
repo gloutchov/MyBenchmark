@@ -1,0 +1,13 @@
+[project]
+name = "localagent-benchmark"
+version = "0.1.0"
+description = "Personal offline benchmark for Pi coding agents backed by Ollama"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = []
+
+[project.scripts]
+localagent-benchmark = "localagent_bench.cli:main"
+
+[tool.localagent-benchmark]
+config = "benchmark.json"

@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "ollama": {
+    "url": "http://127.0.0.1:11434"
+  },
+  "pi": {
+    "command": ["pi"]
+  },
+  "models": "installed",
+  "defaults": {
+    "timeout_seconds": 1200,
+    "repetitions": 1,
+    "thinking": "off",
+    "warmup": true,
+    "keep_alive": "15m",
+    "context_window": 32768,
+    "max_tokens": 8192,
+    "temperature": 0
+  },
+  "profiles": {
+    "smoke": ["targeted_patch"],
+    "standard": ["targeted_patch", "secure_workspace", "config_i18n"],
+    "full": ["targeted_patch", "secure_workspace", "config_i18n", "milestone_closure"]
+  },
+  "cases": [
+    {
+      "id": "targeted_patch",
+      "title": "Patch mirata con regressioni e documentazione",
+      "category": "implementation",
+      "weight": 1.0
+    },
+    {
+      "id": "secure_workspace",
+      "title": "Hardening filesystem, scritture atomiche e redazione segreti",
+      "category": "security",
+      "weight": 1.25
+    },
+    {
+      "id": "config_i18n",
+      "title": "Configurazione validata e preferenze lingua/tema",
+      "category": "architecture",
+      "weight": 1.0
+    },
+    {
+      "id": "milestone_closure",
+      "title": "Chiusura milestone, versioning e disciplina Git",
+      "category": "workflow",
+      "weight": 0.75
+    }
+  ]
+}
