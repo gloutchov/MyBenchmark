@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.1.0**
+Versione corrente / Current version: **0.1.1**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -11,7 +11,7 @@ Versione corrente / Current version: **0.1.0**
 - Criteri di accettazione: `doctor` rileva l'ambiente; un run smoke produce artefatti e report; i grader hanno massimo 100 e le fixture iniziali restano sotto 60; test unitari verdi.
 - Test: compileall, unittest, doctor locale, smoke Pi/Ollama.
 - Documentazione: README, manuali, security model, MAP, AGENTS e piano.
-- Stato: **implementazione in verifica; avallo richiesto prima di merge**.
+- Stato: **implementazione in verifica; CI da ripristinare e avallo richiesto prima di merge**.
 
 ### Checklist chiusura
 
@@ -34,6 +34,18 @@ Versione corrente / Current version: **0.1.0**
 - [ ] CI verificata su branch/PR e main
 - [ ] Tag (non previsto per questa milestone iniziale)
 - [ ] Release (non prevista per questa milestone iniziale)
+
+## Patch prioritaria 0.1.1 – Ripristino CI e calibrazione `targeted_patch`
+
+- Obiettivo: riportare la CI di `main` in stato verde correggendo la calibrazione iniziale del caso `targeted_patch`.
+- Branch previsto: `patch/0.1.1-targeted-patch-calibration`
+- Incremento versione: `+0.0.1`
+- Attività: determinare se la fixture iniziale è stata completata o contaminata accidentalmente; ripristinare una baseline intenzionalmente incompleta e coerente con il prompt; verificare il grader senza ridurne copertura, punteggio massimo o soglia; mantenere fixture e grader immutati durante ogni benchmark attivo.
+- Criteri di accettazione: il grader conserva un massimo di 100 punti; la fixture iniziale di `targeted_patch` ottiene meno di 60; gli altri casi mantengono la calibrazione prevista; tutti i test passano senza allentare asserzioni o soglie; la CI termina con successo su macOS, Windows e Linux.
+- Test: `python3 -m compileall -q benchmark.py src cases tests`; `python3 -m unittest discover -s tests -v`; esecuzione diretta del grader sulla fixture iniziale; verifica GitHub Actions sui tre sistemi operativi.
+- Documentazione: aggiornare `PLAN.md` con esito e checklist; aggiornare README, manuali, `SECURITY_MODEL.md`, `MAP.md` o `AGENTS.md` solo se il comportamento o la struttura cambiano.
+- Release: trattandosi di patch `+0.0.1`, chiedere al progettista se pubblicare una GitHub release; nessuna release automatica.
+- Stato: **implementazione completata e test locali verdi; verifica CI del branch in attesa**.
 
 ## Milestone 2 – Riproducibilità e sandbox
 
