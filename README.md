@@ -4,8 +4,8 @@ Benchmark personale, ripetibile e offline per confrontare modelli Ollama usati c
 
 Personal, repeatable, offline benchmark for comparing Ollama models used as coding agents through [Pi](https://pi.dev). Its scenarios derive from this repository's operating rules: small patches, modular architecture, tests, security, configuration, i18n, documentation, and Git discipline.
 
-Stato / Status: **0.1.0 – functional local benchmark**  
-Piattaforme / Platforms: macOS, Windows, Linux  
+Stato / Status: **0.1.1 – functional local benchmark**
+Piattaforme / Platforms: macOS, Windows, Linux
 Licenza / License: Apache-2.0
 
 ## Cosa misura / What it measures
