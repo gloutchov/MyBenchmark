@@ -11,7 +11,7 @@ Versione corrente / Current version: **0.1.1**
 - Criteri di accettazione: `doctor` rileva l'ambiente; un run smoke produce artefatti e report; i grader hanno massimo 100 e le fixture iniziali restano sotto 60; test unitari verdi.
 - Test: compileall, unittest, doctor locale, smoke Pi/Ollama.
 - Documentazione: README, manuali, security model, MAP, AGENTS e piano.
-- Stato: **implementazione in verifica; patch 0.1.1 verde sul branch e avallo richiesto prima di merge**.
+- Stato: **implementazione in verifica; patch 0.1.1 approvata con CI verde; prove benchmark finali e avallo della Milestone 1 ancora richiesti prima della chiusura**.
 
 ### Checklist chiusura
 
@@ -44,8 +44,8 @@ Versione corrente / Current version: **0.1.1**
 - Criteri di accettazione: il grader conserva un massimo di 100 punti; la fixture iniziale di `targeted_patch` ottiene meno di 60; gli altri casi mantengono la calibrazione prevista; tutti i test passano senza allentare asserzioni o soglie; la CI termina con successo su macOS, Windows e Linux.
 - Test: `python3 -m compileall -q benchmark.py src cases tests`; `python3 -m unittest discover -s tests -v`; esecuzione diretta del grader sulla fixture iniziale; verifica GitHub Actions sui tre sistemi operativi.
 - Documentazione: aggiornare `PLAN.md` con esito e checklist; aggiornare README, manuali, `SECURITY_MODEL.md`, `MAP.md` o `AGENTS.md` solo se il comportamento o la struttura cambiano.
-- Release: trattandosi di patch `+0.0.1`, chiedere al progettista se pubblicare una GitHub release; nessuna release automatica.
-- Stato: **correzione completata; baseline a 25/100 e CI del branch verde su macOS, Windows e Linux; avallo, merge e verifica CI su `main` in attesa**.
+- Release: nessuna GitHub release per questa patch, come approvato dal progettista; creare il tag `v0.1.1` dopo merge e CI verde su `main`.
+- Stato: **correzione completata e approvata; baseline a 25/100 e CI branch/PR verde su macOS, Windows e Linux; merge e tag `v0.1.1` autorizzati**.
 
 ## Milestone 2 – Riproducibilità e sandbox
 
