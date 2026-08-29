@@ -168,6 +168,76 @@ def _content_text(content: Any) -> str:
     )
 
 
+def _inside(path: Path, root: Path) -> bool:
+    try:
+        path.resolve(strict=False).relative_to(root.resolve(strict=False))
+    except ValueError:
+        return False
+    return True
+
+
+def audit_workspace_accesses(stdout: str, workspace: Path, protected_paths: Iterable[Path]) -> list[dict[str, str]]:
+    """Find tool calls that explicitly address paths outside the task workspace.
+
+    This is a post-run audit, not an OS sandbox. Structured path arguments are
+    resolved precisely; shell commands are checked conservatively for parent
+    traversal and literal protected paths.
+    """
+    findings: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    protected: set[str] = set()
+    for path in protected_paths:
+        protected.add(str(path.absolute()))
+        protected.add(str(path.resolve(strict=False)))
+    for line in stdout.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        message = event.get("message")
+        content = message.get("content") if isinstance(message, dict) else event.get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not isinstance(block, dict) or block.get("type") != "toolCall":
+                continue
+            tool = str(block.get("name", "unknown"))
+            call_id = str(block.get("id", "unknown"))
+            arguments = block.get("arguments", {})
+            if not isinstance(arguments, dict):
+                continue
+            reasons: list[tuple[str, str]] = []
+            raw_path = arguments.get("path")
+            if isinstance(raw_path, str) and raw_path:
+                candidate = Path(raw_path)
+                resolved = candidate if candidate.is_absolute() else workspace / candidate
+                if not _inside(resolved, workspace):
+                    reasons.append(("structured_path_outside_workspace", raw_path))
+            if tool == "bash" and isinstance(arguments.get("command"), str):
+                command = arguments["command"].replace("\\ ", " ")
+                if "../" in command or "..\\" in command:
+                    reasons.append(("shell_parent_traversal", ".."))
+                for protected_text in protected:
+                    if protected_text in command:
+                        reasons.append(("shell_protected_path", protected_text))
+            for reason, target in reasons:
+                key = (call_id, reason + "\0" + target)
+                if key in seen:
+                    continue
+                seen.add(key)
+                findings.append(
+                    {
+                        "tool_call_id": call_id,
+                        "tool": tool,
+                        "reason": reason,
+                        "target": target,
+                    }
+                )
+    return findings
+
+
 def parse_json_events(stdout: str) -> tuple[dict[str, Any], str]:
     usage = {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0, "reasoning": 0, "totalTokens": 0}
     tool_calls = 0

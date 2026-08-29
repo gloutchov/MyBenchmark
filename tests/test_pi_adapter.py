@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from localagent_bench.pi_adapter import parse_json_events, write_models_config
+from localagent_bench.pi_adapter import audit_workspace_accesses, parse_json_events, write_models_config
 
 
 class PiAdapterTests(unittest.TestCase):
@@ -44,6 +44,29 @@ class PiAdapterTests(unittest.TestCase):
             self.assertEqual("http://127.0.0.1:11434/v1", provider["baseUrl"])
             self.assertEqual("model:a", provider["models"][0]["id"])
             self.assertFalse(provider["compat"]["supportsDeveloperRole"])
+
+    def test_audits_structured_and_shell_access_outside_workspace(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "results" / "workspace"
+            workspace.mkdir(parents=True)
+            protected = root / "cases"
+            protected.mkdir()
+            event = {
+                "type": "message_start",
+                "message": {
+                    "content": [
+                        {"type": "toolCall", "id": "safe", "name": "read", "arguments": {"path": "src/app.py"}},
+                        {"type": "toolCall", "id": "safe-absolute", "name": "read", "arguments": {"path": str(workspace / "README.md")}},
+                        {"type": "toolCall", "id": "escape", "name": "edit", "arguments": {"path": str(protected / "fixture.py")}},
+                        {"type": "toolCall", "id": "shell", "name": "bash", "arguments": {"command": f"python3 {protected}/grader.py"}},
+                    ]
+                },
+            }
+            findings = audit_workspace_accesses(json.dumps(event), workspace, [protected])
+            self.assertEqual({"escape", "shell"}, {item["tool_call_id"] for item in findings})
+            self.assertTrue(any(item["reason"] == "structured_path_outside_workspace" for item in findings))
+            self.assertTrue(any(item["reason"] == "shell_protected_path" for item in findings))
 
 
 if __name__ == "__main__":

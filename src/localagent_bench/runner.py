@@ -5,7 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import platform
+import random
 import re
+import secrets
 import shutil
 import subprocess
 import sys
@@ -16,8 +18,17 @@ from typing import Any
 
 from .config import BenchmarkConfig, CaseSpec
 from .grading import grade_workspace
+from .integrity import (
+    InputIntegrityError,
+    changed_paths,
+    repository_fingerprints,
+    repository_metadata,
+    require_clean_inputs,
+    snapshot_cases,
+    verify_snapshot,
+)
 from .ollama import OllamaModel, list_models, unload, version, warmup
-from .pi_adapter import run_pi, write_models_config
+from .pi_adapter import audit_workspace_accesses, run_pi, write_models_config
 from .report import write_report
 
 
@@ -46,11 +57,16 @@ def _git(workspace: Path, *args: str, check: bool = True) -> subprocess.Complete
     )
 
 
-def _prepare_workspace(config: BenchmarkConfig, case: CaseSpec, destination: Path) -> str:
-    shutil.copytree(case.fixture_path, destination)
-    shutil.copy2(config.root / ".gitignore", destination / ".gitignore")
-    if config.root not in destination.parents:
-        shutil.copy2(config.root / "AGENTS.md", destination / "AGENTS.md")
+def _prepare_workspace(
+    config: BenchmarkConfig,
+    case: CaseSpec,
+    destination: Path,
+    agents_path: Path | None = None,
+    gitignore_path: Path | None = None,
+) -> str:
+    shutil.copytree(case.fixture_path, destination, symlinks=True)
+    shutil.copy2(gitignore_path or config.root / ".gitignore", destination / ".gitignore")
+    shutil.copy2(agents_path or config.root / "AGENTS.md", destination / "AGENTS.md")
     try:
         _git(destination, "init", "-q", "-b", "main")
     except subprocess.CalledProcessError:
@@ -61,6 +77,35 @@ def _prepare_workspace(config: BenchmarkConfig, case: CaseSpec, destination: Pat
     _git(destination, "add", ".")
     _git(destination, "commit", "-q", "-m", "benchmark baseline")
     return _git(destination, "rev-parse", "HEAD").stdout.strip()
+
+
+def _write_manifest(run_dir: Path, manifest: dict[str, Any]) -> None:
+    (run_dir / "run.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _record_integrity_violation(
+    manifest: dict[str, Any],
+    *,
+    model: str,
+    case_id: str,
+    repetition: int,
+    kind: str,
+    details: list[Any],
+) -> None:
+    integrity = manifest["integrity"]
+    integrity["status"] = "violations_detected"
+    integrity["violations"].append(
+        {
+            "model": model,
+            "case_id": case_id,
+            "repetition": repetition,
+            "kind": kind,
+            "details": details,
+        }
+    )
 
 
 def _capture_git(workspace: Path, baseline_commit: str) -> tuple[str, str, str]:
@@ -101,6 +146,22 @@ def _resolve_cases(config: BenchmarkConfig, profile: str, requested: list[str] |
     return [config.cases[case_id] for case_id in dict.fromkeys(ids)]
 
 
+def _build_task_order(
+    models: list[str],
+    cases: list[CaseSpec],
+    repetitions: int,
+    seed: int,
+) -> list[dict[str, str | int]]:
+    tasks: list[dict[str, str | int]] = [
+        {"model": model, "case_id": case.id, "repetition": repetition}
+        for model in models
+        for case in cases
+        for repetition in range(1, repetitions + 1)
+    ]
+    random.Random(seed).shuffle(tasks)
+    return tasks
+
+
 def doctor(config: BenchmarkConfig) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
     pi_path = shutil.which(config.pi_command[0])
@@ -121,6 +182,12 @@ def doctor(config: BenchmarkConfig) -> dict[str, Any]:
         models = []
         checks.append({"name": "ollama", "ok": False, "detail": str(exc)})
     checks.append({"name": "config", "ok": True, "detail": f"{len(config.cases)} casi validi"})
+    try:
+        require_clean_inputs(config.root, config.cases.values())
+    except InputIntegrityError as exc:
+        checks.append({"name": "inputs", "ok": False, "detail": str(exc).splitlines()[0]})
+    else:
+        checks.append({"name": "inputs", "ok": True, "detail": "AGENTS, .gitignore, prompt, fixture e grader puliti"})
     return {"ok": all(check["ok"] for check in checks), "checks": checks, "models": [asdict(model) for model in models]}
 
 
@@ -134,21 +201,37 @@ def run_benchmark(
     timeout_seconds: int | None,
     use_warmup: bool | None,
     output_dir: Path | None,
+    order_seed: int | None = None,
 ) -> Path:
+    cases = _resolve_cases(config, profile, requested_cases)
+    try:
+        require_clean_inputs(config.root, cases)
+    except InputIntegrityError as exc:
+        raise BenchmarkError(str(exc)) from exc
     installed = list_models(config.ollama_url)
     models = _resolve_models(config, requested_models, installed)
-    cases = _resolve_cases(config, profile, requested_cases)
     repeat_count = repetitions or config.defaults.repetitions
     timeout = timeout_seconds or config.defaults.timeout_seconds
     if repeat_count < 1 or timeout < 10:
         raise BenchmarkError("Ripetizioni e timeout devono essere positivi")
     should_warmup = config.defaults.warmup if use_warmup is None else use_warmup
-
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir = (output_dir or config.root / "results" / timestamp).resolve()
     if run_dir.exists() and any(run_dir.iterdir()):
         raise BenchmarkError(f"Directory output non vuota: {run_dir}")
     run_dir.mkdir(parents=True, exist_ok=True)
+    context_dir = run_dir / "benchmark-context"
+    try:
+        frozen_cases, input_manifest = snapshot_cases(
+            cases,
+            context_dir,
+            config.root / "AGENTS.md",
+            config.root / ".gitignore",
+        )
+    except InputIntegrityError as exc:
+        raise BenchmarkError(str(exc)) from exc
+    frozen_by_id = {case.id: case for case in frozen_cases}
+    repository_state = repository_fingerprints(config.root, (run_dir,))
     agent_dir = run_dir / ".pi-agent"
     write_models_config(
         agent_dir,
@@ -159,8 +242,10 @@ def run_benchmark(
         config.defaults.temperature,
     )
     installed_by_name = {item.name: item for item in installed}
+    seed = order_seed if order_seed is not None else secrets.randbits(64)
+    tasks = _build_task_order(models, cases, repeat_count, seed)
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "started_at": datetime.now(timezone.utc).isoformat(),
         "profile": profile,
         "models": models,
@@ -169,7 +254,12 @@ def run_benchmark(
         "timeout_seconds": timeout,
         "thinking": config.defaults.thinking,
         "warmup": should_warmup,
-        "warmup_metrics": {},
+        "warmup_events": [],
+        "order_seed": seed,
+        "task_order": tasks,
+        "repository": repository_metadata(config.root),
+        "inputs": input_manifest,
+        "integrity": {"status": "passed", "aborted": False, "violations": []},
         "environment": {
             "platform": platform.platform(),
             "python": sys.version.split()[0],
@@ -178,84 +268,169 @@ def run_benchmark(
         },
         "model_metadata": {name: asdict(installed_by_name[name]) for name in models},
     }
-    (run_dir / "run.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    context_dir = run_dir / "benchmark-context"
-    context_dir.mkdir(exist_ok=True)
-    shutil.copy2(config.root / "AGENTS.md", context_dir / "AGENTS.snapshot.md")
+    _write_manifest(run_dir, manifest)
 
-    total = len(models) * len(cases) * repeat_count
-    current = 0
-    for model in models:
-        if should_warmup:
-            print(f"[warmup] {model}", flush=True)
-            try:
-                warmup_result = warmup(config.ollama_url, model, config.defaults.keep_alive, min(timeout, 300))
-                manifest["warmup_metrics"][model] = {
-                    key: warmup_result.get(key)
-                    for key in ("total_duration", "load_duration", "prompt_eval_count", "eval_count", "eval_duration")
-                    if key in warmup_result
-                }
-            except Exception as exc:
-                print(f"[avviso] warmup fallito per {model}: {exc}", file=sys.stderr, flush=True)
-            (run_dir / "run.json").write_text(
-                json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    active_model: str | None = None
+    protected_paths = (
+        config.root / "cases",
+        config.root / "src",
+        config.root / ".git",
+        config.root / "benchmark.py",
+        context_dir,
+    )
+    for current, task in enumerate(tasks, 1):
+        model = str(task["model"])
+        case_id = str(task["case_id"])
+        repetition = int(task["repetition"])
+        case = frozen_by_id[case_id]
+        snapshot_before = verify_snapshot(context_dir, input_manifest)
+        if snapshot_before:
+            manifest["integrity"]["status"] = "snapshot_compromised"
+            manifest["integrity"]["aborted"] = True
+            manifest["integrity"]["violations"].append(
+                {"kind": "snapshot_changed_before_task", "details": snapshot_before}
             )
-        for case in cases:
-            for repetition in range(1, repeat_count + 1):
-                current += 1
-                case_dir = run_dir / "models" / _slug(model) / "cases" / f"{case.id}-r{repetition}"
-                workspace = case_dir / "workspace"
-                case_dir.mkdir(parents=True, exist_ok=True)
-                baseline_commit = _prepare_workspace(config, case, workspace)
-                prompt = case.prompt_path.read_text(encoding="utf-8")
-                print(f"[{current}/{total}] {model} · {case.id} · ripetizione {repetition}", flush=True)
-                pi_run = run_pi(
-                    config.pi_command,
-                    model,
-                    config.defaults.thinking,
-                    prompt,
-                    workspace,
-                    agent_dir,
-                    timeout,
-                )
-                grade = grade_workspace(case, workspace)
-                git_status, diff, branch = _capture_git(workspace, baseline_commit)
-                (case_dir / "pi-events.jsonl").write_text(pi_run.stdout, encoding="utf-8")
-                (case_dir / "stderr.log").write_text(pi_run.stderr, encoding="utf-8")
-                (case_dir / "final-response.md").write_text(pi_run.final_response, encoding="utf-8")
-                (case_dir / "diff.patch").write_text(diff, encoding="utf-8")
-                (case_dir / "git-status.txt").write_text(git_status, encoding="utf-8")
-                (case_dir / "grade.json").write_text(json.dumps(grade, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-                result = {
-                    "schema_version": 1,
+            break
+        if active_model != model:
+            if active_model is not None:
+                try:
+                    unload(config.ollama_url, active_model)
+                except Exception as exc:
+                    print(f"[avviso] unload fallito per {active_model}: {exc}", file=sys.stderr, flush=True)
+            if should_warmup:
+                print(f"[warmup] {model}", flush=True)
+                event: dict[str, Any] = {"sequence": current, "model": model}
+                try:
+                    warmup_result = warmup(config.ollama_url, model, config.defaults.keep_alive, min(timeout, 300))
+                    event["metrics"] = {
+                        key: warmup_result.get(key)
+                        for key in ("total_duration", "load_duration", "prompt_eval_count", "eval_count", "eval_duration")
+                        if key in warmup_result
+                    }
+                except Exception as exc:
+                    event["error"] = str(exc)
+                    print(f"[avviso] warmup fallito per {model}: {exc}", file=sys.stderr, flush=True)
+                manifest["warmup_events"].append(event)
+                _write_manifest(run_dir, manifest)
+            active_model = model
+
+        case_dir = run_dir / "models" / _slug(model) / "cases" / f"{case.id}-r{repetition}"
+        workspace = case_dir / "workspace"
+        case_dir.mkdir(parents=True, exist_ok=True)
+        baseline_commit = _prepare_workspace(
+            config,
+            case,
+            workspace,
+            context_dir / "AGENTS.snapshot.md",
+            context_dir / ".gitignore.snapshot",
+        )
+        baseline_tree = _git(workspace, "rev-parse", f"{baseline_commit}^{{tree}}").stdout.strip()
+        prompt = case.prompt_path.read_text(encoding="utf-8")
+        print(f"[{current}/{len(tasks)}] {model} · {case.id} · ripetizione {repetition}", flush=True)
+        before_task_repository = repository_state
+        pi_run = run_pi(
+            config.pi_command,
+            model,
+            config.defaults.thinking,
+            prompt,
+            workspace,
+            agent_dir,
+            timeout,
+        )
+        after_task_repository = repository_fingerprints(config.root, (run_dir,))
+        source_mutations = changed_paths(before_task_repository, after_task_repository)
+        repository_state = after_task_repository
+        snapshot_mutations = verify_snapshot(context_dir, input_manifest)
+        external_accesses = audit_workspace_accesses(pi_run.stdout, workspace, protected_paths)
+        valid_for_ranking = not source_mutations and not snapshot_mutations and not external_accesses
+        if source_mutations:
+            _record_integrity_violation(
+                manifest,
+                model=model,
+                case_id=case.id,
+                repetition=repetition,
+                kind="repository_mutation",
+                details=source_mutations,
+            )
+        if external_accesses:
+            _record_integrity_violation(
+                manifest,
+                model=model,
+                case_id=case.id,
+                repetition=repetition,
+                kind="external_workspace_access",
+                details=external_accesses,
+            )
+        if snapshot_mutations:
+            manifest["integrity"]["status"] = "snapshot_compromised"
+            manifest["integrity"]["aborted"] = True
+            manifest["integrity"]["violations"].append(
+                {
                     "model": model,
                     "case_id": case.id,
-                    "case_title": case.title,
-                    "case_category": case.category,
-                    "case_weight": case.weight,
                     "repetition": repetition,
-                    "status": pi_run.status,
-                    "exit_code": pi_run.exit_code,
-                    "duration_seconds": pi_run.duration_seconds,
-                    "metrics": pi_run.metrics,
-                    "grade": grade,
-                    "git_branch": branch,
-                    "baseline_commit": baseline_commit,
-                    "command": pi_run.command,
+                    "kind": "snapshot_mutation",
+                    "details": snapshot_mutations,
                 }
-                (case_dir / "result.json").write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-                print(
-                    f"      stato={pi_run.status} score={grade.get('score', 0)}/100 tempo={pi_run.duration_seconds:.1f}s",
-                    flush=True,
-                )
-                write_report(run_dir)
+            )
+            grade = {
+                "score": 0,
+                "max_score": 100,
+                "checks": [],
+                "error": "Grader non eseguito: snapshot degli input modificato durante la task",
+            }
+        else:
+            grade = grade_workspace(case, workspace)
+        git_status, diff, branch = _capture_git(workspace, baseline_commit)
+        (case_dir / "pi-events.jsonl").write_text(pi_run.stdout, encoding="utf-8")
+        (case_dir / "stderr.log").write_text(pi_run.stderr, encoding="utf-8")
+        (case_dir / "final-response.md").write_text(pi_run.final_response, encoding="utf-8")
+        (case_dir / "diff.patch").write_text(diff, encoding="utf-8")
+        (case_dir / "git-status.txt").write_text(git_status, encoding="utf-8")
+        (case_dir / "grade.json").write_text(json.dumps(grade, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        result = {
+            "schema_version": 2,
+            "model": model,
+            "case_id": case.id,
+            "case_title": case.title,
+            "case_category": case.category,
+            "case_weight": case.weight,
+            "repetition": repetition,
+            "status": pi_run.status,
+            "exit_code": pi_run.exit_code,
+            "duration_seconds": pi_run.duration_seconds,
+            "metrics": pi_run.metrics,
+            "grade": grade,
+            "git_branch": branch,
+            "baseline_commit": baseline_commit,
+            "baseline_tree": baseline_tree,
+            "input_fingerprint": input_manifest["cases"][case.id]["input_sha256"],
+            "integrity": {
+                "valid_for_ranking": valid_for_ranking,
+                "source_mutations": source_mutations,
+                "snapshot_mutations": snapshot_mutations,
+                "external_accesses": external_accesses,
+            },
+            "command": pi_run.command,
+        }
+        (case_dir / "result.json").write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        _write_manifest(run_dir, manifest)
+        print(
+            f"      stato={pi_run.status} score={grade.get('score', 0)}/100 "
+            f"integrità={'ok' if valid_for_ranking else 'violata'} tempo={pi_run.duration_seconds:.1f}s",
+            flush=True,
+        )
+        write_report(run_dir)
+        if snapshot_mutations:
+            break
 
+    if active_model is not None:
         try:
-            unload(config.ollama_url, model)
+            unload(config.ollama_url, active_model)
         except Exception as exc:
-            print(f"[avviso] unload fallito per {model}: {exc}", file=sys.stderr, flush=True)
+            print(f"[avviso] unload fallito per {active_model}: {exc}", file=sys.stderr, flush=True)
 
     manifest["finished_at"] = datetime.now(timezone.utc).isoformat()
-    (run_dir / "run.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    _write_manifest(run_dir, manifest)
     write_report(run_dir)
     return run_dir

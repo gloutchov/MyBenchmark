@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import json
 import statistics
-from collections import defaultdict
+import subprocess
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
+
+from .pi_adapter import audit_workspace_accesses
 
 
 def _mean(values: list[float]) -> float:
@@ -24,6 +27,14 @@ def _fmt_seconds(value: float) -> str:
 
 def _load_results(run_dir: Path) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
+    possible_root = run_dir.parent.parent
+    protected_paths = (
+        possible_root / "cases",
+        possible_root / "src",
+        possible_root / ".git",
+        possible_root / "benchmark.py",
+        run_dir / "benchmark-context",
+    ) if (possible_root / "benchmark.json").is_file() else ()
     for path in sorted(run_dir.glob("models/*/cases/*/result.json")):
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
@@ -31,19 +42,145 @@ def _load_results(run_dir: Path) -> list[dict[str, Any]]:
             continue
         if isinstance(payload, dict):
             payload["_path"] = str(path.relative_to(run_dir))
+            if not payload.get("baseline_tree") and isinstance(payload.get("baseline_commit"), str):
+                workspace = path.parent / "workspace"
+                try:
+                    tree = subprocess.run(
+                        ["git", "rev-parse", f"{payload['baseline_commit']}^{{tree}}"],
+                        cwd=workspace,
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                        timeout=30,
+                    ).stdout.strip()
+                except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                    tree = ""
+                if tree:
+                    payload["baseline_tree"] = tree
+            if "integrity" not in payload:
+                events_path = path.parent / "pi-events.jsonl"
+                try:
+                    events = events_path.read_text(encoding="utf-8")
+                except OSError:
+                    events = ""
+                findings = audit_workspace_accesses(events, path.parent / "workspace", protected_paths)
+                if findings:
+                    payload["integrity"] = {
+                        "valid_for_ranking": False,
+                        "source_mutations": [],
+                        "snapshot_mutations": [],
+                        "external_accesses": findings,
+                        "inferred_from_legacy_events": True,
+                    }
             results.append(payload)
     return results
 
 
+def _load_manifest(run_dir: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _mismatched_models(
+    results: list[dict[str, Any]],
+    field: str,
+) -> tuple[list[str], set[str]]:
+    values_by_case: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for item in results:
+        value = item.get(field)
+        if isinstance(value, str) and value:
+            values_by_case[str(item.get("case_id", "unknown"))].append(
+                (str(item.get("model", "unknown")), value)
+            )
+    mismatched_cases: list[str] = []
+    disqualified: set[str] = set()
+    for case_id, entries in values_by_case.items():
+        counts = Counter(value for _, value in entries)
+        if len(counts) <= 1:
+            continue
+        mismatched_cases.append(case_id)
+        highest = max(counts.values())
+        majority = [value for value, count in counts.items() if count == highest]
+        if len(majority) == 1:
+            disqualified.update(model for model, value in entries if value != majority[0])
+        else:
+            disqualified.update(model for model, _ in entries)
+    return sorted(mismatched_cases), disqualified
+
+
+def _integrity_summary(
+    manifest: dict[str, Any],
+    results: list[dict[str, Any]],
+) -> tuple[dict[str, Any], set[str]]:
+    explicit_invalid = [
+        item for item in results if item.get("integrity", {}).get("valid_for_ranking") is False
+    ]
+    disqualified = {str(item.get("model", "unknown")) for item in explicit_invalid}
+    input_mismatches, input_disqualified = _mismatched_models(results, "input_fingerprint")
+    baseline_mismatches, baseline_disqualified = _mismatched_models(results, "baseline_tree")
+    mismatched_cases = set(input_mismatches) | set(baseline_mismatches)
+    disqualified.update(input_disqualified)
+    disqualified.update(baseline_disqualified)
+
+    incomplete_models: list[str] = []
+    task_order = manifest.get("task_order")
+    if isinstance(task_order, list):
+        expected: dict[str, int] = defaultdict(int)
+        actual: dict[str, int] = defaultdict(int)
+        for task in task_order:
+            if isinstance(task, dict):
+                expected[str(task.get("model", "unknown"))] += 1
+        for item in results:
+            actual[str(item.get("model", "unknown"))] += 1
+        incomplete_models = sorted(model for model, count in expected.items() if actual.get(model, 0) != count)
+        disqualified.update(incomplete_models)
+
+    manifest_integrity = manifest.get("integrity", {})
+    manifest_status = manifest_integrity.get("status") if isinstance(manifest_integrity, dict) else None
+    if manifest_status in {"snapshot_compromised", "violations_detected"}:
+        status = manifest_status
+    elif disqualified or mismatched_cases:
+        status = "violations_detected"
+    elif manifest:
+        status = "passed"
+    else:
+        status = "not_recorded"
+    summary = {
+        "status": status,
+        "disqualified_models": sorted(disqualified),
+        "invalid_results": [
+            {
+                "model": item.get("model"),
+                "case_id": item.get("case_id"),
+                "repetition": item.get("repetition", 1),
+            }
+            for item in explicit_invalid
+        ],
+        "input_mismatches": input_mismatches,
+        "baseline_mismatches": baseline_mismatches,
+        "incomplete_models": incomplete_models,
+        "violations": manifest_integrity.get("violations", []) if isinstance(manifest_integrity, dict) else [],
+    }
+    return summary, disqualified
+
+
 def build_report(run_dir: Path) -> dict[str, Any]:
     results = _load_results(run_dir)
+    manifest = _load_manifest(run_dir)
+    integrity, disqualified_models = _integrity_summary(manifest, results)
+    rankable_results = [
+        item for item in results if str(item.get("model", "unknown")) not in disqualified_models
+    ]
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for result in results:
+    for result in rankable_results:
         grouped[str(result.get("model", "unknown"))].append(result)
 
     eligible = [
         item
-        for item in results
+        for item in rankable_results
         if item.get("status") == "ok" and float(item.get("grade", {}).get("score", 0)) >= 60
     ]
     fastest_by_case: dict[tuple[str, int], float] = {}
@@ -112,12 +249,13 @@ def build_report(run_dir: Path) -> dict[str, Any]:
     leaderboard.sort(key=lambda row: (-row["overall_score"], -row["quality_score"], row["median_duration_seconds"]))
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "formula": {
             "overall": "0.80*quality + 0.10*completion + 0.05*speed + 0.05*token_efficiency",
             "completion_threshold": 60,
-            "notes": "Speed and token efficiency are relative to the fastest/leanest successful run for each case and repetition.",
+            "notes": "Speed and token efficiency are relative to the fastest/leanest successful rankable run for each case and repetition. Models with integrity violations are disqualified.",
         },
+        "integrity": integrity,
         "leaderboard": leaderboard,
         "results": results,
     }
@@ -125,16 +263,39 @@ def build_report(run_dir: Path) -> dict[str, Any]:
 
 def render_markdown(report: dict[str, Any], run_dir: Path) -> str:
     leaderboard = report.get("leaderboard", [])
+    integrity = report.get("integrity", {})
     lines = [
         "# LocalAgent Benchmark Report",
         "",
         f"Run: `{run_dir.name}`",
         "",
-        "## Classifica",
+        "## Integrità del run",
         "",
-        "| # | Modello | Totale | Qualità | Completamento | Velocità | Token eff. | Tempo mediano | Token output | σ score |",
-        "|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
+    integrity_status = integrity.get("status", "not_recorded")
+    if integrity_status == "passed":
+        lines.append("**Stato: valida.** Snapshot, baseline e confini registrati non mostrano violazioni.")
+    elif integrity_status == "not_recorded":
+        lines.append("**Stato: non registrata.** Il run usa uno schema precedente ai controlli d'integrità.")
+    else:
+        lines.append(f"**Stato: {integrity_status}.** Il run richiede revisione prima di usare la classifica.")
+    disqualified = integrity.get("disqualified_models", [])
+    if disqualified:
+        lines.append("Modelli esclusi dalla classifica: " + ", ".join(f"`{model}`" for model in disqualified) + ".")
+    mismatch_cases = sorted(
+        set(integrity.get("input_mismatches", [])) | set(integrity.get("baseline_mismatches", []))
+    )
+    if mismatch_cases:
+        lines.append("Casi con baseline non uniforme: " + ", ".join(f"`{case}`" for case in mismatch_cases) + ".")
+    lines.extend(
+        [
+            "",
+            "## Classifica",
+            "",
+            "| # | Modello | Totale | Qualità | Completamento | Velocità | Token eff. | Tempo mediano | Token output | σ score |",
+            "|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
     for index, row in enumerate(leaderboard, 1):
         lines.append(
             "| {rank} | `{model}` | {overall:.1f} | {quality:.1f} | {completion:.0f}% | {speed:.1f} | "
@@ -177,18 +338,29 @@ def render_markdown(report: dict[str, Any], run_dir: Path) -> str:
             "",
             "## Dettaglio per task",
             "",
-            "| Modello | Caso | Rip. | Stato | Punti | Tempo | Tool/errori | Output token |",
-            "|---|---|---:|---|---:|---:|---:|---:|",
+            "| Modello | Caso | Rip. | Stato | Integrità | Punti | Tempo | Tool/errori | Output token |",
+            "|---|---|---:|---|---|---:|---:|---:|---:|",
         ]
     )
     for result in sorted(report.get("results", []), key=lambda item: (str(item.get("model")), str(item.get("case_id")), int(item.get("repetition", 1)))):
         metrics = result.get("metrics", {})
+        model = str(result.get("model", "?"))
+        recorded_integrity = result.get("integrity", {})
+        if recorded_integrity.get("valid_for_ranking") is False:
+            integrity_cell = "violata"
+        elif model in set(disqualified):
+            integrity_cell = "escluso"
+        elif "valid_for_ranking" in recorded_integrity:
+            integrity_cell = "ok"
+        else:
+            integrity_cell = "n/d"
         lines.append(
-            "| `{model}` | `{case}` | {repetition} | {status} | {score:.1f} | {duration} | {tools}/{errors} | {tokens} |".format(
-                model=result.get("model", "?"),
+            "| `{model}` | `{case}` | {repetition} | {status} | {integrity} | {score:.1f} | {duration} | {tools}/{errors} | {tokens} |".format(
+                model=model,
                 case=result.get("case_id", "?"),
                 repetition=result.get("repetition", 1),
                 status=result.get("status", "?"),
+                integrity=integrity_cell,
                 score=float(result.get("grade", {}).get("score", 0)),
                 duration=_fmt_seconds(float(result.get("duration_seconds", 0))),
                 tools=metrics.get("tool_calls", 0),
@@ -210,8 +382,17 @@ def render_markdown(report: dict[str, Any], run_dir: Path) -> str:
                 f"Il miglior punteggio composito di questo run è **{best['model']}** ({best['overall_score']:.1f}/100). "
                 "Controlla comunque i punteggi dei singoli casi e le patch: il modello migliore in assoluto può non essere quello più adatto alle task che svolgi più spesso."
             )
+        if disqualified:
+            lines.append(
+                "I modelli con violazioni d'integrità sono esclusi dall'aggregazione anche quando i grader hanno prodotto un punteggio."
+            )
     else:
-        lines.append("Il run non contiene ancora risultati. Esegui il benchmark prima di interpretare il report.")
+        if report.get("results") and disqualified:
+            lines.append(
+                "Il run contiene risultati, ma nessun modello è classificabile a causa dei controlli d'integrità."
+            )
+        else:
+            lines.append("Il run non contiene ancora risultati. Esegui il benchmark prima di interpretare il report.")
     lines.extend(
         [
             "",

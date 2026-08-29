@@ -4,7 +4,7 @@ Benchmark personale, ripetibile e offline per confrontare modelli Ollama usati c
 
 Personal, repeatable, offline benchmark for comparing Ollama models used as coding agents through [Pi](https://pi.dev). Its scenarios derive from this repository's operating rules: small patches, modular architecture, tests, security, configuration, i18n, documentation, and Git discipline.
 
-Stato / Status: **0.1.1 – functional local benchmark**
+Stato / Status: **0.1.2 – benchmark con controlli d'integrità / integrity-aware benchmark**
 Piattaforme / Platforms: macOS, Windows, Linux
 Licenza / License: Apache-2.0
 
@@ -72,7 +72,8 @@ python3 benchmark.py run \
   --models devstral-small-2:latest qwen3.6:27b \
   --cases targeted_patch secure_workspace \
   --repetitions 2 \
-  --timeout 1800
+  --timeout 1800 \
+  --seed 20260829
 ```
 
 Su PowerShell, inserire il comando su una sola riga oppure usare il carattere di continuazione appropriato.
@@ -82,8 +83,12 @@ Su PowerShell, inserire il comando su una sola riga oppure usare il carattere di
 Ogni run crea `results/YYYYMMDD-HHMMSS/` con:
 
 - `REPORT.md` e `report.json`: classifica e dettaglio;
-- `run.json`: ambiente, versioni, modelli, cold-start/warmup;
+- `run.json`: ambiente, versioni, commit/stato Git, modelli, seed, ordine task, hash input, warmup e stato d'integrità;
 - per ogni modello/caso: workspace finale, eventi JSONL di Pi, risposta finale, stderr, stato Git, patch, score e singoli check.
+
+All'avvio il runner rifiuta `AGENTS.md`, `.gitignore`, prompt, fixture o grader selezionati se modificati rispetto a Git. Crea poi un unico snapshot dei soli file tracciati per l'intero run, escludendo cache e output ignorati, e registra hash e tree Git delle baseline. Accessi espliciti fuori workspace, modifiche al repository o allo snapshot e baseline non uniformi escludono dalla classifica l'intero modello coinvolto; una modifica allo snapshot interrompe anche la matrice. Il report mostra sempre lo stato d'integrità prima della classifica.
+
+At startup the runner rejects selected benchmark inputs that differ from Git, creates one frozen snapshot containing tracked files only (excluding ignored caches and outputs), and records input hashes and baseline Git trees. Explicit out-of-workspace access, repository/snapshot mutation, or a divergent baseline disqualifies the affected model. Snapshot mutation also aborts the remaining matrix. Integrity status is shown before the leaderboard.
 
 Il comando termina con exit code `1` se almeno una task va in timeout o Pi restituisce un errore, pur completando il resto della matrice e generando il report. Un punteggio sotto 60 senza errore operativo non cambia l'exit code: è un risultato del modello, non un guasto del runner.
 
@@ -97,13 +102,13 @@ I tempi includono ragionamento, strumenti e test e sono quindi una misura di pro
 
 [`benchmark.json`](benchmark.json) centralizza URL Ollama, comando Pi, timeout, thinking, contesto, token massimi, warmup, profili, casi e pesi. `"models": "installed"` rileva tutti i modelli da `/api/tags`; una lista esplicita rende il set stabile.
 
-La temperatura è zero per ridurre la varianza. Le ripetizioni restano necessarie: tool calling e generazione locale non sono perfettamente deterministici. Per un confronto decisionale usare almeno tre ripetizioni e la stessa alimentazione/condizione termica.
+La temperatura è zero per ridurre la varianza. Le ripetizioni restano necessarie: tool calling e generazione locale non sono perfettamente deterministici. L'ordine delle task viene randomizzato e registrato; `--seed` permette di riprodurlo. Per un confronto decisionale usare almeno tre ripetizioni e la stessa alimentazione/condizione termica.
 
 ## Isolamento e privacy / Isolation and privacy
 
-Il runner crea per ogni task un repository Git nuovo, copia al suo interno questo `AGENTS.md` e usa una directory Pi separata. Pi riceve `--offline` e Ollama usa loopback. Le fixture non contengono credenziali reali.
+Il runner crea per ogni task un repository Git nuovo da uno snapshot condiviso, copia al suo interno questo `AGENTS.md` e usa una directory Pi separata. Pi riceve `--offline` e Ollama usa loopback. Le fixture non contengono credenziali reali.
 
-Attenzione: gli strumenti `bash` e `write` di Pi non sono un sandbox del sistema operativo. I prompt inclusi sono fidati e chiedono di restare nella workspace, ma un modello malfunzionante potrebbe tentare accessi esterni. Esegui il benchmark con un account non privilegiato e leggi [SECURITY_MODEL.md](SECURITY_MODEL.md) prima di aggiungere casi con dati reali.
+Attenzione: gli strumenti `bash` e `write` di Pi non sono un sandbox del sistema operativo. I nuovi controlli rilevano mutazioni e molti accessi espliciti, ma non impediscono tecnicamente ogni lettura esterna o comando offuscato. Esegui il benchmark con un account non privilegiato e leggi [SECURITY_MODEL.md](SECURITY_MODEL.md) prima di aggiungere casi con dati reali.
 
 ## Sviluppo / Development
 

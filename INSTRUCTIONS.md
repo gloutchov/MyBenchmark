@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-LocalAgent Benchmark compares local Ollama models acting as coding agents through Pi. Every model receives the same `AGENTS.md`, prompt, and fresh Git fixture. Independent checks score the resulting workspace, while raw artifacts remain available for human review.
+LocalAgent Benchmark compares local Ollama models acting as coding agents through Pi. Every model receives inputs copied from the same frozen snapshot of `AGENTS.md`, prompt, and Git fixture. Independent checks score the resulting workspace, while raw artifacts remain available for human review.
 
 ## 2. Requirements
 
@@ -17,6 +17,8 @@ Verify the environment without running an agent task:
 ```bash
 python3 benchmark.py doctor
 ```
+
+The command also verifies that `AGENTS.md`, `.gitignore`, prompts, fixtures, and graders are clean relative to Git.
 
 ## 3. First run
 
@@ -44,7 +46,7 @@ python3 benchmark.py run --profile standard
 - `standard` covers a targeted patch, security hardening, and validated configuration/i18n.
 - `full` adds milestone closure, versioning, documentation, and Git discipline.
 
-Use `--models` for exact Ollama model names, `--cases` for explicit case IDs, `--timeout` for a per-task limit in seconds, and `--output` for a new or empty destination. Run the full profile three times on shortlisted models when making a final choice.
+Use `--models` for exact Ollama model names, `--cases` for explicit case IDs, `--timeout` for a per-task limit in seconds, and `--output` for a new or empty destination. Tasks are randomized; pass `--seed NUMBER` to reproduce the exact order recorded in `run.json`. Run the full profile three times on shortlisted models when making a final choice.
 
 ## 5. Configuration
 
@@ -56,6 +58,8 @@ Configuration is validated at startup. It must not contain secrets. The generate
 
 The composite score weighs quality at 80%, completion at 10%, relative speed at 5%, and relative token efficiency at 5%. A task counts as complete when Pi exits normally and its grade is at least 60/100.
 
+Read **Run integrity** before the leaderboard. A model is entirely disqualified if it explicitly accesses paths outside its workspace, mutates the benchmark repository or frozen snapshot, or receives a divergent baseline. Snapshot mutation also aborts the remaining matrix. `run.json` records Git provenance, seed, task order, input hashes, and violations; each `result.json` records its baseline tree and audit details.
+
 - Prioritize quality and the cases closest to your real work.
 - Use median duration to estimate day-to-day waiting time.
 - Tool errors reveal model/provider tool-calling problems.
@@ -66,7 +70,7 @@ The overall winner is not necessarily best for every activity. A security-heavy 
 
 ## 7. Reproducibility
 
-Use the same configuration, profile, repetitions, hardware, and similar system load. Warmup records cold-load metrics separately, keeps a model resident during its cases, and unloads it before the next model. Temperature zero reduces but does not eliminate variance.
+Use the same configuration, profile, repetitions, seed, hardware, and similar system load. At each model switch the runner unloads the previous model, records a new warmup, and then starts the task. Selected inputs must be clean at startup; only tracked files are copied once into `benchmark-context/`, excluding ignored caches and outputs. Do not modify source inputs or that snapshot during a run. Temperature zero reduces but does not eliminate variance.
 
 ## 8. Troubleshooting
 
@@ -76,12 +80,15 @@ Use the same configuration, profile, repetitions, hardware, and similar system l
 - Timeout: increase `--timeout` and inspect `stderr.log`.
 - Low score with a successful exit: inspect `grade.json`; the model may have answered without editing or missed a constraint.
 - Zero usage tokens: some model/provider combinations omit usage; quality remains valid, while token efficiency receives no credit.
+- `Input benchmark modificati`: restore or intentionally commit the listed benchmark inputs before rerunning.
+- `violations_detected`: inspect `report.json`, `run.json`, and the model's `pi-events.jsonl`; do not manually restore the disqualified model to the leaderboard.
+- `snapshot_compromised`: preserve the diagnostic artifacts, fix the cause, and start a new run.
 
-The runner exits with code `1` when one or more tasks end in an error or timeout, while still completing the matrix and writing the report. A low grade with status `ok` is a valid model result and does not fail the command.
+The runner exits with code `1` when one or more tasks end in an error or timeout or when integrity is not valid, while still writing the available report. A low grade with status `ok` and integrity `ok` is a valid model result and does not fail the command.
 
 ## 9. Security and privacy
 
-Do not add private data, real repositories, or credentials to cases without a dedicated OS-level sandbox. Pi's `--offline` mode disables its startup network activity but does not firewall shell commands generated by a model. Read `SECURITY_MODEL.md` before extending the benchmark.
+Do not add private data, real repositories, or credentials to cases without a dedicated OS-level sandbox. Pi's `--offline` mode disables its startup network activity but does not firewall shell commands generated by a model. Hashes and audits detect integrity failures but do not replace OS isolation. Read `SECURITY_MODEL.md` before extending the benchmark.
 
 ## 10. Known limitations
 
@@ -89,3 +96,4 @@ Do not add private data, real repositories, or credentials to cases without a de
 - Timing depends on hardware, quantization, memory pressure, and thermals.
 - The runner currently targets Ollama and does not include a Codex control adapter.
 - Synthetic tasks should evolve with your actual workflow.
+- The audit recognizes structured external paths, traversal, and explicit protected paths in shell commands; dynamic or obfuscated read-only commands may evade detection until the OS sandbox is implemented.

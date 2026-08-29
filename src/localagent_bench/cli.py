@@ -38,6 +38,7 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--cases", nargs="+", help="Casi specifici, ignorando il profilo")
     run.add_argument("--repetitions", type=int, help="Ripetizioni per modello/caso")
     run.add_argument("--timeout", type=int, help="Timeout di ogni task in secondi")
+    run.add_argument("--seed", type=int, help="Seed intero per riprodurre l'ordine randomizzato delle task")
     warmup = run.add_mutually_exclusive_group()
     warmup.add_argument("--warmup", dest="warmup", action="store_true", help="Forza warmup")
     warmup.add_argument("--no-warmup", dest="warmup", action="store_false", help="Disabilita warmup")
@@ -91,13 +92,19 @@ def main(argv: list[str] | None = None) -> int:
                 timeout_seconds=args.timeout,
                 use_warmup=args.warmup,
                 output_dir=args.output,
+                order_seed=args.seed,
             )
             print(f"\nBenchmark completato: {run_dir}")
             print(f"Report: {run_dir / 'REPORT.md'}")
             report_payload = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
             failed = [item for item in report_payload.get("results", []) if item.get("status") != "ok"]
-            if failed:
-                print(f"Attenzione: {len(failed)} task terminate con errore o timeout.", file=sys.stderr)
+            integrity = report_payload.get("integrity", {})
+            integrity_failed = integrity.get("status") not in {None, "passed", "not_recorded"}
+            if failed or integrity_failed:
+                if failed:
+                    print(f"Attenzione: {len(failed)} task terminate con errore o timeout.", file=sys.stderr)
+                if integrity_failed:
+                    print("Attenzione: il run contiene violazioni d'integrità; consulta il report.", file=sys.stderr)
                 return 1
             return 0
         if args.command == "report":

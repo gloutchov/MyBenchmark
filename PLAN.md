@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.1.1**
+Versione corrente / Current version: **0.1.2**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -11,7 +11,7 @@ Versione corrente / Current version: **0.1.1**
 - Criteri di accettazione: `doctor` rileva l'ambiente; un run smoke produce artefatti e report; i grader hanno massimo 100 e le fixture iniziali restano sotto 60; test unitari verdi.
 - Test: compileall, unittest, doctor locale, smoke Pi/Ollama.
 - Documentazione: README, manuali, security model, MAP, AGENTS e piano.
-- Stato: **implementazione in verifica; patch 0.1.1 approvata con CI verde; prove benchmark finali e avallo della Milestone 1 ancora richiesti prima della chiusura**.
+- Stato: **implementazione in verifica; patch 0.1.2 di integrità implementata con test e smoke locale verdi; approvazione, CI, merge/tag e prova `full` finale ancora richiesti prima della chiusura**.
 
 ### Checklist chiusura
 
@@ -47,12 +47,47 @@ Versione corrente / Current version: **0.1.1**
 - Release: nessuna GitHub release per questa patch, come approvato dal progettista; creare il tag `v0.1.1` dopo merge e CI verde su `main`.
 - Stato: **correzione completata e approvata; baseline a 25/100 e CI branch/PR verde su macOS, Windows e Linux; merge e tag `v0.1.1` autorizzati**.
 
-## Milestone 2 – Riproducibilità e sandbox
+## Patch prioritaria 0.1.2 – Integrità dei run e baseline congelate
 
-- Obiettivo: aggiungere ordine randomizzato registrato, backend opzionale di isolamento OS e metriche hardware/energia dove disponibili.
+- Obiettivo: impedire che una task alteri gli input dei tentativi successivi e rendere automaticamente non classificabili modelli o risultati con violazioni di workspace, baseline o provenienza.
+- Branch previsto: `patch/0.1.2-run-integrity`
+- Incremento versione: `+0.0.1`
+- Attività principali: ripristinare `targeted_patch` dopo la modifica esterna osservata nel run `20260828-204650`; bloccare input selezionati sporchi; creare prima della matrice un solo snapshot dei file tracciati di `AGENTS.md`, `.gitignore`, prompt, fixture e grader, escludendo cache/output ignorati; registrare SHA-256, commit/stato Git, tree delle baseline, seed e ordine; randomizzare le task in modo riproducibile; effettuare unload/warmup a ogni cambio modello; confrontare repository e snapshot prima/dopo le task; auditare accessi espliciti fuori workspace; non eseguire grader da snapshot alterati; escludere l'intero modello per violazioni o baseline divergenti; rilevare divergenze e accessi esterni anche rigenerando report legacy quando gli artefatti lo consentono.
+- Criteri di accettazione: la baseline `targeted_patch` torna sotto 60; tutte le workspace dello stesso caso ricevono hash input e tree baseline identici; un accesso esterno o una mutazione esclude l'intero modello; una mutazione dello snapshot interrompe la matrice prima del grader; il report mostra lo stato d'integrità prima della classifica; `doctor` segnala input sporchi; lo stesso seed produce lo stesso ordine; il run legacy della notte esclude automaticamente `devstral-small-2:latest` per baseline divergente e `qwen3.6:27b` per accessi esterni.
+- Test richiesti: compileall; unittest; calibrazione diretta di tutte le fixture; test mirati per snapshot/hash, seed, audit, disqualifica modello, baseline di minoranza e flusso runner simulato; `doctor`; smoke Pi/Ollama con `qwen3.8:27b-q4_K_M` e `gpt-oss:20b`.
+- Documentazione: README, manuali bilingui, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e `PLAN.md`.
+- Release: patch ordinaria; chiedere al progettista se pubblicare una GitHub release. Tag previsto `v0.1.2` soltanto dopo approvazione, merge e CI verde su `main`.
+- Stato: **implementazione e documentazione completate sul branch; 14 test automatici verdi; smoke `20260829-110406` valido con baseline identiche e nessuna violazione (Qwen 100/100, GPT-OSS 56/100); approvazione progettista, CI, commit finale, merge e tag ancora richiesti**.
+
+### Checklist patch 0.1.2
+
+- [x] Branch patch creato
+- [x] Fixture contaminata ripristinata e ricalibrata a 25/100
+- [x] Implementazione completata
+- [x] Test mirati aggiunti
+- [x] Compileall e unittest locali eseguiti
+- [x] Smoke reale Pi/Ollama eseguito
+- [x] Versione sincronizzata
+- [x] README aggiornato
+- [x] ISTRUZIONI.md aggiornato
+- [x] INSTRUCTIONS.md aggiornato
+- [x] SECURITY_MODEL.md aggiornato
+- [x] MAP.md aggiornato
+- [x] AGENTS.md aggiornato
+- [x] PLAN.md aggiornato
+- [ ] Approvazione esplicita del progettista
+- [ ] Commit finale
+- [ ] PR o merge verso `main`
+- [ ] CI verificata sul branch/PR e su `main`
+- [ ] Tag `v0.1.2`
+- [ ] Decisione esplicita sulla GitHub release
+
+## Milestone 2 – Sandbox e metriche di sistema
+
+- Obiettivo: aggiungere un backend opzionale di isolamento OS e metriche hardware/energia dove disponibili, completando la prevenzione tecnica oltre ai controlli d'integrità introdotti nella 0.1.2.
 - Branch previsto: `milestone/2-reproducibility-sandbox`
 - Incremento versione: `+0.1.0`
-- Attività: adapter sandbox multipiattaforma, test processi/rete, schema risultati compatibile, confronto statistico tra run.
+- Attività: adapter sandbox multipiattaforma, test processi/rete e letture indirette, metriche hardware/energia, schema risultati compatibile e confronto statistico tra run. Ordine randomizzato, seed e provenienza restano la base già consegnata dalla patch 0.1.2.
 - Criteri di accettazione: uscita dalla workspace bloccata tecnicamente nel backend sandbox; modalità corrente mantenuta e segnalata; report aggregato su più run.
 - Test: unit, integrazione, sicurezza e smoke macOS/Windows/Linux.
 - Documentazione: tutti i manuali, security model e MAP.

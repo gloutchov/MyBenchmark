@@ -551,6 +551,10 @@ Prima di iniziare lo sviluppo effettivo:
 - Il comando di verifica locale è `python3 -m unittest discover -s tests -v`; eseguire anche `python3 -m compileall -q benchmark.py src cases tests` quando cambia codice Python.
 - Mantenere il runtime Python privo di dipendenze esterne finché non esiste una motivazione documentata.
 - Non modificare fixture o grader mentre un benchmark è in esecuzione.
+- Prima di un run, mantenere puliti rispetto a Git `AGENTS.md`, `.gitignore` e tutti i prompt, fixture e grader selezionati: il preflight deve fallire, non essere aggirato, se questi input divergono.
+- Ogni run deve usare un unico snapshot verificato per tutti i modelli, registrare SHA-256, commit/stato Git, tree delle baseline, seed e ordine delle task.
+- Trattare accessi espliciti fuori workspace, mutazioni del repository/snapshot e baseline divergenti come violazioni d'integrità: escludere l'intero modello dalla classifica e interrompere la matrice se lo snapshot condiviso cambia.
+- `--seed` deve rendere riproducibile l'ordine randomizzato; unload e warmup vanno registrati a ogni cambio modello.
 - Ogni nuovo caso deve avere prompt, fixture, grader con massimo 100 punti e un test di calibrazione che mantenga la fixture iniziale sotto la soglia di completamento.
 - Non includere credenziali, repository reali o dati privati nelle fixture.
 - Trattare `results/` come output locale potenzialmente sensibile; non versionarlo.
