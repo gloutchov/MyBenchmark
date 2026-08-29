@@ -57,7 +57,7 @@ Versione corrente / Current version: **0.1.2**
 - Test richiesti: compileall; unittest; calibrazione diretta di tutte le fixture; test mirati per snapshot/policy hash, scratch, seed, path strutturati e shell, rete, falsi positivi `awk`, riesame report, disqualifica modello, baseline di minoranza e flusso runner simulato; `doctor`; smoke Pi/Ollama con `qwen3.8:27b-q4_K_M` e `gpt-oss:20b`; verifica reale mirata di `milestone_closure` dopo il commit correttivo.
 - Documentazione: README, manuali bilingui, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e `PLAN.md`.
 - Release: patch ordinaria; chiedere al progettista se pubblicare una GitHub release. Tag previsto `v0.1.2` soltanto dopo approvazione, merge e CI verde su `main`.
-- Stato: **correzioni successive al full diagnostico implementate; 23 test automatici verdi; il riesame in sola lettura di `20260829-120212` esclude soltanto Qwen per `/tmp`, repository reale e rete, senza falsi positivi sui pattern testuali di GPT-OSS; verifica reale mirata con la nuova policy, approvazione finale, CI, commit correttivo, merge e tag ancora richiesti**.
+- Stato: **correzioni successive al full diagnostico implementate e committate; 23 test automatici verdi; il riesame in sola lettura di `20260829-120212` esclude soltanto Qwen per `/tmp`, repository reale e rete, senza falsi positivi sui pattern testuali di GPT-OSS; la verifica reale `20260829-164305` completa `milestone_closure` con Qwen a 100/100, integrità valida e scratch interno; approvazione finale, CI, merge, tag e nuovo confronto full restano richiesti**.
 
 ### Checklist patch 0.1.2
 
@@ -71,7 +71,7 @@ Versione corrente / Current version: **0.1.2**
 - [x] `LICENSE` richiesta aggiunta alla fixture `milestone_closure`
 - [x] Policy congelata e `.benchmark-scratch/` interna aggiunte
 - [x] Audit path/rete versionato e report dettagliato calibrati sul full
-- [ ] Verifica reale mirata `milestone_closure` con la policy corretta
+- [x] Verifica reale `20260829-164305`: Qwen `milestone_closure` 100/100, integrità valida, 945,1 s
 - [x] Versione sincronizzata
 - [x] README aggiornato
 - [x] ISTRUZIONI.md aggiornato
@@ -81,7 +81,7 @@ Versione corrente / Current version: **0.1.2**
 - [x] AGENTS.md aggiornato
 - [x] PLAN.md aggiornato
 - [ ] Approvazione esplicita del progettista
-- [ ] Commit finale
+- [x] Commit implementativi creati sul branch patch
 - [ ] PR o merge verso `main`
 - [ ] CI verificata sul branch/PR e su `main`
 - [ ] Tag `v0.1.2`
