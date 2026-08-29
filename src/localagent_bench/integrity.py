@@ -140,6 +140,7 @@ def snapshot_cases(
     destination: Path,
     agents_path: Path,
     gitignore_path: Path,
+    execution_policy: str | None = None,
 ) -> tuple[list[CaseSpec], dict[str, object]]:
     """Create one frozen input copy shared by every attempt in a run."""
     destination.mkdir(parents=True, exist_ok=False)
@@ -153,6 +154,11 @@ def snapshot_cases(
         raise InputIntegrityError("La copia congelata di AGENTS.md non coincide con la sorgente")
     if fingerprint_tree(gitignore_snapshot) != source_gitignore_hash:
         raise InputIntegrityError("La copia congelata di .gitignore non coincide con la sorgente")
+    policy_hash = ""
+    if execution_policy is not None:
+        policy_snapshot = destination / "EXECUTION_POLICY.snapshot.md"
+        policy_snapshot.write_text(execution_policy, encoding="utf-8")
+        policy_hash = fingerprint_tree(policy_snapshot)
     snapshot_specs: list[CaseSpec] = []
     case_manifest: dict[str, dict[str, str]] = {}
     cases_root = destination / "cases"
@@ -180,17 +186,24 @@ def snapshot_cases(
             grader_path=case_root / "grader.py",
         )
         snapshot_specs.append(snapshot)
+        input_hash = fingerprint_tree(snapshot.directory)
         case_manifest[case.id] = {
             "prompt_sha256": fingerprint_tree(snapshot.prompt_path),
             "fixture_sha256": fingerprint_tree(snapshot.fixture_path),
             "grader_sha256": fingerprint_tree(snapshot.grader_path),
-            "input_sha256": fingerprint_tree(snapshot.directory),
+            "input_sha256": input_hash,
+            "effective_input_sha256": hashlib.sha256(
+                f"{input_hash}\0{policy_hash}".encode("utf-8")
+            ).hexdigest(),
         }
-    return snapshot_specs, {
+    manifest: dict[str, object] = {
         "agents_sha256": source_agents_hash,
         "gitignore_sha256": source_gitignore_hash,
         "cases": case_manifest,
     }
+    if policy_hash:
+        manifest["execution_policy_sha256"] = policy_hash
+    return snapshot_specs, manifest
 
 
 def verify_snapshot(destination: Path, manifest: dict[str, object]) -> list[str]:
@@ -202,6 +215,9 @@ def verify_snapshot(destination: Path, manifest: dict[str, object]) -> list[str]
     gitignore = destination / ".gitignore.snapshot"
     if fingerprint_tree(gitignore) != manifest.get("gitignore_sha256"):
         changed.append(".gitignore.snapshot")
+    expected_policy = manifest.get("execution_policy_sha256")
+    if expected_policy and fingerprint_tree(destination / "EXECUTION_POLICY.snapshot.md") != expected_policy:
+        changed.append("EXECUTION_POLICY.snapshot.md")
     case_manifest = manifest.get("cases", {})
     if not isinstance(case_manifest, dict):
         return ["input-manifest"]

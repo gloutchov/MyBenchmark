@@ -112,6 +112,112 @@ class ReportTests(unittest.TestCase):
             self.assertEqual(["case"], report["integrity"]["baseline_mismatches"])
             self.assertEqual({"first", "second"}, {row["model"] for row in report["leaderboard"]})
 
+    def test_report_reaudits_paths_and_network_with_current_audit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run_dir = Path(directory) / "results" / "run"
+            case_dir = run_dir / "models" / "escaped" / "cases" / "case-r1"
+            workspace = case_dir / "workspace"
+            workspace.mkdir(parents=True)
+            (run_dir / "run.json").write_text(
+                json.dumps(
+                    {
+                        "task_order": [{"model": "escaped", "case_id": "case", "repetition": 1}],
+                        "integrity": {"status": "passed", "violations": []},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = {
+                "model": "escaped",
+                "case_id": "case",
+                "case_weight": 1,
+                "repetition": 1,
+                "status": "ok",
+                "duration_seconds": 10,
+                "metrics": {"usage": {"output": 10}},
+                "grade": {"score": 90},
+                "integrity": {
+                    "valid_for_ranking": True,
+                    "source_mutations": [],
+                    "snapshot_mutations": [],
+                    "external_accesses": [],
+                },
+            }
+            (case_dir / "result.json").write_text(json.dumps(result), encoding="utf-8")
+            event = {
+                "type": "tool_execution_start",
+                "toolCallId": "outside",
+                "toolName": "bash",
+                "args": {"command": "cd /tmp && curl https://example.invalid/input"},
+            }
+            (case_dir / "pi-events.jsonl").write_text(json.dumps(event) + "\n", encoding="utf-8")
+
+            report = write_report(run_dir)
+
+            self.assertEqual([], report["leaderboard"])
+            self.assertEqual(["escaped"], report["integrity"]["disqualified_models"])
+            details = report["integrity"]["violations"][0]["details"]
+            self.assertEqual(
+                {"shell_path_outside_workspace", "shell_network_attempt"},
+                {item["reason"] for item in details},
+            )
+            markdown = (run_dir / "REPORT.md").read_text(encoding="utf-8")
+            self.assertIn("### Violazioni rilevate", markdown)
+            self.assertIn("shell_network_attempt", markdown)
+
+    def test_reaudit_replaces_a_stale_manifest_false_positive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            run_dir = Path(directory) / "results" / "run"
+            case_dir = run_dir / "models" / "clean" / "cases" / "case-r1"
+            workspace = case_dir / "workspace"
+            workspace.mkdir(parents=True)
+            stale_violation = {
+                "model": "clean",
+                "case_id": "case",
+                "repetition": 1,
+                "kind": "external_workspace_access",
+                "details": [{"reason": "shell_parent_traversal", "target": ".."}],
+            }
+            (run_dir / "run.json").write_text(
+                json.dumps(
+                    {
+                        "task_order": [{"model": "clean", "case_id": "case", "repetition": 1}],
+                        "integrity": {"status": "violations_detected", "violations": [stale_violation]},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = {
+                "model": "clean",
+                "case_id": "case",
+                "case_weight": 1,
+                "repetition": 1,
+                "status": "ok",
+                "duration_seconds": 10,
+                "metrics": {"usage": {"output": 10}},
+                "grade": {"score": 90},
+                "integrity": {
+                    "valid_for_ranking": False,
+                    "source_mutations": [],
+                    "snapshot_mutations": [],
+                    "external_accesses": stale_violation["details"],
+                },
+            }
+            (case_dir / "result.json").write_text(json.dumps(result), encoding="utf-8")
+            safe_event = {
+                "type": "tool_execution_start",
+                "toolCallId": "awk",
+                "toolName": "bash",
+                "args": {"command": r"awk '/- \[x\] done/ {print NR}' PLAN.md"},
+            }
+            (case_dir / "pi-events.jsonl").write_text(json.dumps(safe_event) + "\n", encoding="utf-8")
+
+            report = write_report(run_dir)
+
+            self.assertEqual("passed", report["integrity"]["status"])
+            self.assertEqual([], report["integrity"]["violations"])
+            self.assertEqual(["clean"], [row["model"] for row in report["leaderboard"]])
+
 
 if __name__ == "__main__":
     unittest.main()

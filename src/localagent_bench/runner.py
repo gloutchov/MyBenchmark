@@ -28,12 +28,28 @@ from .integrity import (
     verify_snapshot,
 )
 from .ollama import OllamaModel, list_models, unload, version, warmup
-from .pi_adapter import audit_workspace_accesses, run_pi, write_models_config
+from .pi_adapter import AUDIT_VERSION, SCRATCH_DIRECTORY, audit_workspace_accesses, run_pi, write_models_config
 from .report import write_report
 
 
 class BenchmarkError(RuntimeError):
     """Raised for failures that prevent a benchmark run from starting."""
+
+
+EXECUTION_POLICY = f"""# Confine di esecuzione del benchmark / Benchmark execution boundary
+
+- Opera soltanto nella directory di lavoro corrente e nei suoi discendenti. Non leggere, elencare, copiare o modificare altri path, inclusi repository reali e directory sorelle.
+- Work only in the current working directory and its descendants. Do not read, list, copy, or modify any other path, including real repositories and sibling directories.
+- Non usare directory temporanee di sistema come `/tmp`. Per smoke test e file temporanei usa `{SCRATCH_DIRECTORY}/`, che il runner prepara e ignora in Git.
+- Do not use system temporary directories such as `/tmp`. Use `{SCRATCH_DIRECTORY}/` for smoke tests and temporary files; the runner prepares it and excludes it from Git.
+- Non accedere alla rete con shell, interpreti, package manager o Git. Tutti gli input necessari sono già nella workspace; segnala come limite un eventuale materiale mancante senza cercarlo altrove.
+- Do not access the network through shell commands, interpreters, package managers, or Git. All required inputs are already in the workspace; report missing material as a limitation instead of searching elsewhere.
+- Per testare un rifiuto di traversal, crea una sottodirectory dentro `{SCRATCH_DIRECTORY}/` e usa quella come workspace dell'applicazione, così anche il path di prova resta nel confine del benchmark.
+- To test traversal rejection, create a nested directory under `{SCRATCH_DIRECTORY}/` and use it as the application workspace, so the attempted test path remains inside the benchmark boundary.
+
+Un riferimento esplicito fuori da questo confine o un tentativo di rete invalida il risultato anche quando il comando fallisce.
+An explicit reference outside this boundary or a network attempt invalidates the result even if the command fails.
+"""
 
 
 def _slug(value: str) -> str:
@@ -76,7 +92,16 @@ def _prepare_workspace(
     _git(destination, "config", "user.email", "benchmark@localhost")
     _git(destination, "add", ".")
     _git(destination, "commit", "-q", "-m", "benchmark baseline")
-    return _git(destination, "rev-parse", "HEAD").stdout.strip()
+    baseline_commit = _git(destination, "rev-parse", "HEAD").stdout.strip()
+    scratch = destination / SCRATCH_DIRECTORY
+    scratch.mkdir(parents=True, exist_ok=True)
+    exclude_path = destination / ".git" / "info" / "exclude"
+    exclude_entry = f"/{SCRATCH_DIRECTORY}/"
+    exclude_lines = exclude_path.read_text(encoding="utf-8").splitlines() if exclude_path.exists() else []
+    if exclude_entry not in exclude_lines:
+        exclude_path.parent.mkdir(parents=True, exist_ok=True)
+        exclude_path.write_text("\n".join([*exclude_lines, exclude_entry, ""]), encoding="utf-8")
+    return baseline_commit
 
 
 def _write_manifest(run_dir: Path, manifest: dict[str, Any]) -> None:
@@ -227,6 +252,7 @@ def run_benchmark(
             context_dir,
             config.root / "AGENTS.md",
             config.root / ".gitignore",
+            EXECUTION_POLICY,
         )
     except InputIntegrityError as exc:
         raise BenchmarkError(str(exc)) from exc
@@ -259,6 +285,13 @@ def run_benchmark(
         "task_order": tasks,
         "repository": repository_metadata(config.root),
         "inputs": input_manifest,
+        "execution_policy": {
+            "audit_version": AUDIT_VERSION,
+            "sha256": input_manifest.get("execution_policy_sha256"),
+            "scratch_directory": SCRATCH_DIRECTORY,
+            "network_access": "forbidden",
+            "filesystem_scope": "task_workspace",
+        },
         "integrity": {"status": "passed", "aborted": False, "violations": []},
         "environment": {
             "platform": platform.platform(),
@@ -271,13 +304,7 @@ def run_benchmark(
     _write_manifest(run_dir, manifest)
 
     active_model: str | None = None
-    protected_paths = (
-        config.root / "cases",
-        config.root / "src",
-        config.root / ".git",
-        config.root / "benchmark.py",
-        context_dir,
-    )
+    protected_paths = (config.root,)
     for current, task in enumerate(tasks, 1):
         model = str(task["model"])
         case_id = str(task["case_id"])
@@ -325,7 +352,12 @@ def run_benchmark(
             context_dir / ".gitignore.snapshot",
         )
         baseline_tree = _git(workspace, "rev-parse", f"{baseline_commit}^{{tree}}").stdout.strip()
-        prompt = case.prompt_path.read_text(encoding="utf-8")
+        prompt = "\n\n".join(
+            (
+                (context_dir / "EXECUTION_POLICY.snapshot.md").read_text(encoding="utf-8").rstrip(),
+                case.prompt_path.read_text(encoding="utf-8").lstrip(),
+            )
+        )
         print(f"[{current}/{len(tasks)}] {model} · {case.id} · ripetizione {repetition}", flush=True)
         before_task_repository = repository_state
         pi_run = run_pi(
@@ -404,8 +436,9 @@ def run_benchmark(
             "git_branch": branch,
             "baseline_commit": baseline_commit,
             "baseline_tree": baseline_tree,
-            "input_fingerprint": input_manifest["cases"][case.id]["input_sha256"],
+            "input_fingerprint": input_manifest["cases"][case.id]["effective_input_sha256"],
             "integrity": {
+                "audit_version": AUDIT_VERSION,
                 "valid_for_ranking": valid_for_ranking,
                 "source_mutations": source_mutations,
                 "snapshot_mutations": snapshot_mutations,

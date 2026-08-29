@@ -11,7 +11,7 @@ Versione corrente / Current version: **0.1.2**
 - Criteri di accettazione: `doctor` rileva l'ambiente; un run smoke produce artefatti e report; i grader hanno massimo 100 e le fixture iniziali restano sotto 60; test unitari verdi.
 - Test: compileall, unittest, doctor locale, smoke Pi/Ollama.
 - Documentazione: README, manuali, security model, MAP, AGENTS e piano.
-- Stato: **implementazione in verifica; patch 0.1.2 di integrità implementata con test e smoke locale verdi; approvazione, CI, merge/tag e prova `full` finale ancora richiesti prima della chiusura**.
+- Stato: **implementazione in verifica; il full diagnostico `20260829-120212` ha evidenziato confini incompleti e una fixture incoerente, corretti nella patch 0.1.2; nuova verifica reale mirata, approvazione, CI, merge/tag e full conclusivo restano richiesti prima della chiusura**.
 
 ### Checklist chiusura
 
@@ -52,12 +52,12 @@ Versione corrente / Current version: **0.1.2**
 - Obiettivo: impedire che una task alteri gli input dei tentativi successivi e rendere automaticamente non classificabili modelli o risultati con violazioni di workspace, baseline o provenienza.
 - Branch previsto: `patch/0.1.2-run-integrity`
 - Incremento versione: `+0.0.1`
-- Attività principali: ripristinare `targeted_patch` dopo la modifica esterna osservata nel run `20260828-204650`; bloccare input selezionati sporchi; creare prima della matrice un solo snapshot dei file tracciati di `AGENTS.md`, `.gitignore`, prompt, fixture e grader, escludendo cache/output ignorati; registrare SHA-256, commit/stato Git, tree delle baseline, seed e ordine; randomizzare le task in modo riproducibile; effettuare unload/warmup a ogni cambio modello; confrontare repository e snapshot prima/dopo le task; auditare accessi espliciti fuori workspace; non eseguire grader da snapshot alterati; escludere l'intero modello per violazioni o baseline divergenti; rilevare divergenze e accessi esterni anche rigenerando report legacy quando gli artefatti lo consentono.
-- Criteri di accettazione: la baseline `targeted_patch` torna sotto 60; tutte le workspace dello stesso caso ricevono hash input e tree baseline identici; un accesso esterno o una mutazione esclude l'intero modello; una mutazione dello snapshot interrompe la matrice prima del grader; il report mostra lo stato d'integrità prima della classifica; `doctor` segnala input sporchi; lo stesso seed produce lo stesso ordine; il run legacy della notte esclude automaticamente `devstral-small-2:latest` per baseline divergente e `qwen3.6:27b` per accessi esterni.
-- Test richiesti: compileall; unittest; calibrazione diretta di tutte le fixture; test mirati per snapshot/hash, seed, audit, disqualifica modello, baseline di minoranza e flusso runner simulato; `doctor`; smoke Pi/Ollama con `qwen3.8:27b-q4_K_M` e `gpt-oss:20b`.
+- Attività principali: ripristinare `targeted_patch` dopo la modifica esterna osservata nel run `20260828-204650`; bloccare input selezionati sporchi; creare prima della matrice un solo snapshot dei file tracciati e della policy di esecuzione; registrare SHA-256 effettivi, commit/stato Git, tree baseline, seed e ordine; randomizzare le task; effettuare unload/warmup a ogni cambio modello; preparare `.benchmark-scratch/` interna e assegnarla alle variabili temporanee; confrontare repository e snapshot prima/dopo le task; risolvere path shell rispetto ai cambi directory, proteggere l'intera root, auditare tentativi di rete e distinguere traversal confinati; non eseguire grader da snapshot alterati; escludere l'intero modello per violazioni o baseline divergenti; mostrare motivo/target/evidenza; riesaminare eventi legacy; includere nella fixture `milestone_closure` la `LICENSE` richiesta da `AGENTS.md`.
+- Criteri di accettazione: la baseline `targeted_patch` resta sotto 60; tutte le workspace dello stesso caso ricevono hash input effettivo e tree baseline identici; path esterni, rete o mutazioni escludono l'intero modello; un traversal di prova risolto nello scratch interno non è una violazione; pattern shell non-path come programmi `awk` non producono falsi positivi; una mutazione dello snapshot interrompe la matrice prima del grader; il report mostra stato e dettagli prima della classifica; `doctor` segnala input sporchi; lo stesso seed produce lo stesso ordine; i run precedenti vengono riesaminati senza riscrivere i risultati originali.
+- Test richiesti: compileall; unittest; calibrazione diretta di tutte le fixture; test mirati per snapshot/policy hash, scratch, seed, path strutturati e shell, rete, falsi positivi `awk`, riesame report, disqualifica modello, baseline di minoranza e flusso runner simulato; `doctor`; smoke Pi/Ollama con `qwen3.8:27b-q4_K_M` e `gpt-oss:20b`; verifica reale mirata di `milestone_closure` dopo il commit correttivo.
 - Documentazione: README, manuali bilingui, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e `PLAN.md`.
 - Release: patch ordinaria; chiedere al progettista se pubblicare una GitHub release. Tag previsto `v0.1.2` soltanto dopo approvazione, merge e CI verde su `main`.
-- Stato: **implementazione e documentazione completate sul branch; 14 test automatici verdi; smoke `20260829-110406` valido con baseline identiche e nessuna violazione (Qwen 100/100, GPT-OSS 56/100); approvazione progettista, CI, commit finale, merge e tag ancora richiesti**.
+- Stato: **correzioni successive al full diagnostico implementate; 23 test automatici verdi; il riesame in sola lettura di `20260829-120212` esclude soltanto Qwen per `/tmp`, repository reale e rete, senza falsi positivi sui pattern testuali di GPT-OSS; verifica reale mirata con la nuova policy, approvazione finale, CI, commit correttivo, merge e tag ancora richiesti**.
 
 ### Checklist patch 0.1.2
 
@@ -67,6 +67,11 @@ Versione corrente / Current version: **0.1.2**
 - [x] Test mirati aggiunti
 - [x] Compileall e unittest locali eseguiti
 - [x] Smoke reale Pi/Ollama eseguito
+- [x] Full diagnostico `20260829-120212` analizzato senza modificare gli artefatti originali
+- [x] `LICENSE` richiesta aggiunta alla fixture `milestone_closure`
+- [x] Policy congelata e `.benchmark-scratch/` interna aggiunte
+- [x] Audit path/rete versionato e report dettagliato calibrati sul full
+- [ ] Verifica reale mirata `milestone_closure` con la policy corretta
 - [x] Versione sincronizzata
 - [x] README aggiornato
 - [x] ISTRUZIONI.md aggiornato

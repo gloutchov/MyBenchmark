@@ -83,12 +83,12 @@ Su PowerShell, inserire il comando su una sola riga oppure usare il carattere di
 Ogni run crea `results/YYYYMMDD-HHMMSS/` con:
 
 - `REPORT.md` e `report.json`: classifica e dettaglio;
-- `run.json`: ambiente, versioni, commit/stato Git, modelli, seed, ordine task, hash input, warmup e stato d'integrità;
+- `run.json`: ambiente, versioni, commit/stato Git, modelli, seed, ordine task, hash input e policy di esecuzione, warmup e stato d'integrità;
 - per ogni modello/caso: workspace finale, eventi JSONL di Pi, risposta finale, stderr, stato Git, patch, score e singoli check.
 
-All'avvio il runner rifiuta `AGENTS.md`, `.gitignore`, prompt, fixture o grader selezionati se modificati rispetto a Git. Crea poi un unico snapshot dei soli file tracciati per l'intero run, escludendo cache e output ignorati, e registra hash e tree Git delle baseline. Accessi espliciti fuori workspace, modifiche al repository o allo snapshot e baseline non uniformi escludono dalla classifica l'intero modello coinvolto; una modifica allo snapshot interrompe anche la matrice. Il report mostra sempre lo stato d'integrità prima della classifica.
+All'avvio il runner rifiuta `AGENTS.md`, `.gitignore`, prompt, fixture o grader selezionati se modificati rispetto a Git. Crea poi un unico snapshot dei soli file tracciati e della policy di esecuzione, escludendo cache e output ignorati, e registra hash e tree Git delle baseline. Ogni task riceve una directory `.benchmark-scratch/` interna e ignorata da Git; `TMPDIR`, `TMP` e `TEMP` puntano lì. Path shell risolti fuori workspace, tentativi espliciti di rete, modifiche al repository o allo snapshot e baseline non uniformi escludono dalla classifica l'intero modello coinvolto; una modifica allo snapshot interrompe anche la matrice. Il report mostra stato e dettaglio delle violazioni prima della classifica.
 
-At startup the runner rejects selected benchmark inputs that differ from Git, creates one frozen snapshot containing tracked files only (excluding ignored caches and outputs), and records input hashes and baseline Git trees. Explicit out-of-workspace access, repository/snapshot mutation, or a divergent baseline disqualifies the affected model. Snapshot mutation also aborts the remaining matrix. Integrity status is shown before the leaderboard.
+At startup the runner rejects selected benchmark inputs that differ from Git, creates one frozen snapshot containing tracked files and the execution policy (excluding ignored caches and outputs), and records input hashes and baseline Git trees. Each task gets an internal Git-ignored `.benchmark-scratch/` directory used by `TMPDIR`, `TMP`, and `TEMP`. Shell paths resolved outside the workspace, explicit network attempts, repository/snapshot mutation, or a divergent baseline disqualify the affected model. Snapshot mutation also aborts the remaining matrix. Integrity status and violation details are shown before the leaderboard.
 
 Il comando termina con exit code `1` se almeno una task va in timeout o Pi restituisce un errore, pur completando il resto della matrice e generando il report. Un punteggio sotto 60 senza errore operativo non cambia l'exit code: è un risultato del modello, non un guasto del runner.
 
@@ -106,9 +106,13 @@ La temperatura è zero per ridurre la varianza. Le ripetizioni restano necessari
 
 ## Isolamento e privacy / Isolation and privacy
 
-Il runner crea per ogni task un repository Git nuovo da uno snapshot condiviso, copia al suo interno questo `AGENTS.md` e usa una directory Pi separata. Pi riceve `--offline` e Ollama usa loopback. Le fixture non contengono credenziali reali.
+Il runner crea per ogni task un repository Git nuovo da uno snapshot condiviso, copia al suo interno questo `AGENTS.md`, premette al prompt una policy di confine bilingue e usa una directory Pi separata. La policy vieta rete e path esterni e indica `.benchmark-scratch/` per test e file temporanei. Pi riceve `--offline` e Ollama usa loopback. Le fixture includono i materiali richiesti dal caso e non contengono credenziali reali.
 
-Attenzione: gli strumenti `bash` e `write` di Pi non sono un sandbox del sistema operativo. I nuovi controlli rilevano mutazioni e molti accessi espliciti, ma non impediscono tecnicamente ogni lettura esterna o comando offuscato. Esegui il benchmark con un account non privilegiato e leggi [SECURITY_MODEL.md](SECURITY_MODEL.md) prima di aggiungere casi con dati reali.
+For each task, the runner creates a fresh Git repository from the shared snapshot, copies this `AGENTS.md`, prepends a bilingual boundary policy to the prompt, and uses a separate Pi directory. The policy forbids network and external paths and designates `.benchmark-scratch/` for tests and temporary files. Pi receives `--offline`, and Ollama remains on loopback. Fixtures include the materials required by each case and contain no real credentials.
+
+Attenzione: gli strumenti `bash` e `write` di Pi non sono un sandbox del sistema operativo. I controlli rilevano mutazioni, path espliciti e pattern di rete comuni, ma non impediscono tecnicamente ogni lettura esterna, accesso di rete o comando offuscato. La rigenerazione di un report riesamina gli eventi prodotti da versioni precedenti dell'audit senza modificare i `result.json` originali. Esegui il benchmark con un account non privilegiato e leggi [SECURITY_MODEL.md](SECURITY_MODEL.md) prima di aggiungere casi con dati reali.
+
+Warning: Pi's `bash` and `write` tools are not an operating-system sandbox. The controls detect mutations, explicit paths, and common network patterns, but cannot technically prevent every external read, network operation, or obfuscated command. Regenerating a report re-audits events produced by older audit versions without changing their original `result.json` files. Run the benchmark under an unprivileged account and read [SECURITY_MODEL.md](SECURITY_MODEL.md) before adding cases with real data.
 
 ## Sviluppo / Development
 

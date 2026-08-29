@@ -20,8 +20,15 @@ from localagent_bench.integrity import (
     verify_snapshot,
 )
 from localagent_bench.ollama import OllamaModel
-from localagent_bench.pi_adapter import PiRun
-from localagent_bench.runner import _build_task_order, _capture_git, _git, _prepare_workspace, run_benchmark
+from localagent_bench.pi_adapter import AUDIT_VERSION, SCRATCH_DIRECTORY, PiRun
+from localagent_bench.runner import (
+    EXECUTION_POLICY,
+    _build_task_order,
+    _capture_git,
+    _git,
+    _prepare_workspace,
+    run_benchmark,
+)
 
 
 class RunnerGitTests(unittest.TestCase):
@@ -30,6 +37,8 @@ class RunnerGitTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             workspace = Path(directory) / "workspace"
             baseline = _prepare_workspace(config, config.cases["targeted_patch"], workspace)
+            self.assertTrue((workspace / SCRATCH_DIRECTORY).is_dir())
+            self.assertNotIn(SCRATCH_DIRECTORY, _git(workspace, "status", "--short").stdout)
             readme = workspace / "README.md"
             readme.write_text(readme.read_text(encoding="utf-8") + "\ncommitted marker\n", encoding="utf-8")
             _git(workspace, "add", "README.md")
@@ -49,12 +58,15 @@ class RunnerGitTests(unittest.TestCase):
                 context,
                 ROOT / "AGENTS.md",
                 ROOT / ".gitignore",
+                EXECUTION_POLICY,
             )
             self.assertEqual(
                 manifest["cases"]["targeted_patch"]["fixture_sha256"],
                 fingerprint_tree(snapshots[0].fixture_path),
             )
             self.assertFalse(any(path.name == "__pycache__" for path in snapshots[0].fixture_path.rglob("*")))
+            self.assertTrue((context / "EXECUTION_POLICY.snapshot.md").is_file())
+            self.assertTrue(manifest["cases"]["targeted_patch"]["effective_input_sha256"])
             self.assertEqual([], verify_snapshot(context, manifest))
             baseline_trees = []
             for name in ("first", "second"):
@@ -71,6 +83,12 @@ class RunnerGitTests(unittest.TestCase):
             prompt = snapshots[0].prompt_path
             prompt.write_text(prompt.read_text(encoding="utf-8") + "\nchanged\n", encoding="utf-8")
             self.assertIn("cases/targeted_patch/prompt.md", verify_snapshot(context, manifest))
+
+    def test_milestone_fixture_provides_required_license(self):
+        config = load_config(ROOT / "benchmark.json")
+        case = config.cases["milestone_closure"]
+        self.assertTrue((case.fixture_path / "LICENSE").is_file())
+        self.assertIn("Apache License", (case.fixture_path / "LICENSE").read_text(encoding="utf-8"))
 
     def test_task_order_is_seeded_and_complete(self):
         config = load_config(ROOT / "benchmark.json")
@@ -131,9 +149,14 @@ class RunnerGitTests(unittest.TestCase):
             result = json.loads(result_path.read_text(encoding="utf-8"))
             report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
             self.assertTrue(result["integrity"]["valid_for_ranking"])
+            self.assertEqual(AUDIT_VERSION, result["integrity"]["audit_version"])
             self.assertTrue(result["baseline_tree"])
             self.assertEqual("passed", report["integrity"]["status"])
-            self.assertEqual(7, json.loads((run_dir / "run.json").read_text(encoding="utf-8"))["order_seed"])
+            manifest = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+            self.assertEqual(7, manifest["order_seed"])
+            self.assertEqual(AUDIT_VERSION, manifest["execution_policy"]["audit_version"])
+            self.assertIn("Non accedere alla rete", run_pi_mock.call_args.args[3])
+            self.assertTrue((result_path.parent / "workspace" / SCRATCH_DIRECTORY).is_dir())
 
     def test_preflight_rejects_dirty_case_inputs(self):
         with tempfile.TemporaryDirectory() as directory:

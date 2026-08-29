@@ -2,9 +2,9 @@
 
 ## Modello operativo / Operating model
 
-LocalAgent Benchmark verifica gli input rispetto a Git, crea una fotografia unica di prompt, fixture, grader, `AGENTS.md` e `.gitignore`, copia quella fotografia in repository Git dedicati, avvia Pi in modalità non interattiva e usa l'API OpenAI-compatible di Ollama su loopback. Ogni tentativo ha una directory Pi separata e conserva workspace, eventi, log, patch, valutazione e audit d'integrità.
+LocalAgent Benchmark verifica gli input rispetto a Git, crea una fotografia unica di prompt, fixture, grader, `AGENTS.md`, `.gitignore` e policy di esecuzione, copia quella fotografia in repository Git dedicati, avvia Pi in modalità non interattiva e usa l'API OpenAI-compatible di Ollama su loopback. Ogni tentativo ha una directory Pi separata, uno scratch interno e conserva workspace, eventi, log, patch, valutazione e audit d'integrità.
 
-LocalAgent Benchmark checks inputs against Git, creates one frozen snapshot of prompts, fixtures, graders, `AGENTS.md`, and `.gitignore`, copies that snapshot into dedicated Git repositories, launches Pi non-interactively, and uses Ollama's OpenAI-compatible API over loopback. Each attempt has an isolated Pi configuration directory and retains its workspace, events, logs, patch, grade, and integrity audit.
+LocalAgent Benchmark checks inputs against Git, creates one frozen snapshot of prompts, fixtures, graders, `AGENTS.md`, `.gitignore`, and the execution policy, copies that snapshot into dedicated Git repositories, launches Pi non-interactively, and uses Ollama's OpenAI-compatible API over loopback. Each attempt has an isolated Pi configuration directory, an internal scratch area, and retains its workspace, events, logs, patch, grade, and integrity audit.
 
 ## Asset e confini / Assets and boundaries
 
@@ -18,14 +18,15 @@ LocalAgent Benchmark checks inputs against Git, creates one frozen snapshot of p
 
 - Configurazione centrale validata all'avvio; URL e ID caso vengono controllati.
 - Preflight Git obbligatorio per gli input selezionati: file modificati o non tracciati in `AGENTS.md`, `.gitignore`, prompt, fixture o grader bloccano il run.
-- Snapshot condiviso creato una sola volta prima della matrice usando soltanto file tracciati da Git, con esclusione di cache/output ignorati e SHA-256 separati per istruzioni, prompt, fixture, grader e input complessivo.
+- Snapshot condiviso creato una sola volta prima della matrice usando soltanto file tracciati da Git, con esclusione di cache/output ignorati e SHA-256 separati per istruzioni, policy di esecuzione, prompt, fixture, grader e input effettivo complessivo.
 - Ogni workspace registra commit e tree Git della baseline; input o baseline divergenti vengono rilevati dal report.
 - Nessuna dipendenza Python di runtime e nessun download automatico di modelli.
-- Pi viene avviato con `--offline`, telemetria disabilitata e risorse globali non necessarie disabilitate.
+- Pi viene avviato con `--offline`, telemetria disabilitata e risorse globali non necessarie disabilitate; la policy bilingue preposta al prompt vieta rete e path esterni.
 - `PI_CODING_AGENT_DIR` punta alla directory del run; il file provider contiene solo il placeholder Ollama, non una chiave reale.
-- Ogni tentativo parte da una copia nuova e da un commit Git baseline.
+- Ogni tentativo parte da una copia nuova e da un commit Git baseline; `.benchmark-scratch/` è interna, ignorata in Git e assegnata a `TMPDIR`, `TMP` e `TEMP`.
 - Prima e dopo ogni task vengono confrontati i file Git tracciati e non ignorati del repository; le mutazioni attribuibili alla task invalidano il modello.
-- Gli eventi Pi vengono controllati per path strutturati fuori workspace, traversal shell e riferimenti espliciti a sorgenti, grader, `.git` o snapshot; una violazione esclude l'intero modello dalla classifica.
+- L'audit versionato risolve path strutturati e argomenti shell rispetto alla workspace e ai cambi `cd` deterministici, distingue traversal confinati nello scratch da target esterni, protegge l'intera root del benchmark e riconosce comandi o codice di rete comuni; una violazione esclude l'intero modello dalla classifica.
+- Il report mostra motivo, target ed evidenza delle violazioni e può riesaminare eventi di audit precedenti senza riscrivere i `result.json` originali.
 - Lo snapshot viene ricontrollato prima e dopo ogni task; se cambia, il grader non viene eseguito e la matrice si interrompe.
 - Ordine task randomizzato con seed registrato; unload e warmup sono ripetuti a ogni cambio modello.
 - Timeout per task e terminazione del gruppo processo su sistemi POSIX.
@@ -42,15 +43,15 @@ The benchmark requires no API key. Do not place tokens, passwords, private repos
 
 ## Rete / Network
 
-Il runner non contatta servizi Internet. `--offline` disattiva le operazioni di rete iniziali di Pi, mentre le richieste necessarie a Ollama restano locali. Questo controllo non è un firewall: un comando shell generato dal modello può tentare accessi di rete se il sistema operativo li consente.
+Il runner non contatta servizi Internet. `--offline` disattiva le operazioni di rete iniziali di Pi, mentre le richieste necessarie a Ollama restano locali. La policy vieta la rete e l'audit registra pattern espliciti come `curl`, `wget`, operazioni Git remote e chiamate Python HTTP/socket note. Questi controlli non sono un firewall: un comando generato dal modello può tentare accessi di rete se il sistema operativo li consente.
 
-The runner does not contact Internet services. Pi startup networking is disabled, while required Ollama traffic remains local. This is not a firewall: model-generated shell commands may attempt network access when allowed by the operating system.
+The runner does not contact Internet services. Pi startup networking is disabled, while required Ollama traffic remains local. The policy forbids networking, and the audit records explicit patterns such as `curl`, `wget`, remote Git operations, and known Python HTTP/socket calls. These controls are not a firewall: model-generated commands may still attempt network access when the operating system allows it.
 
 ## Filesystem e permessi / Filesystem and permissions
 
-Pi riceve strumenti `read`, `bash`, `edit`, `write`, `grep`, `find` e `ls` perché le task richiedono modifica e test. Il working directory è confinato logicamente alla fixture e gli sconfinamenti osservabili vengono auditati, ma Pi e la shell ereditano i permessi dell'utente: non esiste ancora un sandbox OS che impedisca tecnicamente letture o scritture esterne.
+Pi riceve strumenti `read`, `bash`, `edit`, `write`, `grep`, `find` e `ls` perché le task richiedono modifica e test. Il working directory è confinato logicamente alla fixture e lo scratch previsto resta sotto quella root; gli sconfinamenti espliciti vengono auditati. Pi e la shell ereditano però i permessi dell'utente: non esiste ancora un sandbox OS che impedisca tecnicamente letture o scritture esterne.
 
-Pi receives file and shell tools because tasks require editing and testing. Its working directory is logically scoped to the fixture and observable escapes are audited, but Pi and its shell inherit the user's permissions: no OS sandbox currently enforces the workspace boundary.
+Pi receives file and shell tools because tasks require editing and testing. Its working directory is logically scoped to the fixture, and the designated scratch area remains under that root; explicit escapes are audited. Pi and its shell still inherit the user's permissions: no OS sandbox currently enforces the workspace boundary.
 
 ## Validazione e processi / Validation and processes
 
@@ -59,7 +60,7 @@ I grader sono codice fidato versionato e vengono eseguiti dalla copia congelata 
 ## Limiti residui / Residual risks
 
 - Nessun isolamento OS per Pi o per i comandi shell del modello.
-- L'audit post-run non è un reference monitor: comandi shell costruiti dinamicamente, offuscati o indiretti possono leggere file esterni senza includere un path riconoscibile negli argomenti registrati.
+- L'audit post-run non è un reference monitor: comandi shell costruiti dinamicamente, espansioni non deterministiche, semantiche complesse o codice offuscato possono leggere file esterni o usare la rete senza includere un indicatore riconoscibile negli argomenti registrati; euristiche future possono anche richiedere calibrazione contro nuovi falsi positivi.
 - Il confronto del repository rileva scritture a file tracciati o non ignorati, ma non letture e non file creati in aree ignorate diverse dalla directory del run.
 - Le mutazioni alle sorgenti vengono rilevate e attribuite, ma non ripristinate automaticamente per preservare prove e modifiche utente; occorre revisione prima del run successivo.
 - Nessun blocco di rete a livello kernel.
@@ -81,4 +82,4 @@ I grader sono codice fidato versionato e vengono eseguiti dalla copia congelata 
 
 ## Test di sicurezza / Security tests
 
-Il caso `secure_workspace` controlla traversal, path assoluti, fuga via symlink, scrittura atomica e redazione. I test del runner verificano validazione configurazione, calibrazione dei grader, snapshot e hash, ordine con seed, audit dei tool, esclusione completa del modello e divergenze di baseline. Uno smoke Pi/Ollama reale ha verificato due workspace con baseline identica e integrità valida. Una futura milestone deve aggiungere un backend sandbox e test specifici per processi figli, letture indirette e rete.
+Il caso `secure_workspace` controlla traversal, path assoluti, fuga via symlink, scrittura atomica e redazione. I test del runner verificano validazione configurazione, calibrazione dei grader, snapshot e policy hash, scratch interno, ordine con seed, path shell risolti, traversal confinato, pattern `awk` non-path, tentativi di rete, riesame dei report, esclusione completa del modello e divergenze di baseline. Uno smoke Pi/Ollama reale ha verificato due workspace con baseline identica e integrità valida; il full diagnostico `20260829-120212` ha calibrato il nuovo audit contro `/tmp`, repository reale, rete e un falso positivo `awk`. Una futura milestone deve aggiungere un backend sandbox e test specifici per processi figli, letture indirette e rete.

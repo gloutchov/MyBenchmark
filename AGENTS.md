@@ -552,8 +552,10 @@ Prima di iniziare lo sviluppo effettivo:
 - Mantenere il runtime Python privo di dipendenze esterne finché non esiste una motivazione documentata.
 - Non modificare fixture o grader mentre un benchmark è in esecuzione.
 - Prima di un run, mantenere puliti rispetto a Git `AGENTS.md`, `.gitignore` e tutti i prompt, fixture e grader selezionati: il preflight deve fallire, non essere aggirato, se questi input divergono.
-- Ogni run deve usare un unico snapshot verificato per tutti i modelli, registrare SHA-256, commit/stato Git, tree delle baseline, seed e ordine delle task.
-- Trattare accessi espliciti fuori workspace, mutazioni del repository/snapshot e baseline divergenti come violazioni d'integrità: escludere l'intero modello dalla classifica e interrompere la matrice se lo snapshot condiviso cambia.
+- Ogni run deve usare un unico snapshot verificato per tutti i modelli, includere e hashare la policy di esecuzione, e registrare SHA-256, commit/stato Git, tree delle baseline, seed e ordine delle task.
+- Preparare `.benchmark-scratch/` dentro ogni workspace, ignorarla in Git e usarla per `TMPDIR`, `TMP` e `TEMP`; prompt e fixture devono contenere tutto il necessario senza richiedere `/tmp`, repository esterni o rete.
+- Trattare path espliciti risolti fuori workspace, tentativi di rete, mutazioni del repository/snapshot e baseline divergenti come violazioni d'integrità: escludere l'intero modello dalla classifica e interrompere la matrice se lo snapshot condiviso cambia.
+- Versionare l'audit, riesaminare gli eventi precedenti quando possibile e mostrare nel report motivo, target ed evidenza senza alterare i `result.json` originali.
 - `--seed` deve rendere riproducibile l'ordine randomizzato; unload e warmup vanno registrati a ogni cambio modello.
 - Ogni nuovo caso deve avere prompt, fixture, grader con massimo 100 punti e un test di calibrazione che mantenga la fixture iniziale sotto la soglia di completamento.
 - Non includere credenziali, repository reali o dati privati nelle fixture.

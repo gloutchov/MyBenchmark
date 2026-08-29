@@ -9,7 +9,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from .pi_adapter import audit_workspace_accesses
+from .pi_adapter import AUDIT_VERSION, audit_workspace_accesses
 
 
 def _mean(values: list[float]) -> float:
@@ -28,13 +28,7 @@ def _fmt_seconds(value: float) -> str:
 def _load_results(run_dir: Path) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     possible_root = run_dir.parent.parent
-    protected_paths = (
-        possible_root / "cases",
-        possible_root / "src",
-        possible_root / ".git",
-        possible_root / "benchmark.py",
-        run_dir / "benchmark-context",
-    ) if (possible_root / "benchmark.json").is_file() else ()
+    protected_paths = (possible_root,) if (possible_root / "benchmark.json").is_file() else ()
     for path in sorted(run_dir.glob("models/*/cases/*/result.json")):
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
@@ -57,21 +51,26 @@ def _load_results(run_dir: Path) -> list[dict[str, Any]]:
                     tree = ""
                 if tree:
                     payload["baseline_tree"] = tree
-            if "integrity" not in payload:
-                events_path = path.parent / "pi-events.jsonl"
-                try:
-                    events = events_path.read_text(encoding="utf-8")
-                except OSError:
-                    events = ""
+            integrity = payload.get("integrity")
+            if not isinstance(integrity, dict):
+                integrity = {}
+            events_path = path.parent / "pi-events.jsonl"
+            if integrity.get("audit_version") != AUDIT_VERSION and events_path.is_file():
+                events = events_path.read_text(encoding="utf-8", errors="replace")
                 findings = audit_workspace_accesses(events, path.parent / "workspace", protected_paths)
-                if findings:
-                    payload["integrity"] = {
-                        "valid_for_ranking": False,
-                        "source_mutations": [],
-                        "snapshot_mutations": [],
+                source_mutations = integrity.get("source_mutations", [])
+                snapshot_mutations = integrity.get("snapshot_mutations", [])
+                integrity.update(
+                    {
+                        "audit_version": AUDIT_VERSION,
+                        "valid_for_ranking": not source_mutations and not snapshot_mutations and not findings,
+                        "source_mutations": source_mutations,
+                        "snapshot_mutations": snapshot_mutations,
                         "external_accesses": findings,
-                        "inferred_from_legacy_events": True,
+                        "reaudited_from_events": True,
                     }
+                )
+                payload["integrity"] = integrity
             results.append(payload)
     return results
 
@@ -139,10 +138,54 @@ def _integrity_summary(
         disqualified.update(incomplete_models)
 
     manifest_integrity = manifest.get("integrity", {})
+    derived_violations: dict[tuple[str, str, int, str], dict[str, Any]] = {}
+    superseded_manifest_keys: set[tuple[str, str, int, str]] = set()
+    violation_fields = (
+        ("source_mutations", "repository_mutation"),
+        ("snapshot_mutations", "snapshot_mutation"),
+        ("external_accesses", "external_workspace_access"),
+    )
+    for item in results:
+        item_integrity = item.get("integrity", {})
+        if not isinstance(item_integrity, dict):
+            continue
+        for field, kind in violation_fields:
+            key = (
+                str(item.get("model", "unknown")),
+                str(item.get("case_id", "unknown")),
+                int(item.get("repetition", 1)),
+                kind,
+            )
+            if item_integrity.get("audit_version") == AUDIT_VERSION:
+                superseded_manifest_keys.add(key)
+            details = item_integrity.get(field, [])
+            if not details:
+                continue
+            derived_violations[key] = {
+                "model": key[0],
+                "case_id": key[1],
+                "repetition": key[2],
+                "kind": kind,
+                "details": details,
+            }
+    manifest_violations = manifest_integrity.get("violations", []) if isinstance(manifest_integrity, dict) else []
+    if isinstance(manifest_violations, list):
+        for violation in manifest_violations:
+            if not isinstance(violation, dict):
+                continue
+            key = (
+                str(violation.get("model", "unknown")),
+                str(violation.get("case_id", "unknown")),
+                int(violation.get("repetition", 1)),
+                str(violation.get("kind", "unknown")),
+            )
+            if key not in superseded_manifest_keys:
+                derived_violations.setdefault(key, violation)
+    current_violations = list(derived_violations.values())
     manifest_status = manifest_integrity.get("status") if isinstance(manifest_integrity, dict) else None
-    if manifest_status in {"snapshot_compromised", "violations_detected"}:
+    if manifest_status == "snapshot_compromised":
         status = manifest_status
-    elif disqualified or mismatched_cases:
+    elif disqualified or mismatched_cases or current_violations:
         status = "violations_detected"
     elif manifest:
         status = "passed"
@@ -162,7 +205,7 @@ def _integrity_summary(
         "input_mismatches": input_mismatches,
         "baseline_mismatches": baseline_mismatches,
         "incomplete_models": incomplete_models,
-        "violations": manifest_integrity.get("violations", []) if isinstance(manifest_integrity, dict) else [],
+        "violations": current_violations,
     }
     return summary, disqualified
 
@@ -287,6 +330,49 @@ def render_markdown(report: dict[str, Any], run_dir: Path) -> str:
     )
     if mismatch_cases:
         lines.append("Casi con baseline non uniforme: " + ", ".join(f"`{case}`" for case in mismatch_cases) + ".")
+    violations = integrity.get("violations", [])
+    if violations:
+        lines.extend(
+            [
+                "",
+                "### Violazioni rilevate",
+                "",
+                "| Modello | Caso | Rip. | Tipo | Motivo | Target | Accesso | Evidenza | Chiamata |",
+                "|---|---|---:|---|---|---|---|---|---|",
+            ]
+        )
+        for violation in violations:
+            details = violation.get("details", []) if isinstance(violation, dict) else []
+            if not isinstance(details, list):
+                details = [details]
+            if not details:
+                details = [{}]
+            for detail in details:
+                if isinstance(detail, dict):
+                    reason = detail.get("reason", violation.get("kind", "unknown"))
+                    target = detail.get("target", "")
+                    access = detail.get("access", "")
+                    evidence = detail.get("evidence", "")
+                    call_id = detail.get("tool_call_id", "")
+                else:
+                    reason = violation.get("kind", "unknown")
+                    target = detail
+                    access = ""
+                    evidence = ""
+                    call_id = ""
+                cells = [
+                    violation.get("model", "unknown"),
+                    violation.get("case_id", "unknown"),
+                    violation.get("repetition", 1),
+                    violation.get("kind", "unknown"),
+                    reason,
+                    target,
+                    access,
+                    evidence,
+                    call_id,
+                ]
+                rendered = [str(cell).replace("|", "\\|").replace("\n", " ") for cell in cells]
+                lines.append("| " + " | ".join(rendered) + " |")
     lines.extend(
         [
             "",

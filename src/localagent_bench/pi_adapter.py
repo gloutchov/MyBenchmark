@@ -4,12 +4,40 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shlex
 import signal
 import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
+
+
+AUDIT_VERSION = 2
+SCRATCH_DIRECTORY = ".benchmark-scratch"
+
+_SHELL_OPERATORS = {";", "&&", "||", "|", "&"}
+_SHELL_REDIRECTS = {"<", "<<", "<<<", ">", ">>"}
+_NETWORK_COMMANDS = {
+    "curl",
+    "ftp",
+    "nc",
+    "ncat",
+    "scp",
+    "sftp",
+    "ssh",
+    "telnet",
+    "wget",
+}
+_NETWORK_CODE = re.compile(
+    r"(?:urllib\.request\.(?:urlopen|urlretrieve)|requests\.(?:get|post|put|patch|delete)|"
+    r"http\.client\.|socket\.(?:create_connection|connect))",
+    re.IGNORECASE,
+)
+_SHELL_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=(.*)$", re.DOTALL)
+_SHELL_VARIABLE = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
+_WINDOWS_ABSOLUTE = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\)")
 
 
 @dataclass(frozen=True)
@@ -118,11 +146,16 @@ def run_pi(
         prompt,
     ]
     env = os.environ.copy()
+    scratch = workspace / SCRATCH_DIRECTORY
+    scratch.mkdir(parents=True, exist_ok=True)
     env.update(
         {
             "PI_CODING_AGENT_DIR": str(agent_dir),
             "PI_OFFLINE": "1",
             "PI_TELEMETRY": "0",
+            "TMPDIR": str(scratch),
+            "TMP": str(scratch),
+            "TEMP": str(scratch),
         }
     )
     started = time.monotonic()
@@ -176,19 +209,173 @@ def _inside(path: Path, root: Path) -> bool:
     return True
 
 
-def audit_workspace_accesses(stdout: str, workspace: Path, protected_paths: Iterable[Path]) -> list[dict[str, str]]:
-    """Find tool calls that explicitly address paths outside the task workspace.
+def _shell_tokens(command: str) -> list[str]:
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|<>")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        return list(lexer)
+    except ValueError:
+        return command.split()
 
-    This is a post-run audit, not an OS sandbox. Structured path arguments are
-    resolved precisely; shell commands are checked conservatively for parent
-    traversal and literal protected paths.
-    """
-    findings: list[dict[str, str]] = []
-    seen: set[tuple[str, str]] = set()
-    protected: set[str] = set()
-    for path in protected_paths:
-        protected.add(str(path.absolute()))
-        protected.add(str(path.resolve(strict=False)))
+
+def _expand_shell_variables(value: str, variables: dict[str, str]) -> str:
+    def replace(match: re.Match[str]) -> str:
+        name = match.group(1) or match.group(2) or ""
+        return variables.get(name, match.group(0))
+
+    expanded = value
+    for _ in range(3):
+        updated = _SHELL_VARIABLE.sub(replace, expanded)
+        if updated == expanded:
+            break
+        expanded = updated
+    return expanded
+
+
+def _path_value(token: str, variables: dict[str, str]) -> str:
+    assignment = _SHELL_ASSIGNMENT.match(token)
+    value = assignment.group(1) if assignment else token
+    if value.startswith("-") and "=" in value:
+        value = value.split("=", 1)[1]
+    return _expand_shell_variables(value, variables)
+
+
+def _is_allowed_device(path: Path) -> bool:
+    text = path.as_posix()
+    return text in {"/dev/null", "/dev/stdin", "/dev/stdout", "/dev/stderr"} or text.startswith("/dev/fd/")
+
+
+def _protected(path: Path, protected_roots: Iterable[Path]) -> bool:
+    return any(_inside(path, root) for root in protected_roots)
+
+
+def _audit_shell_command(
+    command: str,
+    workspace: Path,
+    protected_roots: tuple[Path, ...],
+) -> list[tuple[str, str, str]]:
+    """Return reason, target, and evidence for explicit shell boundary attempts."""
+    findings: list[tuple[str, str, str]] = []
+    tokens = _shell_tokens(command)
+    variables: dict[str, str] = {}
+    cwd = workspace.resolve(strict=False)
+    expect_cd_path = False
+    expect_redirection_path = False
+    command_name = ""
+    grep_pattern_seen = False
+    grep_expect_pattern = False
+    grep_expect_file = False
+
+    network_target = ""
+    lowered_words = [Path(token).name.casefold() for token in tokens if token not in _SHELL_OPERATORS]
+    for index, word in enumerate(lowered_words):
+        if word in _NETWORK_COMMANDS:
+            network_target = word
+            break
+        if word == "git" and any(
+            candidate in {"clone", "fetch", "pull", "push", "ls-remote"}
+            for candidate in lowered_words[index + 1:index + 4]
+        ):
+            network_target = "git remote operation"
+            break
+    if not network_target:
+        match = _NETWORK_CODE.search(command)
+        if match:
+            network_target = match.group(0)
+    if network_target:
+        findings.append(("shell_network_attempt", network_target, "command_argument"))
+
+    for token in tokens:
+        if token in _SHELL_OPERATORS:
+            expect_cd_path = False
+            expect_redirection_path = False
+            command_name = ""
+            grep_pattern_seen = False
+            grep_expect_pattern = False
+            grep_expect_file = False
+            continue
+        if token in _SHELL_REDIRECTS:
+            expect_redirection_path = token not in {"<<", "<<<"}
+            continue
+        assignment = _SHELL_ASSIGNMENT.match(token)
+        if assignment:
+            name = token.split("=", 1)[0]
+            variables[name] = _expand_shell_variables(assignment.group(1), variables)
+            continue
+        if not command_name:
+            command_name = Path(token).name.casefold()
+            if command_name in {"command", "env"}:
+                command_name = ""
+            elif command_name == "cd":
+                expect_cd_path = True
+            continue
+        if command_name == "cd" and not expect_cd_path:
+            expect_cd_path = True
+
+        value = _path_value(token, variables).strip()
+        if not value or value.startswith(("http://", "https://")) or "$" in value:
+            continue
+        is_redirection_path = expect_redirection_path
+        expect_redirection_path = False
+        if command_name in {"echo", "printf"} and not is_redirection_path:
+            continue
+        if command_name in {"grep", "egrep", "fgrep", "rg"} and not is_redirection_path:
+            if grep_expect_file:
+                grep_expect_file = False
+            elif grep_expect_pattern:
+                grep_expect_pattern = False
+                grep_pattern_seen = True
+                continue
+            elif token in {"-e", "--regexp"}:
+                grep_expect_pattern = True
+                continue
+            elif token in {"-f", "--file"}:
+                grep_expect_file = True
+                continue
+            elif token.startswith(("--regexp=", "-e")):
+                grep_pattern_seen = True
+                continue
+            elif token.startswith("-") and not token.startswith("--file="):
+                continue
+            elif not grep_pattern_seen:
+                grep_pattern_seen = True
+                continue
+        if command_name == "awk" and (
+            "{" in value or value.startswith(("/", "BEGIN", "END"))
+        ):
+            continue
+        if command_name == "sed" and value.startswith(("s/", "/")) and value.count("/") >= 2:
+            continue
+        has_parent = ".." in Path(value).parts
+        is_windows_absolute = bool(_WINDOWS_ABSOLUTE.match(value))
+        candidate: Path | None = None
+        if value.startswith("~"):
+            candidate = Path(value).expanduser()
+        elif Path(value).is_absolute():
+            candidate = Path(value)
+        elif is_windows_absolute:
+            findings.append(("shell_path_outside_workspace", value, "command_argument"))
+        elif has_parent or expect_cd_path:
+            candidate = cwd / value
+
+        if candidate is not None:
+            resolved = candidate.resolve(strict=False)
+            if not _is_allowed_device(resolved) and not _inside(resolved, workspace):
+                reason = (
+                    "shell_protected_path_outside_workspace"
+                    if _protected(resolved, protected_roots)
+                    else "shell_path_outside_workspace"
+                )
+                findings.append((reason, value, "command_argument"))
+            if expect_cd_path:
+                cwd = resolved
+        expect_cd_path = False
+    return findings
+
+
+def _tool_calls(stdout: str) -> Iterable[tuple[str, str, dict[str, Any]]]:
+    seen: set[str] = set()
     for line in stdout.splitlines():
         try:
             event = json.loads(line)
@@ -196,6 +383,12 @@ def audit_workspace_accesses(stdout: str, workspace: Path, protected_paths: Iter
             continue
         if not isinstance(event, dict):
             continue
+        if event.get("type") == "tool_execution_start":
+            call_id = str(event.get("toolCallId", "unknown"))
+            arguments = event.get("args", {})
+            if call_id not in seen and isinstance(arguments, dict):
+                seen.add(call_id)
+                yield call_id, str(event.get("toolName", "unknown")), arguments
         message = event.get("message")
         content = message.get("content") if isinstance(message, dict) else event.get("content")
         if not isinstance(content, list):
@@ -203,38 +396,50 @@ def audit_workspace_accesses(stdout: str, workspace: Path, protected_paths: Iter
         for block in content:
             if not isinstance(block, dict) or block.get("type") != "toolCall":
                 continue
-            tool = str(block.get("name", "unknown"))
             call_id = str(block.get("id", "unknown"))
             arguments = block.get("arguments", {})
-            if not isinstance(arguments, dict):
+            if call_id in seen or not isinstance(arguments, dict):
                 continue
-            reasons: list[tuple[str, str]] = []
-            raw_path = arguments.get("path")
-            if isinstance(raw_path, str) and raw_path:
-                candidate = Path(raw_path)
-                resolved = candidate if candidate.is_absolute() else workspace / candidate
-                if not _inside(resolved, workspace):
-                    reasons.append(("structured_path_outside_workspace", raw_path))
-            if tool == "bash" and isinstance(arguments.get("command"), str):
-                command = arguments["command"].replace("\\ ", " ")
-                if "../" in command or "..\\" in command:
-                    reasons.append(("shell_parent_traversal", ".."))
-                for protected_text in protected:
-                    if protected_text in command:
-                        reasons.append(("shell_protected_path", protected_text))
-            for reason, target in reasons:
-                key = (call_id, reason + "\0" + target)
-                if key in seen:
-                    continue
-                seen.add(key)
-                findings.append(
-                    {
-                        "tool_call_id": call_id,
-                        "tool": tool,
-                        "reason": reason,
-                        "target": target,
-                    }
-                )
+            seen.add(call_id)
+            yield call_id, str(block.get("name", "unknown")), arguments
+
+
+def audit_workspace_accesses(stdout: str, workspace: Path, protected_paths: Iterable[Path]) -> list[dict[str, str]]:
+    """Find tool calls that explicitly attempt paths or network outside the workspace.
+
+    This is a post-run audit, not an OS sandbox. Structured path arguments are
+    resolved precisely. Shell paths are resolved against deterministic ``cd``
+    changes, so a traversal test inside the internal scratch directory remains
+    valid while paths that resolve outside the task root are disqualifying.
+    """
+    findings: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    protected_roots = tuple(path.resolve(strict=False) for path in protected_paths)
+    for call_id, tool, arguments in _tool_calls(stdout):
+        reasons: list[tuple[str, str, str]] = []
+        raw_path = arguments.get("path")
+        if isinstance(raw_path, str) and raw_path:
+            candidate = Path(raw_path)
+            resolved = candidate if candidate.is_absolute() else workspace / candidate
+            if not _inside(resolved, workspace):
+                reasons.append(("structured_path_outside_workspace", raw_path, "structured_tool_argument"))
+        if tool == "bash" and isinstance(arguments.get("command"), str):
+            reasons.extend(_audit_shell_command(arguments["command"], workspace, protected_roots))
+        for reason, target, evidence in reasons:
+            key = (call_id, reason, target)
+            if key in seen:
+                continue
+            seen.add(key)
+            findings.append(
+                {
+                    "tool_call_id": call_id,
+                    "tool": tool,
+                    "reason": reason,
+                    "target": target,
+                    "access": "attempted",
+                    "evidence": evidence,
+                }
+            )
     return findings
 
 
