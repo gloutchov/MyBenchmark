@@ -163,6 +163,19 @@ class PiAdapterTests(unittest.TestCase):
                 {item["target"] for item in findings},
             )
 
+    def test_foreign_absolute_path_style_is_reported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            foreign_path = "C:/outside/input.txt" if sys.platform != "win32" else "/tmp/input.txt"
+            event = {
+                "type": "tool_execution_start",
+                "toolCallId": "foreign-path",
+                "toolName": "bash",
+                "args": {"command": f"python read_file.py {foreign_path}"},
+            }
+            findings = audit_workspace_accesses(json.dumps(event), workspace, [])
+            self.assertEqual({foreign_path}, {item["target"] for item in findings})
+
 
 if __name__ == "__main__":
     unittest.main()

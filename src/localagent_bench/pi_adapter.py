@@ -211,7 +211,7 @@ def _inside(path: Path, root: Path) -> bool:
 
 def _shell_tokens(command: str) -> list[str]:
     try:
-        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|<>")
+        lexer = shlex.shlex(command, posix=(os.name != "nt"), punctuation_chars=";&|<>")
         lexer.whitespace_split = True
         lexer.commenters = ""
         return list(lexer)
@@ -238,11 +238,18 @@ def _path_value(token: str, variables: dict[str, str]) -> str:
     value = assignment.group(1) if assignment else token
     if value.startswith("-") and "=" in value:
         value = value.split("=", 1)[1]
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        value = value[1:-1]
     return _expand_shell_variables(value, variables)
 
 
 def _is_allowed_device(path: Path) -> bool:
     text = path.as_posix()
+    return text in {"/dev/null", "/dev/stdin", "/dev/stdout", "/dev/stderr"} or text.startswith("/dev/fd/")
+
+
+def _is_allowed_cross_platform_device(value: str) -> bool:
+    text = value.replace("\\", "/")
     return text in {"/dev/null", "/dev/stdin", "/dev/stdout", "/dev/stderr"} or text.startswith("/dev/fd/")
 
 
@@ -348,13 +355,14 @@ def _audit_shell_command(
         if command_name == "sed" and value.startswith(("s/", "/")) and value.count("/") >= 2:
             continue
         has_parent = ".." in Path(value).parts
+        is_posix_absolute = value.startswith("/")
         is_windows_absolute = bool(_WINDOWS_ABSOLUTE.match(value))
         candidate: Path | None = None
         if value.startswith("~"):
             candidate = Path(value).expanduser()
         elif Path(value).is_absolute():
             candidate = Path(value)
-        elif is_windows_absolute:
+        elif (is_posix_absolute or is_windows_absolute) and not _is_allowed_cross_platform_device(value):
             findings.append(("shell_path_outside_workspace", value, "command_argument"))
         elif has_parent or expect_cd_path:
             candidate = cwd / value
