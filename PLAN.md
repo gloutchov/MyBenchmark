@@ -11,11 +11,11 @@ Versione corrente / Current version: **0.1.2**
 - Criteri di accettazione: `doctor` rileva l'ambiente; un run smoke produce artefatti e report; i grader hanno massimo 100 e le fixture iniziali restano sotto 60; test unitari verdi.
 - Test: compileall, unittest, doctor locale, smoke Pi/Ollama.
 - Documentazione: README, manuali, security model, MAP, AGENTS e piano.
-- Stato: **implementazione in verifica; il full diagnostico `20260829-120212` ha evidenziato confini incompleti e una fixture incoerente, corretti nella patch 0.1.2; nuova verifica reale mirata, approvazione, CI, merge/tag e full conclusivo restano richiesti prima della chiusura**.
+- Stato: **implementazione e verifica locale completate; il full diagnostico `20260829-120212` ha evidenziato confini incompleti e una fixture incoerente, corretti nella patch 0.1.2; la verifica reale mirata `20260829-164305` è valida; merge/tag sono autorizzati, mentre CI e nuovo full conclusivo restano da completare**.
 
 ### Checklist chiusura
 
-- [ ] Branch milestone creato
+- [x] Branch di lavoro creato (`patch/0.1.2-run-integrity`)
 - [x] Implementazione completata
 - [x] Test automatici aggiunti
 - [ ] Test automatici eseguiti su tutti i target CI
@@ -28,12 +28,12 @@ Versione corrente / Current version: **0.1.2**
 - [x] MAP.md aggiornato
 - [x] AGENTS.md aggiornato con note progetto
 - [x] PLAN.md aggiornato
-- [ ] Approvazione esplicita del progettista
-- [ ] Commit finale
+- [x] Approvazione esplicita del progettista per merge, tag, push e rimozione branch
+- [x] Commit implementativi e documentali completati
 - [ ] PR o merge verso main
 - [ ] CI verificata su branch/PR e main
-- [ ] Tag (non previsto per questa milestone iniziale)
-- [ ] Release (non prevista per questa milestone iniziale)
+- [ ] Tag `v0.1.2` tramite patch di integrità
+- [x] Nessuna GitHub release per la patch ordinaria; richiesti soltanto tag e push
 
 ## Patch prioritaria 0.1.1 – Ripristino CI e calibrazione `targeted_patch`
 
@@ -57,7 +57,7 @@ Versione corrente / Current version: **0.1.2**
 - Test richiesti: compileall; unittest; calibrazione diretta di tutte le fixture; test mirati per snapshot/policy hash, scratch, seed, path strutturati e shell, rete, falsi positivi `awk`, riesame report, disqualifica modello, baseline di minoranza e flusso runner simulato; `doctor`; smoke Pi/Ollama con `qwen3.8:27b-q4_K_M` e `gpt-oss:20b`; verifica reale mirata di `milestone_closure` dopo il commit correttivo.
 - Documentazione: README, manuali bilingui, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e `PLAN.md`.
 - Release: patch ordinaria; chiedere al progettista se pubblicare una GitHub release. Tag previsto `v0.1.2` soltanto dopo approvazione, merge e CI verde su `main`.
-- Stato: **correzioni successive al full diagnostico implementate e committate; 23 test automatici verdi; il riesame in sola lettura di `20260829-120212` esclude soltanto Qwen per `/tmp`, repository reale e rete, senza falsi positivi sui pattern testuali di GPT-OSS; la verifica reale `20260829-164305` completa `milestone_closure` con Qwen a 100/100, integrità valida e scratch interno; approvazione finale, CI, merge, tag e nuovo confronto full restano richiesti**.
+- Stato: **correzioni successive al full diagnostico implementate e committate; 23 test automatici verdi; il riesame in sola lettura di `20260829-120212` esclude soltanto Qwen per `/tmp`, repository reale e rete, senza falsi positivi sui pattern testuali di GPT-OSS; la verifica reale `20260829-164305` completa `milestone_closure` con Qwen a 100/100, integrità valida e scratch interno; merge, tag e push sono autorizzati, mentre CI e nuovo confronto full restano da completare**.
 
 ### Checklist patch 0.1.2
 
@@ -80,12 +80,12 @@ Versione corrente / Current version: **0.1.2**
 - [x] MAP.md aggiornato
 - [x] AGENTS.md aggiornato
 - [x] PLAN.md aggiornato
-- [ ] Approvazione esplicita del progettista
+- [x] Approvazione esplicita del progettista per merge, tag, push e rimozione branch
 - [x] Commit implementativi creati sul branch patch
 - [ ] PR o merge verso `main`
 - [ ] CI verificata sul branch/PR e su `main`
 - [ ] Tag `v0.1.2`
-- [ ] Decisione esplicita sulla GitHub release
+- [x] Nessuna GitHub release: per questa patch ordinaria sono richiesti soltanto tag e push
 
 ## Milestone 2 – Sandbox e metriche di sistema
 
