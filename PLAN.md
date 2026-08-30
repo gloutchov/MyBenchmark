@@ -97,7 +97,7 @@ Versione corrente / Current version: **0.2.0**
 - Criteri di accettazione: uscita dalla workspace bloccata tecnicamente nel backend sandbox; modalità corrente mantenuta e segnalata; report aggregato su più run.
 - Test: unit, integrazione, sicurezza e smoke macOS/Windows/Linux.
 - Documentazione: tutti i manuali, security model e MAP.
-- Stato: **implementazione e verifica completate sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati. I probe reali Seatbelt per lettura indiretta e rete sono verdi. Dopo il diagnostico `20260830-102245`, lo smoke reale corretto `20260830-102400` ha completato `targeted_patch` con Qwen 9B a 100/100 in 234,9 s, integrità valida, repository pulito, Seatbelt enforced, profilo hashato e metriche registrate. La CI Node 24 `33302977695` sul commit `a253641` è verde sui tre OS. Il campione `20260830-103545`, riesaminato con audit 3 senza alterare il risultato originale, è valido a 100/100; `20260830-104238` ha raggiunto il timeout a 900 s con qualità 85 e integrità valida. Il confronto reale `comparison-m2-real-bounded` aggrega due campioni compatibili: totale medio 84, qualità 92,5, completamento 50% e durata media 557,6 s; gli intervalli sono limitati al dominio naturale. Il progettista ha accettato esplicitamente Windows audit-only per la 0.2.0; versione sincronizzata. Restano verifica CI finale e avallo prima del merge.**
+- Stato: **pronta per l'avallo pre-merge sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati. I probe reali Seatbelt per lettura indiretta e rete sono verdi. Dopo il diagnostico `20260830-102245`, lo smoke reale corretto `20260830-102400` ha completato `targeted_patch` con Qwen 9B a 100/100 in 234,9 s, integrità valida, repository pulito, Seatbelt enforced, profilo hashato e metriche registrate. Il campione `20260830-103545`, riesaminato con audit 3 senza alterare il risultato originale, è valido a 100/100; `20260830-104238` ha raggiunto il timeout a 900 s con qualità 85 e integrità valida. Il confronto reale `comparison-m2-real-bounded` aggrega due campioni compatibili: totale medio 84, qualità 92,5, completamento 50% e durata media 557,6 s; gli intervalli sono limitati al dominio naturale. Il progettista ha accettato esplicitamente Windows audit-only per la 0.2.0; versione sincronizzata, `doctor` host verde e CI finale Node 24 `33303358861` verde sui tre OS. Resta l'avallo esplicito prima del merge.**
 
 ### Checklist milestone 2
 
@@ -114,7 +114,7 @@ Versione corrente / Current version: **0.2.0**
 - [x] Test unitari e negativi aggiunti
 - [x] Test automatici locali completi e probe OS macOS eseguiti
 - [x] Smoke Pi/Ollama con sandbox reale eseguito (`20260830-102400`)
-- [x] CI macOS, Windows e Linux verificata (`33302977695`)
+- [x] CI finale macOS, Windows e Linux verificata (`33303358861`)
 - [x] Versione 0.2.0 sincronizzata
 - [x] README e manuali aggiornati per il comportamento corrente
 - [x] SECURITY_MODEL e MAP aggiornati
