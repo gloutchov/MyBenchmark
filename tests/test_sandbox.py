@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import socket
 import shutil
 import subprocess
@@ -85,7 +86,7 @@ class SandboxTests(unittest.TestCase):
             self.assertIn("(deny network-outbound)", content)
             self.assertIn('localhost:11434', content)
             self.assertIn("(allow file-read-metadata (literal", content)
-            self.assertIn(str(workspace), content)
+            self.assertIn(json.dumps(str(workspace)), content)
             self.assertEqual("sandbox.sb", launch.metadata["profile_path"].split("/")[-1])
             self.assertEqual(64, len(str(launch.metadata["profile_sha256"])))
 
