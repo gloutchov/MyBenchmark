@@ -556,6 +556,7 @@ Prima di iniziare lo sviluppo effettivo:
 - Preparare `.benchmark-scratch/` dentro ogni workspace, ignorarla in Git e usarla per `TMPDIR`, `TMP` e `TEMP`; prompt e fixture devono contenere tutto il necessario senza richiedere `/tmp`, repository esterni o rete.
 - Trattare path espliciti risolti fuori workspace, tentativi di rete, mutazioni del repository/snapshot e baseline divergenti come violazioni d'integrità: escludere l'intero modello dalla classifica e interrompere la matrice se lo snapshot condiviso cambia.
 - Versionare l'audit, riesaminare gli eventi precedenti quando possibile e mostrare nel report motivo, target ed evidenza senza alterare i `result.json` originali.
+- Nei comandi shell distinguere il controllo eseguito dai payload letterali: un heredoc scritto su file non va interpretato come sequenza di path/comandi, mentre un heredoc inviato a un interprete deve mantenere i controlli applicabili.
 - `--seed` deve rendere riproducibile l'ordine randomizzato; unload e warmup vanno registrati a ogni cambio modello.
 - Ogni nuovo caso deve avere prompt, fixture, grader con massimo 100 punti e un test di calibrazione che mantenga la fixture iniziale sotto la soglia di completamento.
 - Non includere credenziali, repository reali o dati privati nelle fixture.

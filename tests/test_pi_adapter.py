@@ -9,10 +9,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from localagent_bench.pi_adapter import audit_workspace_accesses, parse_json_events, write_models_config
+from localagent_bench.pi_adapter import AUDIT_VERSION, audit_workspace_accesses, parse_json_events, write_models_config
 
 
 class PiAdapterTests(unittest.TestCase):
+    def test_current_audit_version(self):
+        self.assertEqual(3, AUDIT_VERSION)
+
     def test_extracts_usage_tools_and_final_response(self):
         lines = [
             {"type": "session", "version": 3},
@@ -175,6 +178,50 @@ class PiAdapterTests(unittest.TestCase):
             }
             findings = audit_workspace_accesses(json.dumps(event), workspace, [])
             self.assertEqual({foreign_path}, {item["target"] for item in findings})
+
+    def test_literal_heredoc_body_is_not_parsed_as_shell_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            event = {
+                "type": "tool_execution_start",
+                "toolCallId": "heredoc",
+                "toolName": "bash",
+                "args": {
+                    "command": (
+                        "cat > tests.py << 'EOF'\n"
+                        "from pathlib import Path\n"
+                        "ROOT = Path(__file__).resolve().parents[1] / \"src\"\n"
+                        "EOF"
+                    )
+                },
+            }
+            self.assertEqual([], audit_workspace_accesses(json.dumps(event), workspace, []))
+
+    def test_executable_heredoc_network_code_is_still_reported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            events = [
+                {
+                    "type": "tool_execution_start",
+                    "toolCallId": "python-heredoc",
+                    "toolName": "bash",
+                    "args": {
+                        "command": "python3 <<'PY'\nimport requests\nrequests.get('https://example.invalid')\nPY"
+                    },
+                },
+                {
+                    "type": "tool_execution_start",
+                    "toolCallId": "shell-heredoc",
+                    "toolName": "bash",
+                    "args": {"command": "bash <<'SH'\ncurl https://example.invalid\nSH"},
+                },
+            ]
+            findings = audit_workspace_accesses("\n".join(json.dumps(event) for event in events), workspace, [])
+            self.assertEqual(
+                {"python-heredoc", "shell-heredoc"},
+                {item["tool_call_id"] for item in findings},
+            )
+            self.assertTrue(all(item["reason"] == "shell_network_attempt" for item in findings))
 
 
 if __name__ == "__main__":

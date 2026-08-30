@@ -17,7 +17,7 @@ from .sandbox import SandboxSelection, prepare_sandbox_launch
 from .system_metrics import SystemMetricCollector
 
 
-AUDIT_VERSION = 2
+AUDIT_VERSION = 3
 SCRATCH_DIRECTORY = ".benchmark-scratch"
 
 _SHELL_OPERATORS = {";", "&&", "||", "|", "&"}
@@ -41,6 +41,18 @@ _NETWORK_CODE = re.compile(
 _SHELL_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=(.*)$", re.DOTALL)
 _SHELL_VARIABLE = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))")
 _WINDOWS_ABSOLUTE = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\)")
+_HEREDOC_START = re.compile(
+    r"(?<!<)<<(?P<strip>-?)[ \t]*(?:'(?P<single>[^']+)'|\"(?P<double>[^\"]+)\"|(?P<plain>[A-Za-z_][A-Za-z0-9_]*))"
+)
+_SHELL_HEREDOC_RECEIVERS = {"bash", "dash", "ksh", "sh", "zsh"}
+_CODE_HEREDOC_RECEIVERS = {
+    "node",
+    "perl",
+    "python",
+    "python3",
+    "ruby",
+    *_SHELL_HEREDOC_RECEIVERS,
+}
 
 
 @dataclass(frozen=True)
@@ -238,6 +250,58 @@ def _shell_tokens(command: str) -> list[str]:
         return command.split()
 
 
+def _command_before_heredoc(header: str) -> str:
+    command_name = ""
+    for token in _shell_tokens(header):
+        if token in _SHELL_OPERATORS:
+            command_name = ""
+            continue
+        if token in _SHELL_REDIRECTS or _SHELL_ASSIGNMENT.match(token):
+            continue
+        if not command_name:
+            candidate = Path(token).name.casefold()
+            if candidate not in {"command", "env"}:
+                command_name = candidate
+    return command_name
+
+
+def _heredoc_control_and_payloads(command: str) -> tuple[str, list[tuple[str, str]]]:
+    """Separate shell control text from literal here-document bodies."""
+    control: list[str] = []
+    payloads: list[tuple[str, str]] = []
+    pending: list[dict[str, Any]] = []
+    for line in command.splitlines(keepends=True):
+        if pending:
+            current = pending[0]
+            candidate = line.rstrip("\r\n")
+            if current["strip_tabs"]:
+                candidate = candidate.lstrip("\t")
+            if candidate == current["delimiter"]:
+                payloads.append((str(current["receiver"]), "".join(current["body"])))
+                pending.pop(0)
+            else:
+                current["body"].append(line.lstrip("\t") if current["strip_tabs"] else line)
+            continue
+
+        control.append(line)
+        matches = list(_HEREDOC_START.finditer(line))
+        for match in matches:
+            receiver = _command_before_heredoc(line[:match.start()])
+            if "|" in line[match.end():]:
+                receiver = "sh"
+            pending.append(
+                {
+                    "delimiter": match.group("single") or match.group("double") or match.group("plain"),
+                    "strip_tabs": match.group("strip") == "-",
+                    "receiver": receiver,
+                    "body": [],
+                }
+            )
+    for current in pending:
+        payloads.append((str(current["receiver"]), "".join(current["body"])))
+    return "".join(control), payloads
+
+
 def _expand_shell_variables(value: str, variables: dict[str, str]) -> str:
     def replace(match: re.Match[str]) -> str:
         name = match.group(1) or match.group(2) or ""
@@ -283,7 +347,8 @@ def _audit_shell_command(
 ) -> list[tuple[str, str, str]]:
     """Return reason, target, and evidence for explicit shell boundary attempts."""
     findings: list[tuple[str, str, str]] = []
-    tokens = _shell_tokens(command)
+    control_command, heredocs = _heredoc_control_and_payloads(command)
+    tokens = _shell_tokens(control_command)
     variables: dict[str, str] = {}
     cwd = workspace.resolve(strict=False)
     expect_cd_path = False
@@ -306,11 +371,19 @@ def _audit_shell_command(
             network_target = "git remote operation"
             break
     if not network_target:
-        match = _NETWORK_CODE.search(command)
+        match = _NETWORK_CODE.search(control_command)
         if match:
             network_target = match.group(0)
     if network_target:
         findings.append(("shell_network_attempt", network_target, "command_argument"))
+
+    for receiver, payload in heredocs:
+        if receiver in _SHELL_HEREDOC_RECEIVERS:
+            findings.extend(_audit_shell_command(payload, workspace, protected_roots))
+        elif receiver in _CODE_HEREDOC_RECEIVERS:
+            match = _NETWORK_CODE.search(payload)
+            if match:
+                findings.append(("shell_network_attempt", match.group(0), "heredoc_code"))
 
     for token in tokens:
         if token in _SHELL_OPERATORS:
