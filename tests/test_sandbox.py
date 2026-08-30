@@ -62,12 +62,14 @@ class SandboxTests(unittest.TestCase):
         self.assertFalse(linux.network_isolation)
 
     @patch("localagent_bench.sandbox.shutil.which", return_value="/usr/bin/sandbox-exec")
-    def test_macos_launch_records_profile_and_loopback_policy(self, _which_mock):
+    @patch("localagent_bench.sandbox.Path.home")
+    def test_macos_launch_records_profile_and_loopback_policy(self, home_mock, _which_mock):
         selection = SandboxSelection(
             "required", "macos-seatbelt", True, True, True, True, "test", True
         )
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             root = Path(directory)
+            home_mock.return_value = root
             workspace = root / "workspace"
             agent_dir = root / "agent"
             workspace.mkdir()
