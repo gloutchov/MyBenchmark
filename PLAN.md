@@ -97,7 +97,7 @@ Versione corrente / Current version: **0.2.0**
 - Criteri di accettazione: uscita dalla workspace bloccata tecnicamente nel backend sandbox; modalità corrente mantenuta e segnalata; report aggregato su più run.
 - Test: unit, integrazione, sicurezza e smoke macOS/Windows/Linux.
 - Documentazione: tutti i manuali, security model e MAP.
-- Stato: **pronta per l'avallo pre-merge sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati. I probe reali Seatbelt per lettura indiretta e rete sono verdi. Dopo il diagnostico `20260830-102245`, lo smoke reale corretto `20260830-102400` ha completato `targeted_patch` con Qwen 9B a 100/100 in 234,9 s, integrità valida, repository pulito, Seatbelt enforced, profilo hashato e metriche registrate. Il campione `20260830-103545`, riesaminato con audit 3 senza alterare il risultato originale, è valido a 100/100; `20260830-104238` ha raggiunto il timeout a 900 s con qualità 85 e integrità valida. Il confronto reale `comparison-m2-real-bounded` aggrega due campioni compatibili: totale medio 84, qualità 92,5, completamento 50% e durata media 557,6 s; gli intervalli sono limitati al dominio naturale. Il progettista ha accettato esplicitamente Windows audit-only per la 0.2.0; versione sincronizzata, `doctor` host verde e CI finale Node 24 `33303358861` verde sui tre OS. Resta l'avallo esplicito prima del merge.**
+- Stato: **pronta per l'avallo pre-merge sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati. I probe reali Seatbelt per lettura indiretta e rete sono verdi. Dopo il diagnostico `20260830-102245`, lo smoke reale corretto `20260830-102400` ha completato `targeted_patch` con Qwen 9B a 100/100 in 234,9 s, integrità valida, repository pulito, Seatbelt enforced, profilo hashato e metriche registrate. Il campione `20260830-103545`, riesaminato con audit 3 senza alterare il risultato originale, è valido a 100/100; `20260830-104238` ha raggiunto il timeout a 900 s con qualità 85 e integrità valida. Il confronto reale `comparison-m2-real-bounded` aggrega due campioni compatibili: totale medio 84, qualità 92,5, completamento 50% e durata media 557,6 s; gli intervalli sono limitati al dominio naturale. Il progettista ha accettato esplicitamente Windows audit-only per la 0.2.0; la parità enforced Windows/Linux è pianificata nella milestone 3. Versione sincronizzata, `doctor` host verde e CI finale Node 24 `33303358861` verde sui tre OS. Resta l'avallo esplicito prima del merge.**
 
 ### Checklist milestone 2
 
@@ -107,6 +107,7 @@ Versione corrente / Current version: **0.2.0**
 - [x] Backend macOS Seatbelt con file utente e rete limitata a Ollama loopback
 - [x] Backend Linux bubblewrap con filesystem e process tree isolati
 - [x] Limite Windows audit-only accettato esplicitamente dal progettista per la 0.2.0
+- [x] Follow-up per AppContainer Windows e isolamento rete Linux pianificato nella milestone 3
 - [x] Metriche hardware, rusage e RAPL opzionale con provider/scope
 - [x] Schema risultati/report 3 compatibile con lettura schema 2
 - [x] Confronto statistico tra run compatibili con versione, parametri e digest verificati
@@ -122,10 +123,22 @@ Versione corrente / Current version: **0.2.0**
 - [ ] Approvazione esplicita del progettista prima del merge
 - [ ] Commit finale, PR/merge, CI `main`, tag `v0.2.0` e release previsti verificati
 
-## Milestone 3 – Casi personali estensibili
+## Milestone 3 – Parità sandbox multipiattaforma
+
+- Obiettivo: rendere `required` realmente enforced anche su Windows e chiudere il gap di rete del backend Linux, così che il benchmark possa essere eseguito e pubblicato con confini equivalenti e verificabili su macOS, Windows e Linux.
+- Branch previsto: `milestone/3-cross-platform-sandbox`
+- Incremento versione: `+0.1.0`
+- Attività: prototipare e selezionare l'API Windows supportata più adatta tra AppContainer/LPAC e le API correnti di isolamento dei processi Win32; avviare Pi/Node e tutti i figli con identità e capacità minime; concedere accesso soltanto a workspace e configurazione Pi della task; negare directory utente, credenziali, registry non necessario e rete generica; progettare un trasporto locale ristretto verso Ollama senza aprire l'outbound; terminare in modo affidabile l'intero albero processi; mantenere probe, capability manifest, fallback `auto` esplicito e `required` fail-closed. Su Linux usare un network namespace bubblewrap e un proxy o trasporto locale minimo verso Ollama, eliminando la condivisione della rete host. Conservare Seatbelt macOS come regressione di riferimento e documentarne la deprecazione.
+- Criteri di accettazione: `required` applica un backend OS su tutti e tre i sistemi supportati; Pi e i figli non possono leggere o scrivere fuori dalle directory concesse; la rete raggiunge soltanto il canale Ollama previsto e non Internet né altre porte locali; timeout e cancellazione terminano i discendenti; nessun backend richiede privilegi amministrativi impliciti; backend, capacità, limiti e fallback sono registrati senza sovrastimarli; un probe fallito interrompe `required` senza eseguire task.
+- Test: unit e test negativi per selezione backend, ACL/capability, path assoluti, traversal, symlink/junction/reparse point, registry e rete; processi figli indiretti e sopravvissuti; porte loopback consentite e negate; probe reali Windows e Linux; smoke Pi/Ollama enforced su host Windows e Linux; regressione macOS; CI sui tre OS; verifica che gli stessi criteri di integrità e lo stesso schema report valgano per ogni backend.
+- Documentazione: README e manuali bilingui, quick start dedicati Windows/Linux, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e piano; prerequisiti, limiti residui e troubleshooting per ogni backend.
+- Release: milestone rilasciabile con GitHub release; artifact o pacchetto installabile e checksum SHA-256 se viene introdotta distribuzione fuori checkout.
+- Stato: pianificata dopo la 0.2.0; il prototipo deve verificare per primo il canale Ollama locale, perché AppContainer e i network namespace bloccano il loopback host per impostazione di isolamento.
+
+## Milestone 4 – Casi personali estensibili
 
 - Obiettivo: rendere semplice importare nuovi casi e pesi senza modificare il core.
-- Branch previsto: `milestone/3-case-sdk`
+- Branch previsto: `milestone/4-case-sdk`
 - Incremento versione: `+0.1.0`
 - Attività: schema manifesto per caso, validatore, template, guida autore e rubriche manuali opzionali.
 - Criteri di accettazione: un nuovo caso può essere aggiunto da template e validato con un comando.
@@ -133,10 +146,10 @@ Versione corrente / Current version: **0.2.0**
 - Documentazione: guida bilingue e quick start autore.
 - Stato: pianificata.
 
-## Milestone 4 – Finalissima dashboard interattiva
+## Milestone 5 – Finalissima dashboard interattiva
 
 - Obiettivo: aggiungere una prova pratica finale in cui i modelli migliori trasformano gli stessi risultati reali dei profili `smoke`, `standard` e `full` in una dashboard interattiva, offline, accessibile e verificabile, riutilizzabile in seguito come lettore dei nuovi report del benchmark.
-- Branch previsto: `milestone/4-results-dashboard-showcase`
+- Branch previsto: `milestone/5-results-dashboard-showcase`
 - Incremento versione: `+0.1.0`
 - Attività: nuovo caso `results_dashboard` e profilo separato `showcase`; comando `dashboard-data` che riceve una o più directory di run, combina `run.json` e `report.json`, conserva profilo e provenienza e genera un unico `dashboard-data.json` tramite whitelist dei soli campi necessari; fotografia immutabile dello stesso dataset reale per tutti i finalisti; visualizzazione del funnel `smoke` → `standard` → `full`, con partecipanti e passaggi tra le fasi senza classificare automaticamente come falliti i modelli non eseguiti nelle fasi successive; classifiche per profilo, andamento dei modelli, confronto metriche, filtri, ordinamento e dettaglio task; importazione successiva di uno o più report compatibili senza ricostruire l'app; applicazione statica HTML/CSS/JavaScript senza dipendenze runtime esterne; gestione di errori, timeout, dati mancanti e stati vuoti; tema chiaro/scuro e lingua italiano/inglese con preferenze persistenti; layout responsive e accessibilità da tastiera; rubrica visuale manuale e artefatti ispezionabili.
 - Criteri di accettazione: tutti i finalisti ricevono la stessa copia immutabile dei report reali selezionati e gli stessi limiti; il dataset aggregato distingue run e profili e non contiene percorsi assoluti, comandi, prompt, risposte integrali, log o altri dati non necessari; la dashboard funziona completamente offline, non modifica i dati sorgente e non contiene valori o nomi di modelli hardcoded; i dati visualizzati corrispondono ai report e nuovi report compatibili possono essere importati localmente; funnel, classifiche separate, filtri, ordinamento, dettagli, lingua e tema sono operativi; gli stati anomali sono leggibili; il grader automatico ha massimo 100 punti, mantiene la fixture iniziale sotto la soglia di completamento e verifica la generalità con un secondo dataset non fornito nel prompt; il punteggio tecnico resta distinto dalla valutazione visuale umana; workspace, patch e istruzioni di avvio restano disponibili per la revisione finale.
