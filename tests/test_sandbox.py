@@ -87,7 +87,7 @@ class SandboxTests(unittest.TestCase):
             self.assertIn('localhost:11434', content)
             self.assertIn("(allow file-read-metadata (literal", content)
             self.assertIn(json.dumps(str(workspace)), content)
-            self.assertEqual("sandbox.sb", launch.metadata["profile_path"].split("/")[-1])
+            self.assertEqual("sandbox.sb", Path(str(launch.metadata["profile_path"])).name)
             self.assertEqual(64, len(str(launch.metadata["profile_sha256"])))
 
     @patch("localagent_bench.sandbox._common_install_root", return_value=None)
