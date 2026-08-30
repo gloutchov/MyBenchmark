@@ -182,7 +182,7 @@ def _common_install_root(command_name: str) -> Path | None:
     except ValueError:
         return visible.parent
     if common == Path(executable):
-        return common.parent
+        return common.parent.parent if common.parent.name == "bin" else common.parent
     if common.suffix or common.name in {"bin", "lib"}:
         return common.parent
     return common

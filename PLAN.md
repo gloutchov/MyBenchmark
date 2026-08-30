@@ -97,7 +97,7 @@ Versione corrente / Current version: **0.1.2**
 - Criteri di accettazione: uscita dalla workspace bloccata tecnicamente nel backend sandbox; modalità corrente mantenuta e segnalata; report aggregato su più run.
 - Test: unit, integrazione, sicurezza e smoke macOS/Windows/Linux.
 - Documentazione: tutti i manuali, security model e MAP.
-- Stato: **in corso sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati con test unitari. I probe reali Seatbelt per lettura indiretta e rete sono verdi; il primo smoke Pi/Ollama `20260830-102245` ha mantenuto integrità valida ma ha rivelato il `lstat` della radice home necessario a Node, ora consentito come solo metadata e in attesa di nuovo smoke. Restano verifica multipiattaforma CI, sincronizzazione versione 0.2.0 e chiusura documentale prima dell'avallo al merge.**
+- Stato: **in corso sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati. I probe reali Seatbelt per lettura indiretta e rete sono verdi. Dopo il diagnostico `20260830-102245`, lo smoke reale corretto `20260830-102400` ha completato `targeted_patch` con Qwen 9B a 100/100 in 234,9 s, integrità valida, repository pulito, Seatbelt enforced, profilo hashato e metriche registrate. Restano verifica multipiattaforma CI, decisione sul limite Windows, sincronizzazione versione 0.2.0 e chiusura prima dell'avallo al merge.**
 
 ### Checklist milestone 2
 
@@ -111,8 +111,8 @@ Versione corrente / Current version: **0.1.2**
 - [x] Schema risultati/report 3 compatibile con lettura schema 2
 - [x] Confronto statistico tra run compatibili
 - [x] Test unitari e negativi aggiunti
-- [ ] Test automatici completi e probe OS eseguiti
-- [ ] Smoke Pi/Ollama con sandbox reale eseguito
+- [x] Test automatici locali completi e probe OS macOS eseguiti
+- [x] Smoke Pi/Ollama con sandbox reale eseguito (`20260830-102400`)
 - [ ] CI macOS, Windows e Linux verificata
 - [ ] Versione 0.2.0 sincronizzata
 - [x] README e manuali aggiornati per il comportamento corrente

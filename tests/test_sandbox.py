@@ -91,17 +91,19 @@ class SandboxTests(unittest.TestCase):
 
     @patch("localagent_bench.sandbox._common_install_root", return_value=None)
     def test_linux_command_mounts_only_explicit_user_paths(self, _install_mock):
+        workspace = Path("/home/test/run/workspace").absolute()
+        agent_dir = Path("/home/test/run/agent").absolute()
         command = _linux_command(
             "/usr/bin/bwrap",
             ("pi",),
-            Path("/home/test/run/workspace"),
-            Path("/home/test/run/agent"),
+            workspace,
+            agent_dir,
             ("pi",),
         )
         rendered = " ".join(command)
-        self.assertIn("--bind /home/test/run/workspace /home/test/run/workspace", rendered)
-        self.assertIn("--bind /home/test/run/agent /home/test/run/agent", rendered)
-        self.assertNotIn("--ro-bind /home /home", rendered)
+        self.assertIn(f"--bind {workspace} {workspace}", rendered)
+        self.assertIn(f"--bind {agent_dir} {agent_dir}", rendered)
+        self.assertNotIn(f"--ro-bind {workspace.parent.parent.parent} {workspace.parent.parent.parent}", rendered)
         self.assertIn("--unshare-pid", command)
         self.assertNotIn("--unshare-net", command)
 

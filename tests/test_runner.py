@@ -168,6 +168,9 @@ class RunnerGitTests(unittest.TestCase):
             self.assertIn("Non accedere alla rete", run_pi_mock.call_args.args[3])
             self.assertTrue((result_path.parent / "workspace" / SCRATCH_DIRECTORY).is_dir())
             self.assertTrue((result_path.parent / ".pi-agent" / "models.json").is_file())
+            markdown = (run_dir / "REPORT.md").read_text(encoding="utf-8")
+            self.assertIn("Sandbox: **audit-only** (audit-only)", markdown)
+            self.assertIn("0.30s", markdown)
 
     def test_preflight_rejects_dirty_case_inputs(self):
         with tempfile.TemporaryDirectory() as directory:
