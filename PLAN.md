@@ -97,7 +97,7 @@ Versione corrente / Current version: **0.1.2**
 - Criteri di accettazione: uscita dalla workspace bloccata tecnicamente nel backend sandbox; modalità corrente mantenuta e segnalata; report aggregato su più run.
 - Test: unit, integrazione, sicurezza e smoke macOS/Windows/Linux.
 - Documentazione: tutti i manuali, security model e MAP.
-- Stato: **in corso sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati con test unitari. Restano smoke reali dei backend, verifica multipiattaforma CI, rifiniture emerse dai test, sincronizzazione versione 0.2.0 e chiusura documentale prima dell'avallo al merge.**
+- Stato: **in corso sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati con test unitari. I probe reali Seatbelt per lettura indiretta e rete sono verdi; il primo smoke Pi/Ollama `20260830-102245` ha mantenuto integrità valida ma ha rivelato il `lstat` della radice home necessario a Node, ora consentito come solo metadata e in attesa di nuovo smoke. Restano verifica multipiattaforma CI, sincronizzazione versione 0.2.0 e chiusura documentale prima dell'avallo al merge.**
 
 ### Checklist milestone 2
 

@@ -84,6 +84,7 @@ class SandboxTests(unittest.TestCase):
             content = profile.read_text(encoding="utf-8")
             self.assertIn("(deny network-outbound)", content)
             self.assertIn('localhost:11434', content)
+            self.assertIn("(allow file-read-metadata (literal", content)
             self.assertIn(str(workspace), content)
             self.assertEqual("sandbox.sb", launch.metadata["profile_path"].split("/")[-1])
             self.assertEqual(64, len(str(launch.metadata["profile_sha256"])))

@@ -219,6 +219,7 @@ def _macos_profile(
         "(version 1)\n"
         "(allow default)\n"
         f"(deny file-read* file-write* (subpath {_sbpl(home)}))\n"
+        f"(allow file-read-metadata (literal {_sbpl(home)}))\n"
         "(deny file-read* file-write* (subpath \"/Volumes\"))\n"
         "(deny file-read* file-write* (subpath \"/private/tmp\"))\n"
         "(deny file-read* file-write* (subpath \"/private/var/folders\"))\n"
