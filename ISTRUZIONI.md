@@ -119,7 +119,7 @@ Il runner restituisce exit code `1` se una o più task terminano con errore o ti
 
 ## 9. Sicurezza e privacy
 
-Non inserire dati privati, repository reali o credenziali nelle fixture. `audit` non è una sandbox. Il backend macOS restringe file utente esterni e rete salvo Ollama loopback; è basato sulla deprecata interfaccia `sandbox-exec`. Bubblewrap su Linux isola filesystem utente e process tree, ma conserva la rete host per raggiungere Ollama. I grader restano processi fidati eseguiti fuori sandbox. Consultare `SECURITY_MODEL.md`.
+Non inserire dati privati, repository reali o credenziali nelle fixture. `audit` non è una sandbox. Il backend macOS restringe file utente esterni e rete salvo Ollama loopback; per risolvere correttamente i path dei tool Pi concede soltanto metadata sui singoli antenati dei path autorizzati, non il listing o la lettura dei loro contenuti. È basato sulla deprecata interfaccia `sandbox-exec`. Bubblewrap su Linux isola filesystem utente e process tree, ma conserva la rete host per raggiungere Ollama. I grader restano processi fidati eseguiti fuori sandbox. Consultare `SECURITY_MODEL.md`.
 
 ## 10. Limiti noti
 

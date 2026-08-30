@@ -100,7 +100,7 @@ The runner exits with code `1` when one or more tasks end in an error or timeout
 
 ## 9. Security and privacy
 
-Do not add private data, real repositories, or credentials to cases. `audit` is not a sandbox. The macOS backend restricts external user files and networking except Ollama loopback, but relies on the deprecated `sandbox-exec` interface. Linux bubblewrap isolates user files and the process tree while retaining host networking for Ollama. Graders remain trusted host processes outside the sandbox. Read `SECURITY_MODEL.md` before extending the benchmark.
+Do not add private data, real repositories, or credentials to cases. `audit` is not a sandbox. The macOS backend restricts external user files and networking except Ollama loopback; to resolve Pi tool paths correctly, it grants metadata access only to the individual ancestors of authorized paths, not permission to list or read their contents. It relies on the deprecated `sandbox-exec` interface. Linux bubblewrap isolates user files and the process tree while retaining host networking for Ollama. Graders remain trusted host processes outside the sandbox. Read `SECURITY_MODEL.md` before extending the benchmark.
 
 ## 10. Known limitations
 

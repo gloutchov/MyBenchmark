@@ -87,6 +87,14 @@ class SandboxTests(unittest.TestCase):
             self.assertIn('localhost:11434', content)
             self.assertIn("(allow file-read-metadata (literal", content)
             self.assertIn(json.dumps(str(workspace)), content)
+            self.assertIn(
+                f"(allow file-read-metadata (literal {json.dumps(str(workspace.parent))}))",
+                content,
+            )
+            self.assertNotIn(
+                f"(allow file-read* (subpath {json.dumps(str(workspace.parent))}))",
+                content,
+            )
             self.assertEqual("sandbox.sb", Path(str(launch.metadata["profile_path"])).name)
             self.assertEqual(64, len(str(launch.metadata["profile_sha256"])))
 
@@ -151,6 +159,60 @@ class SandboxTests(unittest.TestCase):
             )
             self.assertNotEqual(0, result.returncode)
             self.assertIn("Operation not permitted", result.stderr)
+
+    @unittest.skipUnless(
+        sys.platform == "darwin" and shutil.which("sandbox-exec") and shutil.which("node"),
+        "richiede sandbox-exec e Node",
+    )
+    def test_macos_backend_allows_node_realpath_and_internal_writes(self):
+        probe = subprocess.run(
+            ["sandbox-exec", "-p", "(version 1) (allow default)", "/usr/bin/true"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if probe.returncode != 0:
+            self.skipTest("sandbox-exec presente ma non utilizzabile in questo ambiente")
+        selection = select_sandbox("required")
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            agent_dir = root / "agent"
+            workspace.mkdir()
+            agent_dir.mkdir()
+            inside = workspace / "inside.txt"
+            outside = root / "outside.txt"
+            inside.write_text("before", encoding="utf-8")
+            outside.write_text("outside", encoding="utf-8")
+            code = (
+                "const fs = require('fs'); "
+                "const inside = process.argv[1]; const outside = process.argv[2]; "
+                "fs.realpathSync(inside); "
+                "const temporary = inside + '.tmp'; "
+                "fs.writeFileSync(temporary, 'after', 'utf8'); "
+                "fs.renameSync(temporary, inside); "
+                "try { fs.realpathSync(outside); process.exit(9); } "
+                "catch (error) { if (!['EPERM', 'EACCES'].includes(error.code)) throw error; }"
+            )
+            node = shutil.which("node")
+            assert node is not None
+            launch = prepare_sandbox_launch(
+                selection,
+                [node, "-e", code, str(inside), str(outside)],
+                workspace=workspace,
+                agent_dir=agent_dir,
+                ollama_url="http://127.0.0.1:11434",
+                pi_command=(node,),
+            )
+            result = subprocess.run(
+                launch.command,
+                cwd=workspace,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual("after", inside.read_text(encoding="utf-8"))
 
     @unittest.skipUnless(sys.platform == "darwin" and shutil.which("sandbox-exec"), "richiede sandbox-exec")
     def test_macos_backend_allows_only_configured_loopback_port(self):

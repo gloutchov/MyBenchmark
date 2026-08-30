@@ -192,6 +192,22 @@ def _sbpl(value: str | Path) -> str:
     return json.dumps(str(value), ensure_ascii=False)
 
 
+def _protected_metadata_ancestors(
+    allowed_paths: list[Path],
+    protected_roots: tuple[Path, ...],
+) -> list[Path]:
+    """Return exact protected ancestors needed to resolve allowed paths."""
+    resolved_roots = tuple(root.resolve(strict=False) for root in protected_roots)
+    ancestors: set[Path] = set()
+    for path in allowed_paths:
+        current = path.resolve(strict=False).parent
+        while current != current.parent:
+            if any(current == root or current.is_relative_to(root) for root in resolved_roots):
+                ancestors.add(current)
+            current = current.parent
+    return sorted(ancestors, key=lambda item: (len(item.parts), str(item)))
+
+
 def _macos_profile(
     workspace: Path,
     agent_dir: Path,
@@ -210,6 +226,17 @@ def _macos_profile(
     readable = [workspace.resolve(), agent_dir.resolve()]
     if install_root is not None and install_root.is_relative_to(home):
         readable.append(install_root)
+    protected_roots = (
+        home,
+        Path("/Volumes"),
+        Path("/private/tmp"),
+        Path("/private/var/folders"),
+    )
+    metadata_paths = _protected_metadata_ancestors(readable, protected_roots)
+    metadata_rules = "\n".join(
+        f"(allow file-read-metadata (literal {_sbpl(path)}))"
+        for path in metadata_paths
+    )
     allow_paths = "\n".join(
         f"(allow file-read* file-write* (subpath {_sbpl(path)}))" if path in {workspace.resolve(), agent_dir.resolve()}
         else f"(allow file-read* (subpath {_sbpl(path)}))"
@@ -219,10 +246,10 @@ def _macos_profile(
         "(version 1)\n"
         "(allow default)\n"
         f"(deny file-read* file-write* (subpath {_sbpl(home)}))\n"
-        f"(allow file-read-metadata (literal {_sbpl(home)}))\n"
         "(deny file-read* file-write* (subpath \"/Volumes\"))\n"
         "(deny file-read* file-write* (subpath \"/private/tmp\"))\n"
         "(deny file-read* file-write* (subpath \"/private/var/folders\"))\n"
+        f"{metadata_rules}\n"
         f"{allow_paths}\n"
         "(deny network-outbound)\n"
         f"(allow network-outbound (remote tcp {_sbpl(f'localhost:{port}')}))\n"

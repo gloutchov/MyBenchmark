@@ -97,7 +97,7 @@ Versione corrente / Current version: **0.2.0**
 - Criteri di accettazione: uscita dalla workspace bloccata tecnicamente nel backend sandbox; modalità corrente mantenuta e segnalata; report aggregato su più run.
 - Test: unit, integrazione, sicurezza e smoke macOS/Windows/Linux.
 - Documentazione: tutti i manuali, security model e MAP.
-- Stato: **pronta per l'avallo pre-merge sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati. I probe reali Seatbelt per lettura indiretta e rete sono verdi. Dopo il diagnostico `20260830-102245`, lo smoke reale corretto `20260830-102400` ha completato `targeted_patch` con Qwen 9B a 100/100 in 234,9 s, integrità valida, repository pulito, Seatbelt enforced, profilo hashato e metriche registrate. Il campione `20260830-103545`, riesaminato con audit 3 senza alterare il risultato originale, è valido a 100/100; `20260830-104238` ha raggiunto il timeout a 900 s con qualità 85 e integrità valida. Il confronto reale `comparison-m2-real-bounded` aggrega due campioni compatibili: totale medio 84, qualità 92,5, completamento 50% e durata media 557,6 s; gli intervalli sono limitati al dominio naturale. Il progettista ha accettato esplicitamente Windows audit-only per la 0.2.0; la parità enforced Windows/Linux è pianificata nella milestone 3. Versione sincronizzata, `doctor` host verde e CI finale Node 24 `33303358861` verde sui tre OS. Resta l'avallo esplicito prima del merge.**
+- Stato: **correzione post-diagnostico verificata localmente sul branch `milestone/2-reproducibility-sandbox`. Il run standard `20260830-182507` ha confermato enforcement e audit dei tentativi esterni, ma ha anche mostrato che il profilo Seatbelt negava a Node il `realpath` degli antenati della workspace, rendendo inutilizzabili i tool Pi `edit`/`write` e invalidando la classifica. Il profilo ora concede soltanto metadata letterali sugli antenati dei path autorizzati. Compileall e 40 test sono verdi; tre probe macOS reali verificano `realpath`, sostituzione interna, lettura esterna negata e rete limitata. Il diagnostico `20260830-201021` ha confermato 11 tool `write` reali senza `EPERM`, ma il modello è poi andato in timeout e ha violato il confine con un `cd` assoluto non quotato. Lo smoke valido `20260830-202615` ha completato `targeted_patch` con Qwen 9B MLX a 100/100 in 151,9 s, integrità valida, Seatbelt enforced e tre tool `edit` riusciti senza errori. Restano CI multipiattaforma e avallo pre-merge. Le altre capacità M2, il confronto `comparison-m2-real-bounded`, il limite Windows audit-only accettato e il follow-up M3 restano invariati.**
 
 ### Checklist milestone 2
 
@@ -113,9 +113,11 @@ Versione corrente / Current version: **0.2.0**
 - [x] Confronto statistico tra run compatibili con versione, parametri e digest verificati
 - [x] Confronto reale di due run compatibili verificato (`comparison-m2-real-bounded`)
 - [x] Test unitari e negativi aggiunti
-- [x] Test automatici locali completi e probe OS macOS eseguiti
-- [x] Smoke Pi/Ollama con sandbox reale eseguito (`20260830-102400`)
-- [x] CI finale macOS, Windows e Linux verificata (`33303358861`)
+- [x] Regressione Node/Pi per `realpath` e scrittura interna aggiunta; accesso esterno ancora negato
+- [x] Test automatici locali completi e probe OS macOS rieseguiti dopo la correzione
+- [x] Smoke diagnostico `config_i18n` (`20260830-201021`): 11 `write` riusciti senza `EPERM`; timeout e violazione modello separati dal fix
+- [x] Smoke Pi/Ollama valido con sandbox reale rieseguito dopo la correzione (`20260830-202615`, 100/100, integrità valida)
+- [ ] CI finale macOS, Windows e Linux rieseguita dopo la correzione (precedente `33303358861` verde)
 - [x] Versione 0.2.0 sincronizzata
 - [x] README e manuali aggiornati per il comportamento corrente
 - [x] SECURITY_MODEL e MAP aggiornati
