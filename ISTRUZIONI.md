@@ -127,7 +127,7 @@ Non inserire dati privati, repository reali o credenziali nelle fixture. `audit`
 - I tempi dipendono da hardware, quantizzazione, pressione di memoria e temperatura.
 - Il runner è progettato per provider Ollama; non offre ancora un adapter Codex di controllo.
 - I task sono sintetici e devono essere ampliati quando cambia il tipo di lavoro abituale.
-- Windows non ha ancora un backend AppContainer integrato e resta in `audit-only`.
+- Per scelta progettuale, Windows 0.2.0 non integra ancora AppContainer e resta dichiaratamente in `audit-only`; `required` fallisce senza fallback.
 - Il backend Linux non blocca la rete; comandi dinamici o offuscati possono ancora eludere l'audit.
 - `sandbox-exec` è deprecato e può non essere disponibile in future versioni macOS; `required` evita fallback silenziosi.
 - Le metriche POSIX possono non includere integralmente tutti i discendenti; RAPL misura il sistema host e può non essere leggibile senza privilegi.

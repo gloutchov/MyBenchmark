@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.1.2**
+Versione corrente / Current version: **0.2.0**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -97,7 +97,7 @@ Versione corrente / Current version: **0.1.2**
 - Criteri di accettazione: uscita dalla workspace bloccata tecnicamente nel backend sandbox; modalità corrente mantenuta e segnalata; report aggregato su più run.
 - Test: unit, integrazione, sicurezza e smoke macOS/Windows/Linux.
 - Documentazione: tutti i manuali, security model e MAP.
-- Stato: **in corso sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati. I probe reali Seatbelt per lettura indiretta e rete sono verdi. Dopo il diagnostico `20260830-102245`, lo smoke reale corretto `20260830-102400` ha completato `targeted_patch` con Qwen 9B a 100/100 in 234,9 s, integrità valida, repository pulito, Seatbelt enforced, profilo hashato e metriche registrate. La CI Node 24 `33302977695` sul commit `a253641` è verde sui tre OS. Il campione `20260830-103545`, riesaminato con audit 3 senza alterare il risultato originale, è valido a 100/100; `20260830-104238` ha raggiunto il timeout a 900 s con qualità 85 e integrità valida. Il confronto reale `comparison-m2-real-bounded` aggrega due campioni compatibili: totale medio 84, qualità 92,5, completamento 50% e durata media 557,6 s; gli intervalli sono limitati al dominio naturale. Restano decisione sul limite Windows, versione 0.2.0 e chiusura.**
+- Stato: **implementazione e verifica completate sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati. I probe reali Seatbelt per lettura indiretta e rete sono verdi. Dopo il diagnostico `20260830-102245`, lo smoke reale corretto `20260830-102400` ha completato `targeted_patch` con Qwen 9B a 100/100 in 234,9 s, integrità valida, repository pulito, Seatbelt enforced, profilo hashato e metriche registrate. La CI Node 24 `33302977695` sul commit `a253641` è verde sui tre OS. Il campione `20260830-103545`, riesaminato con audit 3 senza alterare il risultato originale, è valido a 100/100; `20260830-104238` ha raggiunto il timeout a 900 s con qualità 85 e integrità valida. Il confronto reale `comparison-m2-real-bounded` aggrega due campioni compatibili: totale medio 84, qualità 92,5, completamento 50% e durata media 557,6 s; gli intervalli sono limitati al dominio naturale. Il progettista ha accettato esplicitamente Windows audit-only per la 0.2.0; versione sincronizzata. Restano verifica CI finale e avallo prima del merge.**
 
 ### Checklist milestone 2
 
@@ -106,7 +106,7 @@ Versione corrente / Current version: **0.1.2**
 - [x] Selezione `auto` con fallback esplicito e `required` fail-closed
 - [x] Backend macOS Seatbelt con file utente e rete limitata a Ollama loopback
 - [x] Backend Linux bubblewrap con filesystem e process tree isolati
-- [ ] Backend Windows AppContainer oppure limite audit-only accettato esplicitamente dal progettista
+- [x] Limite Windows audit-only accettato esplicitamente dal progettista per la 0.2.0
 - [x] Metriche hardware, rusage e RAPL opzionale con provider/scope
 - [x] Schema risultati/report 3 compatibile con lettura schema 2
 - [x] Confronto statistico tra run compatibili con versione, parametri e digest verificati
@@ -115,7 +115,7 @@ Versione corrente / Current version: **0.1.2**
 - [x] Test automatici locali completi e probe OS macOS eseguiti
 - [x] Smoke Pi/Ollama con sandbox reale eseguito (`20260830-102400`)
 - [x] CI macOS, Windows e Linux verificata (`33302977695`)
-- [ ] Versione 0.2.0 sincronizzata
+- [x] Versione 0.2.0 sincronizzata
 - [x] README e manuali aggiornati per il comportamento corrente
 - [x] SECURITY_MODEL e MAP aggiornati
 - [x] AGENTS e PLAN aggiornati

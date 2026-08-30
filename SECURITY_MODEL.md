@@ -68,7 +68,7 @@ I grader sono codice fidato versionato e vengono eseguiti dalla copia congelata 
 - `audit`, il fallback di `auto` e Windows non applicano isolamento OS; il manifesto lo segnala esplicitamente.
 - `sandbox-exec` è deprecato da Apple e può essere assente o rifiutare il probe; il backend non usa l'App Sandbox firmata. Directory runtime di sistema restano leggibili e la policy deve essere rivalidata dopo aggiornamenti macOS/Pi.
 - Bubblewrap richiede supporto kernel/user namespace, lascia leggibili directory runtime come `/usr` e `/etc` e non isola la rete host in questa versione.
-- Nessun backend AppContainer Windows è ancora integrato.
+- Per scelta progettuale, la 0.2.0 non integra un backend AppContainer Windows: `audit` e `auto` restano audit-only e `required` fallisce senza fallback. Questa limitazione è accettata per la release, non equivale a isolamento OS.
 - L'audit post-run non è un reference monitor: comandi shell costruiti dinamicamente, espansioni non deterministiche, semantiche complesse o codice offuscato possono leggere file esterni o usare la rete senza includere un indicatore riconoscibile negli argomenti registrati; euristiche future possono anche richiedere calibrazione contro nuovi falsi positivi.
 - Il confronto del repository rileva scritture a file tracciati o non ignorati, ma non letture e non file creati in aree ignorate diverse dalla directory del run.
 - Le mutazioni alle sorgenti vengono rilevate e attribuite, ma non ripristinate automaticamente per preservare prove e modifiche utente; occorre revisione prima del run successivo.

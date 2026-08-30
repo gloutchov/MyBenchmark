@@ -108,7 +108,7 @@ Do not add private data, real repositories, or credentials to cases. `audit` is 
 - Timing depends on hardware, quantization, memory pressure, and thermals.
 - The runner currently targets Ollama and does not include a Codex control adapter.
 - Synthetic tasks should evolve with your actual workflow.
-- Windows does not yet have an integrated AppContainer backend and remains `audit-only`.
+- By design, Windows 0.2.0 does not yet integrate AppContainer and remains explicitly `audit-only`; `required` fails without fallback.
 - The Linux backend does not block networking; dynamic or obfuscated commands may still evade the audit.
 - `sandbox-exec` is deprecated and may disappear from future macOS versions; `required` prevents silent fallback.
 - POSIX child metrics may not fully include every descendant; RAPL is host-wide and may be unreadable without additional privileges.
