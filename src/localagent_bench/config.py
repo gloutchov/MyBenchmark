@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from .sandbox import SANDBOX_MODES
+
 
 class ConfigError(ValueError):
     """Raised when benchmark configuration is invalid."""
@@ -23,6 +25,7 @@ class Defaults:
     context_window: int
     max_tokens: int
     temperature: float
+    sandbox: str
 
 
 @dataclass(frozen=True)
@@ -92,6 +95,7 @@ def load_config(path: Path) -> BenchmarkConfig:
         context_window=int(defaults_raw.get("context_window", 32768)),
         max_tokens=int(defaults_raw.get("max_tokens", 8192)),
         temperature=float(defaults_raw.get("temperature", 0)),
+        sandbox=str(defaults_raw.get("sandbox", "audit")),
     )
     if defaults.timeout_seconds < 10 or defaults.repetitions < 1:
         raise ConfigError("timeout_seconds deve essere >= 10 e repetitions >= 1")
@@ -99,6 +103,8 @@ def load_config(path: Path) -> BenchmarkConfig:
         raise ConfigError("Livello thinking non valido")
     if defaults.context_window < 4096 or defaults.max_tokens < 256:
         raise ConfigError("context_window o max_tokens troppo piccoli")
+    if defaults.sandbox not in SANDBOX_MODES:
+        raise ConfigError(f"defaults.sandbox deve essere uno tra: {', '.join(SANDBOX_MODES)}")
 
     models_raw = raw.get("models", "installed")
     if models_raw == "installed":

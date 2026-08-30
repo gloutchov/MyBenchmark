@@ -242,6 +242,8 @@ def build_report(run_dir: Path) -> dict[str, Any]:
         weighted_scores: list[tuple[float, float]] = []
         durations: list[float] = []
         output_tokens: list[float] = []
+        cpu_seconds: list[float] = []
+        energy_joules: list[float] = []
         speed_ratios: list[float] = []
         token_ratios: list[float] = []
         completed = 0
@@ -254,6 +256,20 @@ def build_report(run_dir: Path) -> dict[str, Any]:
             tokens = int(item.get("metrics", {}).get("usage", {}).get("output", 0))
             if tokens:
                 output_tokens.append(float(tokens))
+            recorded_system_metrics = item.get("system_metrics")
+            if not isinstance(recorded_system_metrics, dict):
+                recorded_system_metrics = {}
+            process_metrics = recorded_system_metrics.get("process", {})
+            if isinstance(process_metrics, dict) and process_metrics.get("available"):
+                cpu_seconds.append(
+                    float(process_metrics.get("user_seconds", 0))
+                    + float(process_metrics.get("system_seconds", 0))
+                )
+            energy_metrics = recorded_system_metrics.get("energy", {})
+            if isinstance(energy_metrics, dict) and energy_metrics.get("available"):
+                energy_value = energy_metrics.get("energy_joules")
+                if isinstance(energy_value, (int, float)):
+                    energy_joules.append(float(energy_value))
             if item.get("status") == "ok" and score >= 60:
                 completed += 1
                 key = (str(item.get("case_id")), int(item.get("repetition", 1)))
@@ -283,6 +299,8 @@ def build_report(run_dir: Path) -> dict[str, Any]:
                 "token_efficiency_score": round(token_efficiency, 2),
                 "median_duration_seconds": round(_median(durations), 3),
                 "median_output_tokens": round(_median(output_tokens), 1),
+                "median_cpu_seconds": round(_median(cpu_seconds), 3) if cpu_seconds else None,
+                "median_energy_joules": round(_median(energy_joules), 6) if energy_joules else None,
                 "score_stddev": round(statistics.pstdev(scores), 2) if len(scores) > 1 else 0.0,
                 "successful_tasks": completed,
                 "total_tasks": len(items),
@@ -292,13 +310,18 @@ def build_report(run_dir: Path) -> dict[str, Any]:
     leaderboard.sort(key=lambda row: (-row["overall_score"], -row["quality_score"], row["median_duration_seconds"]))
 
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "formula": {
             "overall": "0.80*quality + 0.10*completion + 0.05*speed + 0.05*token_efficiency",
             "completion_threshold": 60,
             "notes": "Speed and token efficiency are relative to the fastest/leanest successful rankable run for each case and repetition. Models with integrity violations are disqualified.",
         },
         "integrity": integrity,
+        "run": {
+            "profile": manifest.get("profile"),
+            "sandbox": manifest.get("sandbox", {"backend": "audit-only", "enforced": False}),
+            "environment": manifest.get("environment", {}),
+        },
         "leaderboard": leaderboard,
         "results": results,
     }
@@ -307,14 +330,45 @@ def build_report(run_dir: Path) -> dict[str, Any]:
 def render_markdown(report: dict[str, Any], run_dir: Path) -> str:
     leaderboard = report.get("leaderboard", [])
     integrity = report.get("integrity", {})
+    run_metadata = report.get("run", {})
+    sandbox = run_metadata.get("sandbox", {}) if isinstance(run_metadata, dict) else {}
+    environment = run_metadata.get("environment", {}) if isinstance(run_metadata, dict) else {}
+    hardware = environment.get("hardware", {}) if isinstance(environment, dict) else {}
+    if not isinstance(sandbox, dict):
+        sandbox = {}
+    if not isinstance(hardware, dict):
+        hardware = {}
+    backend = sandbox.get("backend", "audit-only")
+    enforced = bool(sandbox.get("enforced", False))
+    capabilities = ", ".join(
+        name
+        for name, key in (
+            ("filesystem", "filesystem_isolation"),
+            ("processi", "process_isolation"),
+            ("rete", "network_isolation"),
+        )
+        if sandbox.get(key)
+    ) or "nessuna capacità OS"
+    memory = hardware.get("memory_total_bytes")
+    memory_text = f"{float(memory) / (1024 ** 3):.1f} GiB" if isinstance(memory, (int, float)) else "n/d"
     lines = [
         "# LocalAgent Benchmark Report",
         "",
         f"Run: `{run_dir.name}`",
         "",
+        "## Ambiente e isolamento",
+        "",
+        f"Sandbox: **{backend}** ({'enforced' if enforced else 'audit-only'}); capacità applicate: {capabilities}.",
+        f"Hardware: `{hardware.get('machine') or 'n/d'}`, CPU logiche: {hardware.get('logical_cpu_count') or 'n/d'}, memoria: {memory_text}.",
+        "",
         "## Integrità del run",
         "",
     ]
+    if sandbox.get("deprecated_backend"):
+        lines[9:9] = [
+            "Nota: il backend macOS usa `sandbox-exec`, interfaccia deprecata da Apple; disponibilità e probe sono registrati a ogni run.",
+            "",
+        ]
     integrity_status = integrity.get("status", "not_recorded")
     if integrity_status == "passed":
         lines.append("**Stato: valida.** Snapshot, baseline e confini registrati non mostrano violazioni.")
@@ -424,8 +478,8 @@ def render_markdown(report: dict[str, Any], run_dir: Path) -> str:
             "",
             "## Dettaglio per task",
             "",
-            "| Modello | Caso | Rip. | Stato | Integrità | Punti | Tempo | Tool/errori | Output token |",
-            "|---|---|---:|---|---|---:|---:|---:|---:|",
+            "| Modello | Caso | Rip. | Stato | Integrità | Punti | Tempo | CPU | Energia | Tool/errori | Output token |",
+            "|---|---|---:|---|---|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for result in sorted(report.get("results", []), key=lambda item: (str(item.get("model")), str(item.get("case_id")), int(item.get("repetition", 1)))):
@@ -440,8 +494,22 @@ def render_markdown(report: dict[str, Any], run_dir: Path) -> str:
             integrity_cell = "ok"
         else:
             integrity_cell = "n/d"
+        system_metrics = result.get("system_metrics")
+        if not isinstance(system_metrics, dict):
+            system_metrics = {}
+        process_metrics = system_metrics.get("process", {})
+        energy_metrics = system_metrics.get("energy", {})
+        if isinstance(process_metrics, dict) and process_metrics.get("available"):
+            cpu = float(process_metrics.get("user_seconds", 0)) + float(process_metrics.get("system_seconds", 0))
+            cpu_cell = f"{cpu:.2f}s"
+        else:
+            cpu_cell = "n/d"
+        if isinstance(energy_metrics, dict) and energy_metrics.get("available"):
+            energy_cell = f"{float(energy_metrics.get('energy_joules', 0)):.2f}J"
+        else:
+            energy_cell = "n/d"
         lines.append(
-            "| `{model}` | `{case}` | {repetition} | {status} | {integrity} | {score:.1f} | {duration} | {tools}/{errors} | {tokens} |".format(
+            "| `{model}` | `{case}` | {repetition} | {status} | {integrity} | {score:.1f} | {duration} | {cpu} | {energy} | {tools}/{errors} | {tokens} |".format(
                 model=model,
                 case=result.get("case_id", "?"),
                 repetition=result.get("repetition", 1),
@@ -449,6 +517,8 @@ def render_markdown(report: dict[str, Any], run_dir: Path) -> str:
                 integrity=integrity_cell,
                 score=float(result.get("grade", {}).get("score", 0)),
                 duration=_fmt_seconds(float(result.get("duration_seconds", 0))),
+                cpu=cpu_cell,
+                energy=energy_cell,
                 tools=metrics.get("tool_calls", 0),
                 errors=metrics.get("tool_errors", 0),
                 tokens=metrics.get("usage", {}).get("output", 0),

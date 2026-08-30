@@ -131,6 +131,11 @@ class RunnerGitTests(unittest.TestCase):
             metrics={"usage": {"output": 1}, "tool_calls": 0, "tool_errors": 0},
             final_response="done",
             command=["pi"],
+            sandbox={"backend": "audit-only", "enforced": False},
+            system_metrics={
+                "process": {"available": True, "user_seconds": 0.2, "system_seconds": 0.1},
+                "energy": {"available": False},
+            },
         )
         config = load_config(ROOT / "benchmark.json")
         with tempfile.TemporaryDirectory() as directory:
@@ -155,8 +160,14 @@ class RunnerGitTests(unittest.TestCase):
             manifest = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
             self.assertEqual(7, manifest["order_seed"])
             self.assertEqual(AUDIT_VERSION, manifest["execution_policy"]["audit_version"])
+            self.assertEqual("audit-only", manifest["sandbox"]["backend"])
+            self.assertFalse(manifest["sandbox"]["enforced"])
+            self.assertEqual(3, result["schema_version"])
+            self.assertTrue(result["system_metrics"]["process"]["available"])
+            self.assertIn("hardware", manifest["environment"])
             self.assertIn("Non accedere alla rete", run_pi_mock.call_args.args[3])
             self.assertTrue((result_path.parent / "workspace" / SCRATCH_DIRECTORY).is_dir())
+            self.assertTrue((result_path.parent / ".pi-agent" / "models.json").is_file())
 
     def test_preflight_rejects_dirty_case_inputs(self):
         with tempfile.TemporaryDirectory() as directory:

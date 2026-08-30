@@ -12,6 +12,8 @@ LocalAgent Benchmark confronta modelli locali Ollama quando lavorano come coding
 - modelli Ollama già scaricati;
 - spazio libero sufficiente per una copia delle fixture per ogni esecuzione.
 
+Per l'isolamento OS opzionale servono `sandbox-exec` utilizzabile su macOS oppure `bwrap` su Linux. Windows usa attualmente soltanto audit e controlli d'integrità. `doctor` mostra disponibilità e backend effettivo senza installare componenti.
+
 Verificare l'ambiente:
 
 ```bash
@@ -56,7 +58,15 @@ Usare `full --repetitions 3` soltanto sui finalisti. Il quarto caso verifica bra
 
 ### Selezione manuale
 
-`--models` accetta uno o più nomi esatti mostrati da `ollama list`. `--cases` accetta gli ID elencati dal comando `list`. `--timeout` è espresso in secondi; `--output` sceglie una directory nuova o vuota. Il runner randomizza l'ordine delle task; `--seed NUMERO` permette di riprodurre esattamente lo stesso ordine, registrato anche in `run.json`.
+`--models` accetta uno o più nomi esatti mostrati da `ollama list`. `--cases` accetta gli ID elencati dal comando `list`. `--timeout` è espresso in secondi; `--output` sceglie una directory nuova o vuota. Il runner randomizza l'ordine delle task; `--seed NUMERO` permette di riprodurre esattamente lo stesso ordine, registrato anche in `run.json`. `--sandbox` accetta `audit`, `auto` o `required`: `required` è la scelta corretta quando il run non deve continuare senza isolamento OS.
+
+### Confronto statistico tra run
+
+```bash
+python3 benchmark.py compare results/RUN-1 results/RUN-2 results/RUN-3
+```
+
+Il confronto accetta soltanto run con profilo, casi, fingerprint input, backend sandbox, piattaforma e hardware registrato compatibili. Genera `comparison.json` e `COMPARISON.md` con media, mediana, deviazione standard e intervallo al 95% approssimato. I modelli assenti o esclusi per integrità non ricevono un campione per quel run.
 
 ## 5. Configurazione
 
@@ -65,7 +75,7 @@ Usare `full --repetitions 3` soltanto sui finalisti. Il quarto caso verifica bra
 - `ollama.url`: endpoint locale;
 - `pi.command`: comando e argomenti iniziali di Pi;
 - `models`: `installed` oppure lista stabile;
-- `defaults`: timeout, ripetizioni, thinking, warmup, keep-alive, contesto, output massimo e temperatura;
+- `defaults`: timeout, ripetizioni, thinking, warmup, keep-alive, contesto, output massimo, temperatura e modalità sandbox;
 - `profiles`: gruppi di casi;
 - `cases`: metadati e pesi.
 
@@ -75,12 +85,13 @@ La configurazione viene validata all'avvio. Non contiene e non deve contenere se
 
 Il totale combina qualità (80%), completamento (10%), velocità relativa (5%) ed efficienza token relativa (5%). Una task è completata a 60/100 con uscita Pi corretta.
 
-Leggere prima la sezione **Integrità del run**. Un modello che riferisce esplicitamente un path risolto fuori workspace, tenta la rete, modifica il repository o lo snapshot, oppure riceve una baseline divergente viene escluso integralmente dalla classifica anche se il grader ha assegnato punti. Una mutazione dello snapshot interrompe le task successive. Il report elenca modello, caso, ripetizione, motivo, target ed evidenza; `run.json` conserva commit e stato Git iniziali, seed, ordine, hash degli input e della policy, e violazioni. Ogni `result.json` conserva tree della baseline, versione dell'audit e dettagli originali.
+Leggere prima **Ambiente e isolamento** e **Integrità del run**. La prima sezione distingue backend richiesto ed effettivo e non presenta il fallback come sandbox. Un modello che riferisce esplicitamente un path risolto fuori workspace, tenta la rete, modifica il repository o lo snapshot, oppure riceve una baseline divergente viene escluso integralmente dalla classifica anche se il grader ha assegnato punti. Una mutazione dello snapshot interrompe le task successive. Il report elenca modello, caso, ripetizione, motivo, target ed evidenza; `run.json` conserva hardware, sandbox, commit e stato Git iniziali, seed, ordine, hash degli input e della policy, e violazioni. Ogni `result.json` conserva tree della baseline, versione dell'audit, metriche di sistema e dettagli originali.
 
 - Dare priorità a `quality_score` e ai casi più simili al proprio lavoro.
 - Usare `median_duration_seconds` per capire l'attesa quotidiana.
 - Usare `tool_errors` per scoprire incompatibilità nel tool calling.
 - Confrontare `score_stddev` dopo almeno tre ripetizioni.
+- Trattare energia RAPL come misura host-wide: è utile soltanto a parità di macchina e carico, non come consumo esclusivo del modello.
 - Aprire `diff.patch` e `workspace/` prima di scegliere il modello.
 
 Il modello primo in classifica non è automaticamente il migliore per ogni uso. Per attività security-sensitive può essere preferibile il migliore nel caso `secure_workspace`; per manutenzione ordinaria conta di più `targeted_patch`.
@@ -102,12 +113,13 @@ All'avvio `AGENTS.md`, `.gitignore`, prompt, fixture e grader selezionati devono
 - `Input benchmark modificati`: ripristinare o committare intenzionalmente `AGENTS.md`, `.gitignore` e i file dei casi prima di riprovare; non usare una fixture già completata.
 - `violations_detected`: leggere prima la tabella **Violazioni rilevate**, poi aprire `report.json`, `run.json` e il relativo `pi-events.jsonl`; il modello indicato è escluso e non va reinserito manualmente in classifica. La rigenerazione del report applica l'audit corrente agli eventi più vecchi senza cambiare i `result.json` originali.
 - `snapshot_compromised`: il runner ha interrotto la matrice perché la fotografia condivisa non è più affidabile; conservare gli artefatti per diagnosi e avviare un nuovo run solo dopo aver risolto la causa.
+- `Sandbox OS richiesta ma non disponibile`: installare/abilitare il backend indicato da `doctor`, usare consapevolmente `--sandbox auto` per consentire fallback oppure `--sandbox audit` per il comportamento storico.
 
 Il runner restituisce exit code `1` se una o più task terminano con errore o timeout oppure se l'integrità non è valida, ma scrive comunque il report disponibile. Uno score basso con stato `ok` e integrità `ok` è invece un risultato valido e non rende fallito il comando.
 
 ## 9. Sicurezza e privacy
 
-Non inserire dati privati, repository reali o credenziali nelle fixture senza un ambiente isolato dedicato. `--offline` impedisce le operazioni di rete iniziali di Pi, mentre l'audit riconosce comandi e codice di rete comuni; nessuno dei due costituisce un firewall per i comandi shell emessi dal modello. Hash e audit sono controlli di rilevamento: non sostituiscono una sandbox OS. Consultare `SECURITY_MODEL.md`.
+Non inserire dati privati, repository reali o credenziali nelle fixture. `audit` non è una sandbox. Il backend macOS restringe file utente esterni e rete salvo Ollama loopback; è basato sulla deprecata interfaccia `sandbox-exec`. Bubblewrap su Linux isola filesystem utente e process tree, ma conserva la rete host per raggiungere Ollama. I grader restano processi fidati eseguiti fuori sandbox. Consultare `SECURITY_MODEL.md`.
 
 ## 10. Limiti noti
 
@@ -115,4 +127,7 @@ Non inserire dati privati, repository reali o credenziali nelle fixture senza un
 - I tempi dipendono da hardware, quantizzazione, pressione di memoria e temperatura.
 - Il runner è progettato per provider Ollama; non offre ancora un adapter Codex di controllo.
 - I task sono sintetici e devono essere ampliati quando cambia il tipo di lavoro abituale.
-- L'audit risolve path strutturati e shell, inclusi cambi directory deterministici, e riconosce pattern di rete comuni; comandi dinamici, semantiche shell complesse o codice offuscato possono ancora eluderlo finché non viene aggiunta la sandbox OS.
+- Windows non ha ancora un backend AppContainer integrato e resta in `audit-only`.
+- Il backend Linux non blocca la rete; comandi dinamici o offuscati possono ancora eludere l'audit.
+- `sandbox-exec` è deprecato e può non essere disponibile in future versioni macOS; `required` evita fallback silenziosi.
+- Le metriche POSIX possono non includere integralmente tutti i discendenti; RAPL misura il sistema host e può non essere leggibile senza privilegi.

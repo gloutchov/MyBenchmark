@@ -17,6 +17,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual("installed", config.models)
         self.assertEqual(4, len(config.cases))
         self.assertEqual(("targeted_patch",), config.profiles["smoke"])
+        self.assertEqual("audit", config.defaults.sandbox)
 
     def test_missing_case_is_rejected(self):
         source = (ROOT / "benchmark.json").read_text(encoding="utf-8")

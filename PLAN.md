@@ -97,7 +97,29 @@ Versione corrente / Current version: **0.1.2**
 - Criteri di accettazione: uscita dalla workspace bloccata tecnicamente nel backend sandbox; modalità corrente mantenuta e segnalata; report aggregato su più run.
 - Test: unit, integrazione, sicurezza e smoke macOS/Windows/Linux.
 - Documentazione: tutti i manuali, security model e MAP.
-- Stato: pianificata.
+- Stato: **in corso sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati con test unitari. Restano smoke reali dei backend, verifica multipiattaforma CI, rifiniture emerse dai test, sincronizzazione versione 0.2.0 e chiusura documentale prima dell'avallo al merge.**
+
+### Checklist milestone 2
+
+- [x] Branch milestone creato
+- [x] Modalità audit mantenuta e dichiarata
+- [x] Selezione `auto` con fallback esplicito e `required` fail-closed
+- [x] Backend macOS Seatbelt con file utente e rete limitata a Ollama loopback
+- [x] Backend Linux bubblewrap con filesystem e process tree isolati
+- [ ] Backend Windows AppContainer oppure limite audit-only accettato esplicitamente dal progettista
+- [x] Metriche hardware, rusage e RAPL opzionale con provider/scope
+- [x] Schema risultati/report 3 compatibile con lettura schema 2
+- [x] Confronto statistico tra run compatibili
+- [x] Test unitari e negativi aggiunti
+- [ ] Test automatici completi e probe OS eseguiti
+- [ ] Smoke Pi/Ollama con sandbox reale eseguito
+- [ ] CI macOS, Windows e Linux verificata
+- [ ] Versione 0.2.0 sincronizzata
+- [x] README e manuali aggiornati per il comportamento corrente
+- [x] SECURITY_MODEL e MAP aggiornati
+- [x] AGENTS e PLAN aggiornati
+- [ ] Approvazione esplicita del progettista prima del merge
+- [ ] Commit finale, PR/merge, CI `main`, tag `v0.2.0` e release previsti verificati
 
 ## Milestone 3 – Casi personali estensibili
 

@@ -30,6 +30,8 @@ from .integrity import (
 from .ollama import OllamaModel, list_models, unload, version, warmup
 from .pi_adapter import AUDIT_VERSION, SCRATCH_DIRECTORY, audit_workspace_accesses, run_pi, write_models_config
 from .report import write_report
+from .sandbox import SandboxError, sandbox_capability, select_sandbox
+from .system_metrics import hardware_snapshot
 
 
 class BenchmarkError(RuntimeError):
@@ -207,6 +209,14 @@ def doctor(config: BenchmarkConfig) -> dict[str, Any]:
         models = []
         checks.append({"name": "ollama", "ok": False, "detail": str(exc)})
     checks.append({"name": "config", "ok": True, "detail": f"{len(config.cases)} casi validi"})
+    sandbox = sandbox_capability()
+    sandbox_detail = (
+        f"{sandbox['backend']} disponibile; default={config.defaults.sandbox}"
+        if sandbox["available"]
+        else f"audit-only; {sandbox['detail']}"
+    )
+    sandbox_ok = config.defaults.sandbox != "required" or bool(sandbox["available"])
+    checks.append({"name": "sandbox", "ok": sandbox_ok, "detail": sandbox_detail})
     try:
         require_clean_inputs(config.root, config.cases.values())
     except InputIntegrityError as exc:
@@ -227,6 +237,7 @@ def run_benchmark(
     use_warmup: bool | None,
     output_dir: Path | None,
     order_seed: int | None = None,
+    sandbox_mode: str | None = None,
 ) -> Path:
     cases = _resolve_cases(config, profile, requested_cases)
     try:
@@ -240,6 +251,10 @@ def run_benchmark(
     if repeat_count < 1 or timeout < 10:
         raise BenchmarkError("Ripetizioni e timeout devono essere positivi")
     should_warmup = config.defaults.warmup if use_warmup is None else use_warmup
+    try:
+        sandbox = select_sandbox(sandbox_mode or config.defaults.sandbox)
+    except SandboxError as exc:
+        raise BenchmarkError(str(exc)) from exc
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir = (output_dir or config.root / "results" / timestamp).resolve()
     if run_dir.exists() and any(run_dir.iterdir()):
@@ -258,20 +273,11 @@ def run_benchmark(
         raise BenchmarkError(str(exc)) from exc
     frozen_by_id = {case.id: case for case in frozen_cases}
     repository_state = repository_fingerprints(config.root, (run_dir,))
-    agent_dir = run_dir / ".pi-agent"
-    write_models_config(
-        agent_dir,
-        config.ollama_url,
-        models,
-        config.defaults.context_window,
-        config.defaults.max_tokens,
-        config.defaults.temperature,
-    )
     installed_by_name = {item.name: item for item in installed}
     seed = order_seed if order_seed is not None else secrets.randbits(64)
     tasks = _build_task_order(models, cases, repeat_count, seed)
     manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "started_at": datetime.now(timezone.utc).isoformat(),
         "profile": profile,
         "models": models,
@@ -292,12 +298,14 @@ def run_benchmark(
             "network_access": "forbidden",
             "filesystem_scope": "task_workspace",
         },
+        "sandbox": sandbox.to_dict(),
         "integrity": {"status": "passed", "aborted": False, "violations": []},
         "environment": {
             "platform": platform.platform(),
             "python": sys.version.split()[0],
             "pi": _command_version([*config.pi_command, "--version"]),
             "ollama": version(config.ollama_url),
+            "hardware": hardware_snapshot(),
         },
         "model_metadata": {name: asdict(installed_by_name[name]) for name in models},
     }
@@ -343,7 +351,16 @@ def run_benchmark(
 
         case_dir = run_dir / "models" / _slug(model) / "cases" / f"{case.id}-r{repetition}"
         workspace = case_dir / "workspace"
+        agent_dir = case_dir / ".pi-agent"
         case_dir.mkdir(parents=True, exist_ok=True)
+        write_models_config(
+            agent_dir,
+            config.ollama_url,
+            models,
+            config.defaults.context_window,
+            config.defaults.max_tokens,
+            config.defaults.temperature,
+        )
         baseline_commit = _prepare_workspace(
             config,
             case,
@@ -360,15 +377,20 @@ def run_benchmark(
         )
         print(f"[{current}/{len(tasks)}] {model} · {case.id} · ripetizione {repetition}", flush=True)
         before_task_repository = repository_state
-        pi_run = run_pi(
-            config.pi_command,
-            model,
-            config.defaults.thinking,
-            prompt,
-            workspace,
-            agent_dir,
-            timeout,
-        )
+        try:
+            pi_run = run_pi(
+                config.pi_command,
+                model,
+                config.defaults.thinking,
+                prompt,
+                workspace,
+                agent_dir,
+                timeout,
+                sandbox,
+                config.ollama_url,
+            )
+        except SandboxError as exc:
+            raise BenchmarkError(f"Avvio sandbox fallito: {exc}") from exc
         after_task_repository = repository_fingerprints(config.root, (run_dir,))
         source_mutations = changed_paths(before_task_repository, after_task_repository)
         repository_state = after_task_repository
@@ -421,7 +443,7 @@ def run_benchmark(
         (case_dir / "git-status.txt").write_text(git_status, encoding="utf-8")
         (case_dir / "grade.json").write_text(json.dumps(grade, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         result = {
-            "schema_version": 2,
+            "schema_version": 3,
             "model": model,
             "case_id": case.id,
             "case_title": case.title,
@@ -432,6 +454,8 @@ def run_benchmark(
             "exit_code": pi_run.exit_code,
             "duration_seconds": pi_run.duration_seconds,
             "metrics": pi_run.metrics,
+            "system_metrics": pi_run.system_metrics,
+            "sandbox": pi_run.sandbox or sandbox.to_dict(),
             "grade": grade,
             "git_branch": branch,
             "baseline_commit": baseline_commit,

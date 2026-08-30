@@ -12,6 +12,8 @@ LocalAgent Benchmark compares local Ollama models acting as coding agents throug
 - one or more downloaded Ollama models;
 - enough disk space for one fixture workspace per attempt.
 
+Optional OS enforcement requires a usable `sandbox-exec` on macOS or `bwrap` on Linux. Windows currently uses integrity auditing only. `doctor` reports availability and the effective backend without installing components.
+
 Verify the environment without running an agent task:
 
 ```bash
@@ -46,11 +48,19 @@ python3 benchmark.py run --profile standard
 - `standard` covers a targeted patch, security hardening, and validated configuration/i18n.
 - `full` adds milestone closure, versioning, documentation, and Git discipline.
 
-Use `--models` for exact Ollama model names, `--cases` for explicit case IDs, `--timeout` for a per-task limit in seconds, and `--output` for a new or empty destination. Tasks are randomized; pass `--seed NUMBER` to reproduce the exact order recorded in `run.json`. Run the full profile three times on shortlisted models when making a final choice.
+Use `--models` for exact Ollama model names, `--cases` for explicit case IDs, `--timeout` for a per-task limit in seconds, and `--output` for a new or empty destination. Tasks are randomized; pass `--seed NUMBER` to reproduce the exact order recorded in `run.json`. `--sandbox` accepts `audit`, `auto`, or `required`; use `required` when the run must not continue without OS enforcement. Run the full profile three times on shortlisted models when making a final choice.
+
+Compare compatible runs statistically:
+
+```bash
+python3 benchmark.py compare results/RUN-1 results/RUN-2 results/RUN-3
+```
+
+The command accepts only runs with matching profiles, cases, input fingerprints, sandbox backend, platform, and recorded hardware. It writes `comparison.json` and `COMPARISON.md` with mean, median, standard deviation, and an approximate 95% interval. Missing or integrity-disqualified models receive no sample for that run.
 
 ## 5. Configuration
 
-`benchmark.json` is the central configuration file. It defines the Ollama URL, Pi command, model selection, timeout, repetitions, thinking level, warmup, context and output limits, temperature, profiles, cases, and weights.
+`benchmark.json` is the central configuration file. It defines the Ollama URL, Pi command, model selection, timeout, repetitions, thinking level, warmup, context and output limits, temperature, sandbox mode, profiles, cases, and weights.
 
 Configuration is validated at startup. It must not contain secrets. The generated Ollama provider uses the literal dummy key `ollama`, which the local server ignores.
 
@@ -58,12 +68,13 @@ Configuration is validated at startup. It must not contain secrets. The generate
 
 The composite score weighs quality at 80%, completion at 10%, relative speed at 5%, and relative token efficiency at 5%. A task counts as complete when Pi exits normally and its grade is at least 60/100.
 
-Read **Run integrity** before the leaderboard. A model is entirely disqualified if it explicitly references a path resolved outside its workspace, attempts network access, mutates the benchmark repository or frozen snapshot, or receives a divergent baseline. Snapshot mutation also aborts the remaining matrix. The report lists model, case, repetition, reason, target, and evidence; `run.json` records Git provenance, seed, task order, input and policy hashes, and violations. Each `result.json` records its baseline tree, audit version, and original details.
+Read **Environment and isolation** and **Run integrity** before the leaderboard. The former distinguishes the requested and effective backend and never labels a fallback as sandboxed. A model is entirely disqualified if it explicitly references a path resolved outside its workspace, attempts network access, mutates the benchmark repository or frozen snapshot, or receives a divergent baseline. Snapshot mutation also aborts the remaining matrix. The report lists model, case, repetition, reason, target, and evidence; `run.json` records hardware, sandbox, Git provenance, seed, task order, input and policy hashes, and violations. Each `result.json` records its baseline tree, audit version, system metrics, and original details.
 
 - Prioritize quality and the cases closest to your real work.
 - Use median duration to estimate day-to-day waiting time.
 - Tool errors reveal model/provider tool-calling problems.
 - Score standard deviation becomes useful after at least three repetitions.
+- Treat RAPL energy as a host-wide measurement: compare it only on the same machine under similar load.
 - Inspect the patch and final workspace for top-ranked models.
 
 The overall winner is not necessarily best for every activity. A security-heavy workflow may favor the best `secure_workspace` score, while ordinary maintenance may favor `targeted_patch`.
@@ -83,12 +94,13 @@ Use the same configuration, profile, repetitions, seed, hardware, and similar sy
 - `Input benchmark modificati`: restore or intentionally commit the listed benchmark inputs before rerunning.
 - `violations_detected`: read **Detected violations**, then inspect `report.json`, `run.json`, and the corresponding `pi-events.jsonl`; do not manually restore the disqualified model to the leaderboard. Regenerating a report applies the current audit to older events without changing their original `result.json` files.
 - `snapshot_compromised`: preserve the diagnostic artifacts, fix the cause, and start a new run.
+- `Sandbox OS richiesta ma non disponibile`: install or enable the backend reported by `doctor`, deliberately use `--sandbox auto` to permit fallback, or choose `--sandbox audit` for the historical behavior.
 
 The runner exits with code `1` when one or more tasks end in an error or timeout or when integrity is not valid, while still writing the available report. A low grade with status `ok` and integrity `ok` is a valid model result and does not fail the command.
 
 ## 9. Security and privacy
 
-Do not add private data, real repositories, or credentials to cases without a dedicated OS-level sandbox. Pi's `--offline` mode disables its startup network activity, while the audit recognizes common network commands and code patterns; neither firewalls shell commands generated by a model. Hashes and audits detect integrity failures but do not replace OS isolation. Read `SECURITY_MODEL.md` before extending the benchmark.
+Do not add private data, real repositories, or credentials to cases. `audit` is not a sandbox. The macOS backend restricts external user files and networking except Ollama loopback, but relies on the deprecated `sandbox-exec` interface. Linux bubblewrap isolates user files and the process tree while retaining host networking for Ollama. Graders remain trusted host processes outside the sandbox. Read `SECURITY_MODEL.md` before extending the benchmark.
 
 ## 10. Known limitations
 
@@ -96,4 +108,7 @@ Do not add private data, real repositories, or credentials to cases without a de
 - Timing depends on hardware, quantization, memory pressure, and thermals.
 - The runner currently targets Ollama and does not include a Codex control adapter.
 - Synthetic tasks should evolve with your actual workflow.
-- The audit resolves structured and shell paths, including deterministic directory changes, and recognizes common network patterns; dynamic commands, complex shell semantics, or obfuscated code may still evade it until the OS sandbox is implemented.
+- Windows does not yet have an integrated AppContainer backend and remains `audit-only`.
+- The Linux backend does not block networking; dynamic or obfuscated commands may still evade the audit.
+- `sandbox-exec` is deprecated and may disappear from future macOS versions; `required` prevents silent fallback.
+- POSIX child metrics may not fully include every descendant; RAPL is host-wide and may be unreadable without additional privileges.

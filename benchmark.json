@@ -15,7 +15,8 @@
     "keep_alive": "15m",
     "context_window": 32768,
     "max_tokens": 8192,
-    "temperature": 0
+    "temperature": 0,
+    "sandbox": "audit"
   },
   "profiles": {
     "smoke": ["targeted_patch"],

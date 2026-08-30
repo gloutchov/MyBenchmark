@@ -2,9 +2,9 @@
 
 ## Modello operativo / Operating model
 
-LocalAgent Benchmark verifica gli input rispetto a Git, crea una fotografia unica di prompt, fixture, grader, `AGENTS.md`, `.gitignore` e policy di esecuzione, copia quella fotografia in repository Git dedicati, avvia Pi in modalità non interattiva e usa l'API OpenAI-compatible di Ollama su loopback. Ogni tentativo ha una directory Pi separata, uno scratch interno e conserva workspace, eventi, log, patch, valutazione e audit d'integrità.
+LocalAgent Benchmark verifica gli input rispetto a Git, crea una fotografia unica di prompt, fixture, grader, `AGENTS.md`, `.gitignore` e policy di esecuzione, copia quella fotografia in repository Git dedicati, seleziona e registra la modalità sandbox, avvia Pi in modalità non interattiva e usa l'API OpenAI-compatible di Ollama su loopback. Ogni tentativo ha una directory Pi separata, uno scratch interno e conserva workspace, eventi, log, patch, valutazione, metriche e audit d'integrità.
 
-LocalAgent Benchmark checks inputs against Git, creates one frozen snapshot of prompts, fixtures, graders, `AGENTS.md`, `.gitignore`, and the execution policy, copies that snapshot into dedicated Git repositories, launches Pi non-interactively, and uses Ollama's OpenAI-compatible API over loopback. Each attempt has an isolated Pi configuration directory, an internal scratch area, and retains its workspace, events, logs, patch, grade, and integrity audit.
+LocalAgent Benchmark checks inputs against Git, creates one frozen snapshot of prompts, fixtures, graders, `AGENTS.md`, `.gitignore`, and the execution policy, copies that snapshot into dedicated Git repositories, selects and records the sandbox mode, launches Pi non-interactively, and uses Ollama's OpenAI-compatible API over loopback. Each attempt has an isolated Pi configuration directory, an internal scratch area, and retains its workspace, events, logs, patch, grade, metrics, and integrity audit.
 
 ## Asset e confini / Assets and boundaries
 
@@ -16,13 +16,13 @@ LocalAgent Benchmark checks inputs against Git, creates one frozen snapshot of p
 
 ## Controlli implementati / Implemented controls
 
-- Configurazione centrale validata all'avvio; URL e ID caso vengono controllati.
+- Configurazione centrale validata all'avvio; URL, ID caso e modalità sandbox vengono controllati.
 - Preflight Git obbligatorio per gli input selezionati: file modificati o non tracciati in `AGENTS.md`, `.gitignore`, prompt, fixture o grader bloccano il run.
 - Snapshot condiviso creato una sola volta prima della matrice usando soltanto file tracciati da Git, con esclusione di cache/output ignorati e SHA-256 separati per istruzioni, policy di esecuzione, prompt, fixture, grader e input effettivo complessivo.
 - Ogni workspace registra commit e tree Git della baseline; input o baseline divergenti vengono rilevati dal report.
 - Nessuna dipendenza Python di runtime e nessun download automatico di modelli.
 - Pi viene avviato con `--offline`, telemetria disabilitata e risorse globali non necessarie disabilitate; la policy bilingue preposta al prompt vieta rete e path esterni.
-- `PI_CODING_AGENT_DIR` punta alla directory del run; il file provider contiene solo il placeholder Ollama, non una chiave reale.
+- `PI_CODING_AGENT_DIR` punta a una directory nuova per ogni task; il file provider contiene solo il placeholder Ollama, non una chiave reale. Una task non può quindi alterare la configurazione Pi di quella successiva.
 - Ogni tentativo parte da una copia nuova e da un commit Git baseline; `.benchmark-scratch/` è interna, ignorata in Git e assegnata a `TMPDIR`, `TMP` e `TEMP`.
 - Prima e dopo ogni task vengono confrontati i file Git tracciati e non ignorati del repository; le mutazioni attribuibili alla task invalidano il modello.
 - L'audit versionato risolve path strutturati e argomenti shell rispetto alla workspace e ai cambi `cd` deterministici, riconosce path assoluti POSIX e Windows indipendentemente dal sistema host, distingue traversal confinati nello scratch da target esterni, protegge l'intera root del benchmark e riconosce comandi o codice di rete comuni; una violazione esclude l'intero modello dalla classifica.
@@ -34,6 +34,12 @@ LocalAgent Benchmark checks inputs against Git, creates one frozen snapshot of p
 - Fixture e test non contengono segreti reali; i valori di test sensibili vengono costruiti a runtime e non stampati.
 - Output sotto `results/`, escluso da Git per default.
 - Ollama viene interrogato tramite URL configurato; il default è loopback HTTP.
+- Tre modalità esplicite: `audit` non applica isolamento OS; `auto` usa un backend soltanto dopo un probe riuscito e registra il fallback; `required` interrompe il run se il backend non è applicabile.
+- Su macOS il backend `macos-seatbelt` nega letture e scritture sotto home, volumi e directory temporanee esterne, poi abilita soltanto workspace, directory Pi e installazione Pi necessaria; la rete outbound è negata salvo la porta loopback configurata per Ollama. Il profilo e il relativo SHA-256 vengono conservati nello scratch della task. I processi figli ereditano le restrizioni.
+- Su Linux `linux-bubblewrap` costruisce un mount namespace da una root vuota, monta read-only le directory runtime di sistema, monta read-write soltanto workspace e directory Pi, usa `/tmp` effimero e separa PID, IPC e UTS. La rete host resta condivisa per raggiungere Ollama ed è dichiarata non isolata.
+- Backend richiesto, backend effettivo e capacità filesystem/processi/rete sono registrati sia nel manifesto sia nel risultato; il report li mostra prima della classifica.
+- Hardware logico, memoria, rusage POSIX e contatori energetici Linux RAPL leggibili sono registrati con provider, scope e disponibilità; nessuna dipendenza o elevazione automatica viene introdotta.
+- Il comando `compare` accetta soltanto run compatibili per profilo, input, backend, piattaforma e hardware e non aggrega modelli già esclusi per integrità.
 
 ## Segreti e logging / Secrets and logging
 
@@ -43,37 +49,42 @@ The benchmark requires no API key. Do not place tokens, passwords, private repos
 
 ## Rete / Network
 
-Il runner non contatta servizi Internet. `--offline` disattiva le operazioni di rete iniziali di Pi, mentre le richieste necessarie a Ollama restano locali. La policy vieta la rete e l'audit registra pattern espliciti come `curl`, `wget`, operazioni Git remote e chiamate Python HTTP/socket note. Questi controlli non sono un firewall: un comando generato dal modello può tentare accessi di rete se il sistema operativo li consente.
+Il runner non contatta servizi Internet. `--offline` disattiva le operazioni di rete iniziali di Pi, mentre le richieste necessarie a Ollama restano locali. La policy vieta la rete e l'audit registra pattern espliciti come `curl`, `wget`, operazioni Git remote e chiamate Python HTTP/socket note. Seatbelt su macOS nega tecnicamente l'outbound salvo la porta loopback di Ollama. Bubblewrap usa ancora la rete host; in modalità `audit`, su Linux e su Windows l'audit non è un firewall.
 
-The runner does not contact Internet services. Pi startup networking is disabled, while required Ollama traffic remains local. The policy forbids networking, and the audit records explicit patterns such as `curl`, `wget`, remote Git operations, and known Python HTTP/socket calls. These controls are not a firewall: model-generated commands may still attempt network access when the operating system allows it.
+The runner does not contact Internet services. Pi startup networking is disabled, while required Ollama traffic remains local. The policy forbids networking, and the audit records explicit patterns such as `curl`, `wget`, remote Git operations, and known Python HTTP/socket calls. Seatbelt on macOS technically denies outbound connections except Ollama's loopback port. Bubblewrap still uses host networking; in `audit` mode, on Linux, and on Windows, the audit is not a firewall.
 
 ## Filesystem e permessi / Filesystem and permissions
 
-Pi riceve strumenti `read`, `bash`, `edit`, `write`, `grep`, `find` e `ls` perché le task richiedono modifica e test. Il working directory è confinato logicamente alla fixture e lo scratch previsto resta sotto quella root; gli sconfinamenti espliciti vengono auditati. Pi e la shell ereditano però i permessi dell'utente: non esiste ancora un sandbox OS che impedisca tecnicamente letture o scritture esterne.
+Pi riceve strumenti `read`, `bash`, `edit`, `write`, `grep`, `find` e `ls` perché le task richiedono modifica e test. Il working directory è confinato logicamente alla fixture e lo scratch previsto resta sotto quella root; gli sconfinamenti espliciti vengono sempre auditati. Con un backend applicato, Pi e i figli vengono inoltre limitati dal sistema operativo; in `audit-only` ereditano ancora i permessi dell'utente.
 
-Pi receives file and shell tools because tasks require editing and testing. Its working directory is logically scoped to the fixture, and the designated scratch area remains under that root; explicit escapes are audited. Pi and its shell still inherit the user's permissions: no OS sandbox currently enforces the workspace boundary.
+Pi receives file and shell tools because tasks require editing and testing. Its working directory is logically scoped to the fixture, and the designated scratch area remains under that root; explicit escapes are always audited. When a backend is applied, the OS additionally restricts Pi and its children; in `audit-only` mode they still inherit the user's permissions.
 
 ## Validazione e processi / Validation and processes
 
-I grader sono codice fidato versionato e vengono eseguiti dalla copia congelata soltanto dopo la verifica del relativo hash. Non aggiungere grader provenienti da terzi senza revisione: vengono eseguiti con i permessi dell'utente. I file JSON dei risultati sono prodotti localmente e non devono essere usati come comandi. Il report effettua rendering Markdown di nomi modello locali; aprirlo solo in viewer fidati se i nomi provengono da un server Ollama non controllato.
+I grader sono codice fidato versionato e vengono eseguiti dalla copia congelata soltanto dopo la verifica del relativo hash. Non sono eseguiti nel backend sandbox e mantengono i permessi dell'utente: non aggiungere grader provenienti da terzi senza revisione. I file JSON dei risultati sono prodotti localmente e non devono essere usati come comandi. Il report effettua rendering Markdown di nomi modello locali; aprirlo solo in viewer fidati se i nomi provengono da un server Ollama non controllato.
 
 ## Limiti residui / Residual risks
 
-- Nessun isolamento OS per Pi o per i comandi shell del modello.
+- `audit`, il fallback di `auto` e Windows non applicano isolamento OS; il manifesto lo segnala esplicitamente.
+- `sandbox-exec` è deprecato da Apple e può essere assente o rifiutare il probe; il backend non usa l'App Sandbox firmata. Directory runtime di sistema restano leggibili e la policy deve essere rivalidata dopo aggiornamenti macOS/Pi.
+- Bubblewrap richiede supporto kernel/user namespace, lascia leggibili directory runtime come `/usr` e `/etc` e non isola la rete host in questa versione.
+- Nessun backend AppContainer Windows è ancora integrato.
 - L'audit post-run non è un reference monitor: comandi shell costruiti dinamicamente, espansioni non deterministiche, semantiche complesse o codice offuscato possono leggere file esterni o usare la rete senza includere un indicatore riconoscibile negli argomenti registrati; euristiche future possono anche richiedere calibrazione contro nuovi falsi positivi.
 - Il confronto del repository rileva scritture a file tracciati o non ignorati, ma non letture e non file creati in aree ignorate diverse dalla directory del run.
 - Le mutazioni alle sorgenti vengono rilevate e attribuite, ma non ripristinate automaticamente per preservare prove e modifiche utente; occorre revisione prima del run successivo.
-- Nessun blocco di rete a livello kernel.
+- Nessun blocco di rete a livello kernel in audit-only o nel backend Linux.
 - Un modello può creare processi figli che sopravvivono su piattaforme dove la terminazione del gruppo non è disponibile.
 - Un grader difettoso o malevolo ha accesso ai permessi dell'utente.
 - Log e workspace possono occupare molto spazio o contenere dati che il modello ha letto.
 - I modelli locali e Ollama sono supply-chain esterne al repository.
-- Un modello può ancora tentare di manipolare `.git`, cancellare file o leggere i grader; hash, snapshot e audit invalidano i casi osservabili, ma la prevenzione completa resta affidata alla futura sandbox OS.
+- Un modello può ancora tentare di manipolare `.git` nella propria workspace; grader e snapshot restano fuori dalle mount consentite, ma l'audit e gli hash continuano a essere necessari come controllo indipendente.
+- Le metriche POSIX possono non includere completamente tutti i discendenti; i contatori RAPL sono host-wide, possono includere altri carichi e spesso non sono disponibili senza permessi aggiuntivi.
 
 ## Raccomandazioni / Recommendations
 
 - Eseguire con account non privilegiato e fixture esclusivamente sintetiche.
-- Usare un container o sandbox OS senza rete per casi aggiunti da fonti non fidate.
+- Usare `--sandbox required` per impedire fallback quando l'isolamento è requisito del run.
+- Su Linux usare un ulteriore contenimento di rete esterno se le fixture non sono pienamente sintetiche.
 - Revisionare prompt, fixture e grader prima di ogni run.
 - Non ignorare errori `inputs`, `violations_detected` o `snapshot_compromised` e non reinserire manualmente modelli esclusi nella classifica.
 - Cancellare in modo consapevole i risultati non più necessari e non pubblicarli senza revisione.
@@ -82,4 +93,4 @@ I grader sono codice fidato versionato e vengono eseguiti dalla copia congelata 
 
 ## Test di sicurezza / Security tests
 
-Il caso `secure_workspace` controlla traversal, path assoluti, fuga via symlink, scrittura atomica e redazione. I test del runner verificano validazione configurazione, calibrazione dei grader, snapshot e policy hash, scratch interno, ordine con seed, path shell risolti in stile POSIX e Windows su ogni host, traversal confinato, pattern testuali non-path, tentativi di rete, riesame dei report, esclusione completa del modello e divergenze di baseline. Uno smoke Pi/Ollama reale ha verificato due workspace con baseline identica e integrità valida; il full diagnostico `20260829-120212` ha calibrato il nuovo audit contro `/tmp`, repository reale, rete e un falso positivo `awk`. La verifica reale `20260829-164305` ha poi completato `milestone_closure` con Qwen a 100/100 e integrità valida, usando soltanto `.benchmark-scratch/` per lo smoke e il traversal negativo. Una futura milestone deve aggiungere un backend sandbox e test specifici per processi figli, letture indirette e rete.
+Il caso `secure_workspace` controlla traversal, path assoluti, fuga via symlink, scrittura atomica e redazione. I test del runner verificano validazione configurazione, calibrazione dei grader, snapshot e policy hash, scratch interno, ordine con seed, path shell risolti in stile POSIX e Windows su ogni host, traversal confinato, pattern testuali non-path, tentativi di rete, riesame dei report, esclusione completa del modello e divergenze di baseline. I test della milestone 2 coprono selezione/fallback/required, capacità non sovrastimate, profilo Seatbelt, mount bubblewrap, lettura indiretta tramite figlio quando il backend è disponibile, schema metriche e rifiuto di confronti incompatibili. Restano obbligatori smoke reali per il backend effettivo e CI macOS/Windows/Linux prima della chiusura.

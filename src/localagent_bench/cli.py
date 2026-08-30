@@ -5,12 +5,15 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from .config import ConfigError, load_config
+from .comparison import ComparisonError, write_comparison
 from .ollama import OllamaError
 from .report import write_report
 from .runner import BenchmarkError, doctor, run_benchmark
+from .sandbox import SANDBOX_MODES
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -39,6 +42,11 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--repetitions", type=int, help="Ripetizioni per modello/caso")
     run.add_argument("--timeout", type=int, help="Timeout di ogni task in secondi")
     run.add_argument("--seed", type=int, help="Seed intero per riprodurre l'ordine randomizzato delle task")
+    run.add_argument(
+        "--sandbox",
+        choices=SANDBOX_MODES,
+        help="Isolamento: audit, auto con fallback esplicito, oppure required senza fallback",
+    )
     warmup = run.add_mutually_exclusive_group()
     warmup.add_argument("--warmup", dest="warmup", action="store_true", help="Forza warmup")
     warmup.add_argument("--no-warmup", dest="warmup", action="store_false", help="Disabilita warmup")
@@ -47,6 +55,9 @@ def _parser() -> argparse.ArgumentParser:
 
     report = subparsers.add_parser("report", help="Rigenera il report di un run")
     report.add_argument("run_dir", type=Path)
+    compare = subparsers.add_parser("compare", help="Confronta statisticamente più run compatibili")
+    compare.add_argument("run_dirs", type=Path, nargs="+")
+    compare.add_argument("--output", type=Path, help="Directory del confronto")
     return parser
 
 
@@ -93,6 +104,7 @@ def main(argv: list[str] | None = None) -> int:
                 use_warmup=args.warmup,
                 output_dir=args.output,
                 order_seed=args.seed,
+                sandbox_mode=args.sandbox,
             )
             print(f"\nBenchmark completato: {run_dir}")
             print(f"Report: {run_dir / 'REPORT.md'}")
@@ -111,7 +123,13 @@ def main(argv: list[str] | None = None) -> int:
             report = write_report(args.run_dir.resolve())
             print(json.dumps(report["leaderboard"], indent=2, ensure_ascii=False))
             return 0
-    except (ConfigError, BenchmarkError, OllamaError, OSError) as exc:
+        if args.command == "compare":
+            output = args.output or config.root / "results" / f"comparison-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+            comparison = write_comparison(args.run_dirs, output)
+            print(f"Confronto completato: {output.resolve()}")
+            print(f"Modelli aggregati: {len(comparison['models'])}")
+            return 0
+    except (ConfigError, BenchmarkError, ComparisonError, OllamaError, OSError) as exc:
         print(f"Errore: {exc}", file=sys.stderr)
         return 2
     return 2

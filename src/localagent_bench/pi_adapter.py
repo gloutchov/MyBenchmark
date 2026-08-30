@@ -13,6 +13,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
+from .sandbox import SandboxSelection, prepare_sandbox_launch
+from .system_metrics import SystemMetricCollector
+
 
 AUDIT_VERSION = 2
 SCRATCH_DIRECTORY = ".benchmark-scratch"
@@ -50,6 +53,8 @@ class PiRun:
     metrics: dict[str, Any]
     final_response: str
     command: list[str]
+    sandbox: dict[str, Any] | None = None
+    system_metrics: dict[str, Any] | None = None
 
 
 def write_models_config(
@@ -120,6 +125,8 @@ def run_pi(
     workspace: Path,
     agent_dir: Path,
     timeout_seconds: int,
+    sandbox: SandboxSelection,
+    ollama_url: str,
 ) -> PiRun:
     command = [
         *pi_command,
@@ -158,9 +165,18 @@ def run_pi(
             "TEMP": str(scratch),
         }
     )
+    launch = prepare_sandbox_launch(
+        sandbox,
+        command,
+        workspace=workspace,
+        agent_dir=agent_dir,
+        ollama_url=ollama_url,
+        pi_command=pi_command,
+    )
+    collector = SystemMetricCollector.start()
     started = time.monotonic()
     process = subprocess.Popen(
-        command,
+        launch.command,
         cwd=workspace,
         env=env,
         stdout=subprocess.PIPE,
@@ -176,6 +192,7 @@ def run_pi(
         stdout, stderr = process.communicate()
         status = "timeout"
     duration = time.monotonic() - started
+    system_metrics = collector.finish()
     metrics, final_response = parse_json_events(stdout)
     return PiRun(
         status=status,
@@ -185,7 +202,9 @@ def run_pi(
         stderr=stderr,
         metrics=metrics,
         final_response=final_response,
-        command=command,
+        command=list(launch.command),
+        sandbox=launch.metadata,
+        system_metrics=system_metrics,
     )
 
 

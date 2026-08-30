@@ -33,6 +33,8 @@ class ReportTests(unittest.TestCase):
             report = write_report(run_dir)
             self.assertEqual("accurate", report["leaderboard"][0]["model"])
             self.assertEqual(90, report["leaderboard"][0]["case_scores"]["case"])
+            self.assertEqual(3, report["schema_version"])
+            self.assertIsNone(report["leaderboard"][0]["median_energy_joules"])
             self.assertTrue((run_dir / "REPORT.md").exists())
 
     def test_integrity_violation_disqualifies_entire_model(self):
