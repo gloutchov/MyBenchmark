@@ -66,7 +66,7 @@ Usare `full --repetitions 3` soltanto sui finalisti. Il quarto caso verifica bra
 python3 benchmark.py compare results/RUN-1 results/RUN-2 results/RUN-3
 ```
 
-Il confronto accetta soltanto directory distinte e run con versione/parametri, profilo, casi, fingerprint input, digest modello, backend sandbox, piattaforma e hardware registrato compatibili. Genera `comparison.json` e `COMPARISON.md` con media, mediana, deviazione standard e intervallo al 95% approssimato. I modelli assenti o esclusi per integrità non ricevono un campione per quel run.
+Il confronto accetta soltanto directory distinte e run con versione/parametri, profilo, casi, fingerprint input, digest modello, backend sandbox, piattaforma e hardware registrato compatibili. Genera `comparison.json` e `COMPARISON.md` con media, mediana, deviazione standard e intervallo al 95% approssimato, limitato al dominio naturale della metrica. I modelli assenti o esclusi per integrità non ricevono un campione per quel run.
 
 ## 5. Configurazione
 

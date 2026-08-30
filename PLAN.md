@@ -97,7 +97,7 @@ Versione corrente / Current version: **0.1.2**
 - Criteri di accettazione: uscita dalla workspace bloccata tecnicamente nel backend sandbox; modalità corrente mantenuta e segnalata; report aggregato su più run.
 - Test: unit, integrazione, sicurezza e smoke macOS/Windows/Linux.
 - Documentazione: tutti i manuali, security model e MAP.
-- Stato: **in corso sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati. I probe reali Seatbelt per lettura indiretta e rete sono verdi. Dopo il diagnostico `20260830-102245`, lo smoke reale corretto `20260830-102400` ha completato `targeted_patch` con Qwen 9B a 100/100 in 234,9 s, integrità valida, repository pulito, Seatbelt enforced, profilo hashato e metriche registrate. La CI Node 24 `33301939740` è verde sui tre OS. Il primo campione multi-run `20260830-103545` ha rivelato che l'audit 2 interpretava l'operatore Python `/` dentro un heredoc letterale come path root; l'audit 3 separa ora payload e controllo shell, mantenendo il rilevamento rete per heredoc eseguibili. Restano riesame del campione, secondo campione/compare, nuova CI, decisione sul limite Windows, versione 0.2.0 e chiusura.**
+- Stato: **in corso sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati. I probe reali Seatbelt per lettura indiretta e rete sono verdi. Dopo il diagnostico `20260830-102245`, lo smoke reale corretto `20260830-102400` ha completato `targeted_patch` con Qwen 9B a 100/100 in 234,9 s, integrità valida, repository pulito, Seatbelt enforced, profilo hashato e metriche registrate. La CI Node 24 `33301939740` è verde sui tre OS. Il campione `20260830-103545`, riesaminato con audit 3 senza alterare il risultato originale, è valido a 100/100; `20260830-104238` ha raggiunto il timeout a 900 s con qualità 85 e integrità valida. Il confronto reale `comparison-m2-real` aggrega due campioni compatibili: totale medio 84, qualità 92,5, completamento 50% e durata media 557,6 s; gli intervalli vengono ora limitati al dominio naturale. Restano nuova CI, decisione sul limite Windows, versione 0.2.0 e chiusura.**
 
 ### Checklist milestone 2
 
@@ -110,6 +110,7 @@ Versione corrente / Current version: **0.1.2**
 - [x] Metriche hardware, rusage e RAPL opzionale con provider/scope
 - [x] Schema risultati/report 3 compatibile con lettura schema 2
 - [x] Confronto statistico tra run compatibili con versione, parametri e digest verificati
+- [x] Confronto reale di due run compatibili verificato (`comparison-m2-real`)
 - [x] Test unitari e negativi aggiunti
 - [x] Test automatici locali completi e probe OS macOS eseguiti
 - [x] Smoke Pi/Ollama con sandbox reale eseguito (`20260830-102400`)

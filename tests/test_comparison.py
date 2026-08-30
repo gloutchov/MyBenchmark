@@ -80,6 +80,11 @@ class ComparisonTests(unittest.TestCase):
             self.assertEqual(2, overall["count"])
             self.assertEqual(85, overall["mean"])
             self.assertGreater(overall["stddev"], 0)
+            self.assertGreaterEqual(overall["ci95_low"], 0)
+            self.assertLessEqual(overall["ci95_high"], 100)
+            completion = comparison["models"][0]["metrics"]["completion_rate"]
+            self.assertEqual(100, completion["ci95_low"])
+            self.assertEqual(100, completion["ci95_high"])
             self.assertTrue((output / "COMPARISON.md").is_file())
             self.assertEqual("digest-a", comparison["models"][0]["model_digest"])
 

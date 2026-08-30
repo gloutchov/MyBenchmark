@@ -91,11 +91,22 @@ def _compatibility_signature(manifest: dict[str, Any], report: dict[str, Any]) -
     }
 
 
-def _distribution(values: list[float]) -> dict[str, float | int]:
+def _distribution(
+    values: list[float],
+    *,
+    lower_bound: float | None = None,
+    upper_bound: float | None = None,
+) -> dict[str, float | int]:
     count = len(values)
     mean = statistics.fmean(values)
     stddev = statistics.stdev(values) if count > 1 else 0.0
     margin = 1.96 * stddev / math.sqrt(count) if count > 1 else 0.0
+    low = mean - margin
+    high = mean + margin
+    if lower_bound is not None:
+        low = max(lower_bound, low)
+    if upper_bound is not None:
+        high = min(upper_bound, high)
     return {
         "count": count,
         "mean": round(mean, 4),
@@ -103,8 +114,8 @@ def _distribution(values: list[float]) -> dict[str, float | int]:
         "stddev": round(stddev, 4),
         "min": round(min(values), 4),
         "max": round(max(values), 4),
-        "ci95_low": round(mean - margin, 4),
-        "ci95_high": round(mean + margin, 4),
+        "ci95_low": round(low, 4),
+        "ci95_high": round(high, 4),
     }
 
 
@@ -166,12 +177,22 @@ def build_comparison(run_dirs: list[Path]) -> dict[str, Any]:
         "median_cpu_seconds",
         "median_energy_joules",
     )
+    bounded_percentages = {
+        "overall_score",
+        "quality_score",
+        "completion_rate",
+        "speed_score",
+        "token_efficiency_score",
+    }
     models: list[dict[str, Any]] = []
     for model, rows in samples.items():
         distributions: dict[str, Any] = {}
         for metric in metrics:
             values = [float(row[metric]) for row in rows if isinstance(row.get(metric), (int, float))]
-            distributions[metric] = _distribution(values) if values else None
+            if metric in bounded_percentages:
+                distributions[metric] = _distribution(values, lower_bound=0, upper_bound=100) if values else None
+            else:
+                distributions[metric] = _distribution(values, lower_bound=0) if values else None
         models.append(
             {
                 "model": model,
@@ -195,7 +216,7 @@ def build_comparison(run_dirs: list[Path]) -> dict[str, Any]:
         "disqualified_models_by_run": disqualified_by_run,
         "models": models,
         "notes": {
-            "ci95": "Intervallo normale approssimato; con pochi run descrive l'incertezza ma non sostituisce più ripetizioni.",
+            "ci95": "Intervallo normale approssimato, limitato al dominio naturale della metrica; con pochi run descrive l'incertezza ma non sostituisce più ripetizioni.",
             "missing_models": "Un modello assente o escluso in un run non riceve un campione per quel run.",
         },
     }
@@ -229,7 +250,7 @@ def render_comparison_markdown(comparison: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
-            "I run vengono confrontati solo se profilo, casi, fingerprint degli input, backend sandbox e hardware registrato coincidono. "
+            "I run vengono confrontati solo se versione, parametri, profilo, casi, fingerprint degli input, digest modello, audit, backend sandbox e hardware registrato coincidono. "
             "Gli intervalli al 95% sono approssimazioni normali e vanno interpretati con cautela quando i campioni sono pochi.",
             "",
         ]
