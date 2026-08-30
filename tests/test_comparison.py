@@ -48,7 +48,7 @@ class ComparisonTests(unittest.TestCase):
         }
         report = {
             "schema_version": 3,
-            "integrity": {"disqualified_models": []},
+            "integrity": {"audit_version": 3, "disqualified_models": []},
             "leaderboard": [
                 {
                     "model": "model:a",

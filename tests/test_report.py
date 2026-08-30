@@ -34,6 +34,7 @@ class ReportTests(unittest.TestCase):
             self.assertEqual("accurate", report["leaderboard"][0]["model"])
             self.assertEqual(90, report["leaderboard"][0]["case_scores"]["case"])
             self.assertEqual(3, report["schema_version"])
+            self.assertEqual(3, report["integrity"]["audit_version"])
             self.assertIsNone(report["leaderboard"][0]["median_energy_joules"])
             self.assertTrue((run_dir / "REPORT.md").exists())
 

@@ -62,6 +62,9 @@ def _compatibility_signature(manifest: dict[str, Any], report: dict[str, Any]) -
     policy = manifest.get("execution_policy", {})
     if not isinstance(policy, dict):
         policy = {}
+    report_integrity = report.get("integrity", {})
+    if not isinstance(report_integrity, dict):
+        report_integrity = {}
     cases = manifest.get("cases")
     if not isinstance(cases, list):
         cases = sorted({str(item.get("case_id")) for item in report.get("results", []) if isinstance(item, dict)})
@@ -74,7 +77,7 @@ def _compatibility_signature(manifest: dict[str, Any], report: dict[str, Any]) -
         "sandbox_backend": sandbox.get("backend", "audit-only"),
         "sandbox_enforced": bool(sandbox.get("enforced", False)),
         "execution_policy_sha256": policy.get("sha256"),
-        "audit_version": policy.get("audit_version"),
+        "audit_version": report_integrity.get("audit_version", policy.get("audit_version")),
         "timeout_seconds": configuration.get("timeout_seconds", manifest.get("timeout_seconds")),
         "repetitions": configuration.get("repetitions", manifest.get("repetitions")),
         "thinking": configuration.get("thinking", manifest.get("thinking")),

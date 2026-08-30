@@ -192,6 +192,7 @@ def _integrity_summary(
     else:
         status = "not_recorded"
     summary = {
+        "audit_version": AUDIT_VERSION,
         "status": status,
         "disqualified_models": sorted(disqualified),
         "invalid_results": [
