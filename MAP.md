@@ -26,7 +26,7 @@
 │       └── grader.py               # controlli esterni al prompt
 ├── tests/                          # runner, parser, sandbox, metriche, confronti e grader
 ├── results/                        # output, snapshot input, hash e workspace; ignorato da Git
-├── .github/workflows/ci.yml        # compile, test e documenti su tre OS
+├── .github/workflows/ci.yml        # Actions Node 24: compile, test e documenti su tre OS
 ├── AGENTS.md                       # modus operandi copiato in ogni fixture
 ├── README.md                       # overview bilingue e quick start
 ├── ISTRUZIONI.md                   # manuale italiano

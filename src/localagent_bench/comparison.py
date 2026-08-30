@@ -56,15 +56,32 @@ def _compatibility_signature(manifest: dict[str, Any], report: dict[str, Any]) -
     hardware = environment.get("hardware", {})
     if not isinstance(hardware, dict):
         hardware = {}
+    configuration = manifest.get("configuration", {})
+    if not isinstance(configuration, dict):
+        configuration = {}
+    policy = manifest.get("execution_policy", {})
+    if not isinstance(policy, dict):
+        policy = {}
     cases = manifest.get("cases")
     if not isinstance(cases, list):
         cases = sorted({str(item.get("case_id")) for item in report.get("results", []) if isinstance(item, dict)})
     return {
+        "run_schema_version": manifest.get("schema_version"),
+        "benchmark_version": manifest.get("benchmark_version"),
         "profile": manifest.get("profile"),
         "cases": tuple(str(item) for item in cases),
         "inputs": _input_signature(manifest, report),
         "sandbox_backend": sandbox.get("backend", "audit-only"),
         "sandbox_enforced": bool(sandbox.get("enforced", False)),
+        "execution_policy_sha256": policy.get("sha256"),
+        "audit_version": policy.get("audit_version"),
+        "timeout_seconds": configuration.get("timeout_seconds", manifest.get("timeout_seconds")),
+        "repetitions": configuration.get("repetitions", manifest.get("repetitions")),
+        "thinking": configuration.get("thinking", manifest.get("thinking")),
+        "warmup": configuration.get("warmup", manifest.get("warmup")),
+        "context_window": configuration.get("context_window"),
+        "max_tokens": configuration.get("max_tokens"),
+        "temperature": configuration.get("temperature"),
         "platform": environment.get("platform"),
         "machine": hardware.get("machine"),
         "logical_cpu_count": hardware.get("logical_cpu_count"),
@@ -91,9 +108,13 @@ def _distribution(values: list[float]) -> dict[str, float | int]:
 def build_comparison(run_dirs: list[Path]) -> dict[str, Any]:
     if not run_dirs:
         raise ComparisonError("Specificare almeno una directory di run")
+    resolved_dirs = [raw_path.resolve() for raw_path in run_dirs]
+    if len(set(resolved_dirs)) != len(resolved_dirs):
+        raise ComparisonError("Ogni directory di run può essere specificata una sola volta")
+    if len({path.name for path in resolved_dirs}) != len(resolved_dirs):
+        raise ComparisonError("Le directory di run devono avere nomi distinti")
     loaded: list[tuple[Path, dict[str, Any], dict[str, Any]]] = []
-    for raw_path in run_dirs:
-        run_dir = raw_path.resolve()
+    for run_dir in resolved_dirs:
         manifest = _load_object(run_dir / "run.json")
         report = _load_object(run_dir / "report.json")
         if report.get("schema_version") not in {2, 3}:
@@ -112,14 +133,24 @@ def build_comparison(run_dirs: list[Path]) -> dict[str, Any]:
         raise ComparisonError(f"Run non comparabili ({detail})")
 
     samples: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    digests: dict[str, set[str]] = defaultdict(set)
     disqualified_by_run: dict[str, list[str]] = {}
-    for run_dir, _manifest, report in loaded:
+    for run_dir, manifest, report in loaded:
         integrity = report.get("integrity", {})
         disqualified = integrity.get("disqualified_models", []) if isinstance(integrity, dict) else []
         disqualified_by_run[run_dir.name] = [str(item) for item in disqualified]
+        metadata = manifest.get("model_metadata", {})
+        if isinstance(metadata, dict):
+            for model, details in metadata.items():
+                digest = details.get("digest") if isinstance(details, dict) else None
+                if isinstance(digest, str) and digest:
+                    digests[str(model)].add(digest)
         for row in report.get("leaderboard", []):
             if isinstance(row, dict) and isinstance(row.get("model"), str):
                 samples[row["model"]].append(row)
+    changed_models = sorted(model for model, values in digests.items() if len(values) > 1)
+    if changed_models:
+        raise ComparisonError("Digest Ollama divergente per: " + ", ".join(changed_models))
 
     metrics = (
         "overall_score",
@@ -143,6 +174,7 @@ def build_comparison(run_dirs: list[Path]) -> dict[str, Any]:
                 "model": model,
                 "run_count": len(rows),
                 "present_in_all_runs": len(rows) == len(loaded),
+                "model_digest": next(iter(digests.get(model, ())), None),
                 "metrics": distributions,
             }
         )

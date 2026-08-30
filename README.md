@@ -120,9 +120,9 @@ Aggregare run compatibili senza ricopiare manualmente i punteggi:
 python3 benchmark.py compare results/RUN-1 results/RUN-2 results/RUN-3
 ```
 
-Il comando produce `comparison.json` e `COMPARISON.md` con media, mediana, deviazione standard e intervallo al 95% approssimato. Rifiuta confronti tra profili, input, backend sandbox, piattaforme o hardware differenti; i modelli esclusi dall'integrità non ricevono campioni.
+Il comando produce `comparison.json` e `COMPARISON.md` con media, mediana, deviazione standard e intervallo al 95% approssimato. Rifiuta directory duplicate e confronti tra versioni/parametri, profili, input, digest modello, backend sandbox, piattaforme o hardware differenti; i modelli esclusi dall'integrità non ricevono campioni.
 
-The command writes `comparison.json` and `COMPARISON.md` with mean, median, standard deviation, and an approximate 95% interval. It rejects runs with different profiles, inputs, sandbox backends, platforms, or recorded hardware; integrity-disqualified models do not contribute samples.
+The command writes `comparison.json` and `COMPARISON.md` with mean, median, standard deviation, and an approximate 95% interval. It rejects duplicate directories and runs with different versions/parameters, profiles, inputs, model digests, sandbox backends, platforms, or recorded hardware; integrity-disqualified models do not contribute samples.
 
 ## Configurazione / Configuration
 

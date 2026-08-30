@@ -564,4 +564,4 @@ Prima di iniziare lo sviluppo effettivo:
 - La modalità sandbox deve essere sempre esplicita: `audit` non va descritta come isolamento, `auto` deve registrare il fallback e `required` deve fallire se il backend non è realmente applicabile.
 - Non dichiarare capacità che il backend non applica: Seatbelt macOS limita file utente e rete loopback ma usa un'interfaccia deprecata; bubblewrap Linux isola filesystem/processi ma non la rete; Windows resta audit-only finché non esiste un backend AppContainer verificato.
 - Metriche hardware, processi ed energia devono includere provider, scope e disponibilità; non attribuire al solo modello contatori host-wide o incompleti.
-- Confrontare statisticamente soltanto run con input, profilo, backend e ambiente compatibili; i modelli esclusi per integrità non devono rientrare tramite l'aggregazione.
+- Confrontare statisticamente soltanto directory distinte e run con versione/parametri, input, digest modello, profilo, backend e ambiente compatibili; i modelli esclusi per integrità non devono rientrare tramite l'aggregazione.

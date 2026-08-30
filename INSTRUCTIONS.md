@@ -56,7 +56,7 @@ Compare compatible runs statistically:
 python3 benchmark.py compare results/RUN-1 results/RUN-2 results/RUN-3
 ```
 
-The command accepts only runs with matching profiles, cases, input fingerprints, sandbox backend, platform, and recorded hardware. It writes `comparison.json` and `COMPARISON.md` with mean, median, standard deviation, and an approximate 95% interval. Missing or integrity-disqualified models receive no sample for that run.
+The command accepts only distinct directories and runs with matching versions/parameters, profiles, cases, input fingerprints, model digests, sandbox backend, platform, and recorded hardware. It writes `comparison.json` and `COMPARISON.md` with mean, median, standard deviation, and an approximate 95% interval. Missing or integrity-disqualified models receive no sample for that run.
 
 ## 5. Configuration
 

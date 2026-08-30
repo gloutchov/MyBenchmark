@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import BenchmarkConfig, CaseSpec
+from . import __version__
 from .grading import grade_workspace
 from .integrity import (
     InputIntegrityError,
@@ -278,6 +279,7 @@ def run_benchmark(
     tasks = _build_task_order(models, cases, repeat_count, seed)
     manifest = {
         "schema_version": 3,
+        "benchmark_version": __version__,
         "started_at": datetime.now(timezone.utc).isoformat(),
         "profile": profile,
         "models": models,
@@ -299,6 +301,18 @@ def run_benchmark(
             "filesystem_scope": "task_workspace",
         },
         "sandbox": sandbox.to_dict(),
+        "configuration": {
+            "pi_command": list(config.pi_command),
+            "ollama_url": config.ollama_url,
+            "timeout_seconds": timeout,
+            "repetitions": repeat_count,
+            "thinking": config.defaults.thinking,
+            "warmup": should_warmup,
+            "keep_alive": config.defaults.keep_alive,
+            "context_window": config.defaults.context_window,
+            "max_tokens": config.defaults.max_tokens,
+            "temperature": config.defaults.temperature,
+        },
         "integrity": {"status": "passed", "aborted": False, "violations": []},
         "environment": {
             "platform": platform.platform(),

@@ -39,7 +39,7 @@ LocalAgent Benchmark checks inputs against Git, creates one frozen snapshot of p
 - Su Linux `linux-bubblewrap` costruisce un mount namespace da una root vuota, monta read-only le directory runtime di sistema, monta read-write soltanto workspace e directory Pi, usa `/tmp` effimero e separa PID, IPC e UTS. La rete host resta condivisa per raggiungere Ollama ed è dichiarata non isolata.
 - Backend richiesto, backend effettivo e capacità filesystem/processi/rete sono registrati sia nel manifesto sia nel risultato; il report li mostra prima della classifica.
 - Hardware logico, memoria, rusage POSIX e contatori energetici Linux RAPL leggibili sono registrati con provider, scope e disponibilità; nessuna dipendenza o elevazione automatica viene introdotta.
-- Il comando `compare` accetta soltanto run compatibili per profilo, input, backend, piattaforma e hardware e non aggrega modelli già esclusi per integrità.
+- Il comando `compare` accetta soltanto directory distinte e run compatibili per versione/parametri, profilo, input, digest modello, backend, piattaforma e hardware e non aggrega modelli già esclusi per integrità.
 
 ## Segreti e logging / Secrets and logging
 

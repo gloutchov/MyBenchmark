@@ -97,7 +97,7 @@ Versione corrente / Current version: **0.1.2**
 - Criteri di accettazione: uscita dalla workspace bloccata tecnicamente nel backend sandbox; modalità corrente mantenuta e segnalata; report aggregato su più run.
 - Test: unit, integrazione, sicurezza e smoke macOS/Windows/Linux.
 - Documentazione: tutti i manuali, security model e MAP.
-- Stato: **in corso sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati. I probe reali Seatbelt per lettura indiretta e rete sono verdi. Dopo il diagnostico `20260830-102245`, lo smoke reale corretto `20260830-102400` ha completato `targeted_patch` con Qwen 9B a 100/100 in 234,9 s, integrità valida, repository pulito, Seatbelt enforced, profilo hashato e metriche registrate. Le CI `33301712534` e `33301770991` sono verdi su macOS/Linux; Windows ha isolato due asserzioni di test non portabili sulla serializzazione dei path Seatbelt, corrette senza modificare il runtime. Restano il passaggio CI definitivo, la decisione sul limite Windows, la sincronizzazione versione 0.2.0 e la chiusura prima dell'avallo al merge.**
+- Stato: **in corso sul branch `milestone/2-reproducibility-sandbox`; adapter `audit`/`auto`/`required`, backend Seatbelt e bubblewrap, metriche hardware/rusage/RAPL, schema 3 retroleggibile e comando `compare` sono implementati. I probe reali Seatbelt per lettura indiretta e rete sono verdi. Dopo il diagnostico `20260830-102245`, lo smoke reale corretto `20260830-102400` ha completato `targeted_patch` con Qwen 9B a 100/100 in 234,9 s, integrità valida, repository pulito, Seatbelt enforced, profilo hashato e metriche registrate. La CI `33301814564` è verde su macOS, Windows e Linux; i warning Node 20 osservati sulle Actions precedenti sono affrontati aggiornando checkout/setup-python alle release Node 24. Restano la nuova CI, la verifica multi-run reale, la decisione sul limite Windows, la sincronizzazione versione 0.2.0 e la chiusura prima dell'avallo al merge.**
 
 ### Checklist milestone 2
 
@@ -109,7 +109,7 @@ Versione corrente / Current version: **0.1.2**
 - [ ] Backend Windows AppContainer oppure limite audit-only accettato esplicitamente dal progettista
 - [x] Metriche hardware, rusage e RAPL opzionale con provider/scope
 - [x] Schema risultati/report 3 compatibile con lettura schema 2
-- [x] Confronto statistico tra run compatibili
+- [x] Confronto statistico tra run compatibili con versione, parametri e digest verificati
 - [x] Test unitari e negativi aggiunti
 - [x] Test automatici locali completi e probe OS macOS eseguiti
 - [x] Smoke Pi/Ollama con sandbox reale eseguito (`20260830-102400`)
