@@ -412,7 +412,11 @@ class SandboxTests(unittest.TestCase):
                     check=False,
                     timeout=90,
                 )
-                self.assertEqual(0, result.returncode, result.stderr)
+                metadata_path = workspace / ".benchmark-scratch" / "windows-sandbox.json"
+                diagnostic = result.stderr
+                if metadata_path.is_file():
+                    diagnostic += metadata_path.read_text(encoding="utf-8")
+                self.assertEqual(0, result.returncode, diagnostic)
             server.join(timeout=2)
             self.assertFalse(server.is_alive())
 

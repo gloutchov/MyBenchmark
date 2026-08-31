@@ -562,6 +562,7 @@ class NamedPipeBroker:
         self.stop = threading.Event()
         self.ready = threading.Event()
         self.error: AppContainerError | None = None
+        self.events: list[str] = []
         self.thread = threading.Thread(target=self._serve, daemon=True)
 
     def start(self) -> None:
@@ -612,13 +613,16 @@ class NamedPipeBroker:
                         self.error = _last_error("CreateNamedPipeW failed")
                         self.ready.set()
                     return
+                self.events.append("pipe_created")
                 if first_instance:
                     first_instance = False
                     self.ready.set()
                 connected = kernel32.ConnectNamedPipe(handle, None)
                 if not connected and ctypes.get_last_error() != ERROR_PIPE_CONNECTED:
+                    self.events.append(f"pipe_connect_failed:{ctypes.get_last_error()}")
                     kernel32.CloseHandle(handle)
                     continue
+                self.events.append("client_connected")
                 if self.stop.is_set():
                     kernel32.CloseHandle(handle)
                     break
@@ -630,7 +634,9 @@ class NamedPipeBroker:
         kernel32, _userenv, _advapi32 = _libraries()
         try:
             upstream = socket.create_connection(self.target, timeout=10)
-        except OSError:
+            self.events.append("upstream_connected")
+        except OSError as exc:
+            self.events.append(f"upstream_connect_failed:{getattr(exc, 'winerror', None)}")
             kernel32.CloseHandle(handle)
             return
 
@@ -640,10 +646,13 @@ class NamedPipeBroker:
             while kernel32.ReadFile(handle, buffer, len(buffer), ctypes.byref(count), None):
                 if not count.value:
                     break
+                self.events.append(f"pipe_read:{count.value}")
                 try:
                     upstream.sendall(buffer.raw[: count.value])
+                    self.events.append(f"upstream_write:{count.value}")
                 except OSError:
                     break
+            self.events.append(f"pipe_read_closed:{ctypes.get_last_error()}")
             try:
                 upstream.shutdown(socket.SHUT_WR)
             except OSError:
@@ -656,9 +665,12 @@ class NamedPipeBroker:
                     data = upstream.recv(65536)
                     if not data:
                         break
+                    self.events.append(f"upstream_read:{len(data)}")
                     buffer = ctypes.create_string_buffer(data)
                     if not kernel32.WriteFile(handle, buffer, len(data), ctypes.byref(written), None):
+                        self.events.append(f"pipe_write_failed:{ctypes.get_last_error()}")
                         break
+                    self.events.append(f"pipe_write:{written.value}")
             except OSError:
                 pass
 
@@ -712,6 +724,7 @@ def run_container(args, command: list[str]) -> int:
     finally:
         if broker is not None:
             broker.close()
+            metadata["broker_events"] = list(broker.events)
         metadata["acl_removed"] = _remove_paths(sid_text, granted)
         _free_sid(sid)
         metadata["profile_deleted"] = _delete_profile(args.profile)
