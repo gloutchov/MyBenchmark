@@ -8,7 +8,8 @@ import os
 import platform
 import shutil
 import subprocess
-from dataclasses import asdict, dataclass
+import sys
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable
 from urllib.parse import urlparse
@@ -40,6 +41,7 @@ class SandboxSelection:
 class SandboxLaunch:
     command: tuple[str, ...]
     metadata: dict[str, object]
+    environment: dict[str, str] = field(default_factory=dict)
 
 
 def _probe_command(command: list[str]) -> tuple[bool, str]:
@@ -96,6 +98,7 @@ def _native_candidate(
                 "/",
                 "/",
                 "--unshare-pid",
+                "--unshare-net",
                 "--die-with-parent",
                 "/bin/true",
             ]
@@ -109,13 +112,28 @@ def _native_candidate(
                 enforced=True,
                 filesystem_isolation=True,
                 process_isolation=True,
-                network_isolation=False,
-                detail="bubblewrap nasconde i file utente esterni; la rete resta affidata a policy e audit per raggiungere Ollama",
+                network_isolation=True,
+                detail="bubblewrap isola file, processi e rete; un broker Unix inoltra soltanto verso Ollama",
             ),
             detail,
         )
     if system == "Windows":
-        return None, "nessun backend AppContainer integrato in questa versione"
+        launcher = Path(__file__).with_name("windows_appcontainer.py")
+        ok, detail = probe([sys.executable, str(launcher), "probe"])
+        if not ok:
+            return None, f"AppContainer non utilizzabile: {detail}"
+        return (
+            SandboxSelection(
+                requested_mode="auto",
+                backend="windows-appcontainer",
+                enforced=True,
+                filesystem_isolation=True,
+                process_isolation=True,
+                network_isolation=True,
+                detail="AppContainer limita file, credenziali e rete; un named pipe inoltra soltanto verso Ollama",
+            ),
+            detail,
+        )
     return None, f"piattaforma non supportata: {system}"
 
 
@@ -284,6 +302,7 @@ def _linux_command(
         "--unshare-pid",
         "--unshare-ipc",
         "--unshare-uts",
+        "--unshare-net",
         "--die-with-parent",
         "--new-session",
         "--proc",
@@ -304,6 +323,44 @@ def _linux_command(
     args.extend(("--setenv", "HOME", str(workspace), "--chdir", str(workspace), "--"))
     args.extend(command)
     return tuple(args)
+
+
+def _loopback_target(ollama_url: str) -> tuple[str, int]:
+    parsed = urlparse(ollama_url)
+    if parsed.scheme not in {"http", "https"} or parsed.hostname not in {"127.0.0.1", "::1", "localhost"}:
+        raise SandboxError("Il backend enforced richiede ollama.url su loopback")
+    return parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80)
+
+
+def _network_shim(path: Path, host: str, port: int, transport: str) -> str:
+    source = f"""'use strict';
+const net = require('node:net');
+const originalConnect = net.connect;
+const targetHost = {json.dumps(host)};
+const targetPort = {port};
+const transport = {json.dumps(transport)};
+
+function endpoint(args) {{
+  const first = args[0];
+  if (typeof first === 'number') return {{ port: first, host: args[1] || 'localhost' }};
+  if (first && typeof first === 'object') return {{ port: Number(first.port), host: first.host || 'localhost' }};
+  return null;
+}}
+
+function connect(...args) {{
+  const selected = endpoint(args);
+  if (selected && selected.port === targetPort && ['127.0.0.1', '::1', 'localhost', targetHost].includes(selected.host)) {{
+    const callback = args.find((value) => typeof value === 'function');
+    return callback ? originalConnect.call(net, transport, callback) : originalConnect.call(net, transport);
+  }}
+  return originalConnect.apply(net, args);
+}}
+
+net.connect = connect;
+net.createConnection = connect;
+"""
+    path.write_text(source, encoding="utf-8")
+    return hashlib.sha256(source.encode("utf-8")).hexdigest()
 
 
 def prepare_sandbox_launch(
@@ -337,8 +394,78 @@ def prepare_sandbox_launch(
         executable = shutil.which("bwrap")
         if not executable:
             raise SandboxError("bubblewrap non è più disponibile")
+        host, port = _loopback_target(ollama_url)
+        scratch = workspace / ".benchmark-scratch"
+        scratch.mkdir(parents=True, exist_ok=True)
+        socket_path = scratch / "ollama.sock"
+        shim_path = scratch / "network-shim.cjs"
+        shim_sha256 = _network_shim(shim_path, host, port, str(socket_path))
+        transport = Path(__file__).with_name("sandbox_transport.py")
+        isolated = _linux_command(executable, tuple(command), workspace, agent_dir, pi_command)
+        metadata.update(
+            {
+                "network_transport": "workspace-unix-socket",
+                "network_target": f"{host}:{port}",
+                "network_shim_sha256": shim_sha256,
+            }
+        )
         return SandboxLaunch(
-            _linux_command(executable, tuple(command), workspace, agent_dir, pi_command),
+            (
+                sys.executable,
+                str(transport),
+                "--socket",
+                str(socket_path),
+                "--url",
+                ollama_url,
+                "--",
+                *isolated,
+            ),
             metadata,
+            {"NODE_OPTIONS": f"--require={shim_path}"},
+        )
+    if selection.backend == "windows-appcontainer":
+        host, port = _loopback_target(ollama_url)
+        scratch = workspace / ".benchmark-scratch"
+        scratch.mkdir(parents=True, exist_ok=True)
+        digest = hashlib.sha256(str(workspace.resolve()).encode("utf-8")).hexdigest()[:24]
+        profile_name = f"LocalAgentBenchmark.{digest}"
+        pipe_path = rf"\\.\pipe\LOCAL\LocalAgentBenchmark-{digest}"
+        shim_path = scratch / "network-shim.cjs"
+        runtime_metadata = scratch / "windows-sandbox.json"
+        shim_sha256 = _network_shim(shim_path, host, port, pipe_path)
+        launcher = Path(__file__).with_name("windows_appcontainer.py")
+        metadata.update(
+            {
+                "profile_name": profile_name,
+                "network_transport": "appcontainer-named-pipe",
+                "network_target": f"{host}:{port}",
+                "network_shim_sha256": shim_sha256,
+                "runtime_metadata_path": str(runtime_metadata.relative_to(workspace)),
+            }
+        )
+        return SandboxLaunch(
+            (
+                sys.executable,
+                str(launcher),
+                "run",
+                "--profile",
+                profile_name,
+                "--workspace",
+                str(workspace),
+                "--agent-dir",
+                str(agent_dir),
+                "--pi-command",
+                pi_command[0],
+                "--pipe",
+                pipe_path,
+                "--url",
+                ollama_url,
+                "--metadata",
+                str(runtime_metadata),
+                "--",
+                *command,
+            ),
+            metadata,
+            {"NODE_OPTIONS": f"--require={shim_path}"},
         )
     raise SandboxError(f"Backend sandbox sconosciuto: {selection.backend}")

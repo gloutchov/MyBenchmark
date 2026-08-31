@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import socket
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -34,11 +36,16 @@ class SandboxTests(unittest.TestCase):
         self.assertFalse(selection.filesystem_isolation)
 
     def test_auto_falls_back_but_required_fails_without_backend(self):
-        fallback = select_sandbox("auto", system="Windows", which=lambda _name: None)
+        failed_probe = lambda _command: (False, "backend unavailable")
+        fallback = select_sandbox(
+            "auto", system="Windows", which=lambda _name: None, probe=failed_probe
+        )
         self.assertEqual("audit-only", fallback.backend)
         self.assertIn("fallback esplicito", fallback.detail)
         with self.assertRaises(SandboxError):
-            select_sandbox("required", system="Windows", which=lambda _name: None)
+            select_sandbox(
+                "required", system="Windows", which=lambda _name: None, probe=failed_probe
+            )
 
     def test_native_capabilities_are_not_overstated(self):
         mac = select_sandbox(
@@ -59,7 +66,17 @@ class SandboxTests(unittest.TestCase):
         )
         self.assertTrue(linux.filesystem_isolation)
         self.assertTrue(linux.process_isolation)
-        self.assertFalse(linux.network_isolation)
+        self.assertTrue(linux.network_isolation)
+
+        windows = select_sandbox(
+            "required",
+            system="Windows",
+            probe=successful_probe,
+        )
+        self.assertEqual("windows-appcontainer", windows.backend)
+        self.assertTrue(windows.filesystem_isolation)
+        self.assertTrue(windows.process_isolation)
+        self.assertTrue(windows.network_isolation)
 
     @patch("localagent_bench.sandbox.shutil.which", return_value="/usr/bin/sandbox-exec")
     @patch("localagent_bench.sandbox.Path.home")
@@ -116,7 +133,252 @@ class SandboxTests(unittest.TestCase):
         self.assertIn(f"--bind {agent_dir} {agent_dir}", rendered)
         self.assertNotIn(f"--ro-bind {workspace.parent.parent.parent} {workspace.parent.parent.parent}", rendered)
         self.assertIn("--unshare-pid", command)
-        self.assertNotIn("--unshare-net", command)
+        self.assertIn("--unshare-net", command)
+
+    @patch("localagent_bench.sandbox.shutil.which", return_value="/usr/bin/bwrap")
+    @patch("localagent_bench.sandbox._common_install_root", return_value=None)
+    def test_linux_launch_uses_fixed_unix_transport_and_node_shim(self, _install_mock, _which_mock):
+        selection = SandboxSelection(
+            "required", "linux-bubblewrap", True, True, True, True, "test"
+        )
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            agent_dir = root / "agent"
+            workspace.mkdir()
+            agent_dir.mkdir()
+            launch = prepare_sandbox_launch(
+                selection,
+                ["pi", "--offline"],
+                workspace=workspace,
+                agent_dir=agent_dir,
+                ollama_url="http://127.0.0.1:11434",
+                pi_command=("pi",),
+            )
+            self.assertIn("sandbox_transport.py", " ".join(launch.command))
+            self.assertIn("--unshare-net", launch.command)
+            self.assertEqual("workspace-unix-socket", launch.metadata["network_transport"])
+            self.assertEqual("127.0.0.1:11434", launch.metadata["network_target"])
+            self.assertIn("--require=", launch.environment["NODE_OPTIONS"])
+            shim = workspace / ".benchmark-scratch" / "network-shim.cjs"
+            self.assertTrue(shim.is_file())
+            self.assertEqual(64, len(str(launch.metadata["network_shim_sha256"])))
+
+    @patch("localagent_bench.sandbox._probe_command", return_value=(True, "ok"))
+    def test_windows_launch_uses_appcontainer_without_network_capabilities(self, _probe_mock):
+        selection = SandboxSelection(
+            "required", "windows-appcontainer", True, True, True, True, "test"
+        )
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            agent_dir = root / "agent"
+            workspace.mkdir()
+            agent_dir.mkdir()
+            launch = prepare_sandbox_launch(
+                selection,
+                ["pi", "--offline"],
+                workspace=workspace,
+                agent_dir=agent_dir,
+                ollama_url="http://127.0.0.1:11434",
+                pi_command=("pi",),
+            )
+            rendered = " ".join(launch.command)
+            self.assertIn("windows_appcontainer.py run", rendered)
+            self.assertIn(r"\\.\pipe\LOCAL\LocalAgentBenchmark-", rendered)
+            self.assertEqual("appcontainer-named-pipe", launch.metadata["network_transport"])
+            self.assertIn("--require=", launch.environment["NODE_OPTIONS"])
+
+    def test_enforced_transport_rejects_non_loopback_ollama(self):
+        selection = SandboxSelection(
+            "required", "linux-bubblewrap", True, True, True, True, "test"
+        )
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            agent_dir = root / "agent"
+            workspace.mkdir()
+            agent_dir.mkdir()
+            with self.assertRaises(SandboxError):
+                prepare_sandbox_launch(
+                    selection,
+                    ["pi"],
+                    workspace=workspace,
+                    agent_dir=agent_dir,
+                    ollama_url="https://example.invalid:11434",
+                    pi_command=("pi",),
+                )
+
+    @unittest.skipUnless(
+        sys.platform.startswith("linux") and shutil.which("bwrap") and shutil.which("node"),
+        "richiede Linux, bubblewrap e Node",
+    )
+    def test_linux_backend_enforces_network_namespace_with_fixed_ollama_broker(self):
+        selection = select_sandbox("required")
+        with socket.socket() as allowed_server, socket.socket() as denied_server:
+            allowed_server.bind(("127.0.0.1", 0))
+            denied_server.bind(("127.0.0.1", 0))
+            allowed_server.listen(1)
+            denied_server.listen(1)
+            allowed_port = int(allowed_server.getsockname()[1])
+            denied_port = int(denied_server.getsockname()[1])
+
+            def serve() -> None:
+                connection, _ = allowed_server.accept()
+                with connection:
+                    if connection.recv(4) == b"ping":
+                        connection.sendall(b"pong")
+
+            server = threading.Thread(target=serve, daemon=True)
+            server.start()
+            with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+                root = Path(directory)
+                workspace = root / "workspace"
+                agent_dir = root / "agent"
+                workspace.mkdir()
+                agent_dir.mkdir()
+                node = shutil.which("node")
+                assert node is not None
+                code = (
+                    "const net=require('node:net');"
+                    f"const ok=net.connect({allowed_port},'127.0.0.1',()=>ok.write('ping'));"
+                    "ok.once('data',data=>{if(data.toString()!=='pong')process.exit(7);"
+                    f"const denied=net.connect({denied_port},'127.0.0.1');"
+                    "denied.once('connect',()=>process.exit(8));"
+                    "denied.once('error',()=>process.exit(0));});"
+                    "ok.once('error',error=>{console.error(error);process.exit(9)});"
+                )
+                launch = prepare_sandbox_launch(
+                    selection,
+                    [node, "-e", code],
+                    workspace=workspace,
+                    agent_dir=agent_dir,
+                    ollama_url=f"http://127.0.0.1:{allowed_port}",
+                    pi_command=(node,),
+                )
+                env = os.environ.copy()
+                env.update(launch.environment)
+                result = subprocess.run(
+                    launch.command,
+                    cwd=workspace,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=30,
+                )
+                self.assertEqual(0, result.returncode, result.stderr)
+            server.join(timeout=2)
+            self.assertFalse(server.is_alive())
+
+    @unittest.skipUnless(sys.platform == "win32", "richiede Windows")
+    def test_windows_backend_blocks_external_file_and_cleans_profile(self):
+        selection = select_sandbox("required")
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            agent_dir = root / "agent"
+            workspace.mkdir()
+            agent_dir.mkdir()
+            inside = workspace / "inside.txt"
+            outside = root / "outside.txt"
+            outside.write_text("private", encoding="utf-8")
+            code = (
+                "from pathlib import Path; import sys; "
+                "Path(sys.argv[1]).write_text('inside', encoding='utf-8'); "
+                "\ntry: Path(sys.argv[2]).read_text(encoding='utf-8')\n"
+                "except (PermissionError, OSError): raise SystemExit(0)\n"
+                "raise SystemExit(9)"
+            )
+            launch = prepare_sandbox_launch(
+                selection,
+                [sys.executable, "-c", code, str(inside), str(outside)],
+                workspace=workspace,
+                agent_dir=agent_dir,
+                ollama_url="http://127.0.0.1:11434",
+                pi_command=(sys.executable,),
+            )
+            env = os.environ.copy()
+            env.update(launch.environment)
+            result = subprocess.run(
+                launch.command,
+                cwd=workspace,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=90,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual("inside", inside.read_text(encoding="utf-8"))
+            metadata = json.loads(
+                (workspace / ".benchmark-scratch" / "windows-sandbox.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual([], metadata["network_capabilities"])
+            self.assertTrue(metadata["job_kill_on_close"])
+            self.assertTrue(metadata["acl_removed"])
+            self.assertTrue(metadata["profile_deleted"])
+
+    @unittest.skipUnless(sys.platform == "win32" and shutil.which("node"), "richiede Windows e Node")
+    def test_windows_backend_routes_only_ollama_through_named_pipe(self):
+        selection = select_sandbox("required")
+        with socket.socket() as allowed_server, socket.socket() as denied_server:
+            allowed_server.bind(("127.0.0.1", 0))
+            denied_server.bind(("127.0.0.1", 0))
+            allowed_server.listen(1)
+            denied_server.listen(1)
+            allowed_port = int(allowed_server.getsockname()[1])
+            denied_port = int(denied_server.getsockname()[1])
+
+            def serve() -> None:
+                connection, _ = allowed_server.accept()
+                with connection:
+                    if connection.recv(4) == b"ping":
+                        connection.sendall(b"pong")
+
+            server = threading.Thread(target=serve, daemon=True)
+            server.start()
+            with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+                root = Path(directory)
+                workspace = root / "workspace"
+                agent_dir = root / "agent"
+                workspace.mkdir()
+                agent_dir.mkdir()
+                node = shutil.which("node")
+                assert node is not None
+                code = (
+                    "const net=require('node:net');"
+                    f"const ok=net.connect({allowed_port},'127.0.0.1',()=>ok.write('ping'));"
+                    "ok.once('data',data=>{if(data.toString()!=='pong')process.exit(7);"
+                    f"const denied=net.connect({denied_port},'127.0.0.1');"
+                    "denied.once('connect',()=>process.exit(8));"
+                    "denied.once('error',()=>process.exit(0));});"
+                    "ok.once('error',error=>{console.error(error);process.exit(9)});"
+                )
+                launch = prepare_sandbox_launch(
+                    selection,
+                    [node, "-e", code],
+                    workspace=workspace,
+                    agent_dir=agent_dir,
+                    ollama_url=f"http://127.0.0.1:{allowed_port}",
+                    pi_command=(node,),
+                )
+                env = os.environ.copy()
+                env.update(launch.environment)
+                result = subprocess.run(
+                    launch.command,
+                    cwd=workspace,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=90,
+                )
+                self.assertEqual(0, result.returncode, result.stderr)
+            server.join(timeout=2)
+            self.assertFalse(server.is_alive())
 
     @unittest.skipUnless(sys.platform == "darwin" and shutil.which("sandbox-exec"), "richiede sandbox-exec")
     def test_macos_backend_blocks_indirect_child_read_outside_workspace(self):

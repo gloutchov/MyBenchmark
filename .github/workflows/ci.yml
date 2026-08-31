@@ -20,6 +20,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install Linux sandbox backend
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes bubblewrap
       - name: Compile Python sources
         run: python -m compileall -q benchmark.py src cases tests
       - name: Run unit tests

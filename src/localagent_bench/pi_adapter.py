@@ -185,6 +185,7 @@ def run_pi(
         ollama_url=ollama_url,
         pi_command=pi_command,
     )
+    env.update(launch.environment)
     collector = SystemMetricCollector.start()
     started = time.monotonic()
     process = subprocess.Popen(
@@ -206,6 +207,17 @@ def run_pi(
     duration = time.monotonic() - started
     system_metrics = collector.finish()
     metrics, final_response = parse_json_events(stdout)
+    sandbox_metadata = dict(launch.metadata)
+    runtime_path = sandbox_metadata.get("runtime_metadata_path")
+    if isinstance(runtime_path, str):
+        candidate = (workspace / runtime_path).resolve(strict=False)
+        if _inside(candidate, workspace) and candidate.is_file():
+            try:
+                runtime_payload = json.loads(candidate.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                runtime_payload = None
+            if isinstance(runtime_payload, dict):
+                sandbox_metadata["runtime"] = runtime_payload
     return PiRun(
         status=status,
         exit_code=process.returncode,
@@ -215,7 +227,7 @@ def run_pi(
         metrics=metrics,
         final_response=final_response,
         command=list(launch.command),
-        sandbox=launch.metadata,
+        sandbox=sandbox_metadata,
         system_metrics=system_metrics,
     )
 

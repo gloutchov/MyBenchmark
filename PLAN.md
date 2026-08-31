@@ -138,7 +138,24 @@ Versione corrente / Current version: **0.2.0**
 - Test: unit e test negativi per selezione backend, ACL/capability, path assoluti, traversal, symlink/junction/reparse point, registry e rete; processi figli indiretti e sopravvissuti; porte loopback consentite e negate; probe reali Windows e Linux; smoke Pi/Ollama enforced su host Windows e Linux; regressione macOS; CI sui tre OS; verifica che gli stessi criteri di integrità e lo stesso schema report valgano per ogni backend.
 - Documentazione: README e manuali bilingui, quick start dedicati Windows/Linux, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e piano; prerequisiti, limiti residui e troubleshooting per ogni backend.
 - Release: milestone rilasciabile con GitHub release; artifact o pacchetto installabile e checksum SHA-256 se viene introdotta distribuzione fuori checkout.
-- Stato: pianificata dopo la 0.2.0; il prototipo deve verificare per primo il canale Ollama locale, perché AppContainer e i network namespace bloccano il loopback host per impostazione di isolamento.
+- Stato: **in corso sul branch `milestone/3-cross-platform-sandbox`. Il prototipo usa un broker host a destinazione fissa: socket Unix interno alla workspace per bubblewrap con `--unshare-net`, named pipe `LOCAL` con DACL sul solo SID del container per Windows AppContainer senza capability di rete. Uno shim Node precaricato reindirizza soltanto l'endpoint Ollama configurato; gli altri processi restano confinati dal backend OS. Il launcher Windows aggiunge ACL temporanee alle sole directory necessarie, usa un Job Object kill-on-close e rimuove ACL e profilo al termine. Compileall e 48 test locali sono verdi, con i probe reali Linux/Windows demandati alla CI multipiattaforma appena il primo commit viene pubblicato.**
+
+### Checklist milestone 3
+
+- [x] Branch milestone creato (`milestone/3-cross-platform-sandbox`)
+- [x] Architettura broker Ollama a destinazione fissa definita senza aprire Internet
+- [x] Linux bubblewrap aggiornato con network namespace e socket Unix interno alla workspace
+- [x] Windows AppContainer implementato senza capability di rete e con named pipe dedicato
+- [x] Job Object Windows kill-on-close applicato prima di avviare il processo
+- [x] ACL Windows temporanee limitate a workspace, configurazione Pi e runtime Pi
+- [x] Probe fail-closed e fallback `auto` esplicito mantenuti
+- [x] Test strutturali e negativi iniziali aggiunti
+- [ ] Probe reali Linux e Windows verificati in CI
+- [ ] Correzioni emerse dai probe multipiattaforma completate
+- [ ] Smoke Pi/Ollama enforced su Windows e Linux eseguiti
+- [ ] Versione 0.3.0 sincronizzata
+- [ ] README, quick start, manuali, SECURITY_MODEL, MAP e AGENTS aggiornati
+- [ ] Test completi, CI finale e avallo pre-merge verificati
 
 ## Milestone 4 – Casi personali estensibili
 
