@@ -274,8 +274,10 @@ class SandboxTests(unittest.TestCase):
                 code = (
                     "const net=require('node:net');"
                     f"const ok=net.connect({allowed_port},'127.0.0.1',()=>ok.write('ping'));"
+                    "ok.setTimeout(5000,()=>process.exit(10));"
                     "ok.once('data',data=>{if(data.toString()!=='pong')process.exit(7);"
                     f"const denied=net.connect({denied_port},'127.0.0.1');"
+                    "denied.setTimeout(3000,()=>process.exit(0));"
                     "denied.once('connect',()=>process.exit(8));"
                     "denied.once('error',()=>process.exit(0));});"
                     "ok.once('error',error=>{console.error(error);process.exit(9)});"
@@ -383,8 +385,10 @@ class SandboxTests(unittest.TestCase):
                 code = (
                     "const net=require('node:net');"
                     f"const ok=net.connect({allowed_port},'127.0.0.1',()=>ok.write('ping'));"
+                    "ok.setTimeout(5000,()=>process.exit(10));"
                     "ok.once('data',data=>{if(data.toString()!=='pong')process.exit(7);"
                     f"const denied=net.connect({denied_port},'127.0.0.1');"
+                    "denied.setTimeout(3000,()=>process.exit(0));"
                     "denied.once('connect',()=>process.exit(8));"
                     "denied.once('error',()=>process.exit(0));});"
                     "ok.once('error',error=>{console.error(error);process.exit(9)});"
