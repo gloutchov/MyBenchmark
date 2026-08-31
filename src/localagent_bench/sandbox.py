@@ -451,7 +451,8 @@ def prepare_sandbox_launch(
         scratch.mkdir(parents=True, exist_ok=True)
         digest = hashlib.sha256(str(workspace.resolve()).encode("utf-8")).hexdigest()[:24]
         profile_name = f"LocalAgentBenchmark.{digest}"
-        pipe_path = rf"\\.\pipe\LOCAL\LocalAgentBenchmark-{digest}"
+        pipe_name = f"LocalAgentBenchmark-{digest}"
+        pipe_path = rf"\\.\pipe\LOCAL\{pipe_name}"
         runtime_metadata = scratch / "windows-sandbox.json"
         node_options, shim_sha256 = _network_shim(host, port, pipe_path)
         launcher = Path(__file__).with_name("windows_appcontainer.py")
@@ -477,8 +478,8 @@ def prepare_sandbox_launch(
                 str(agent_dir),
                 "--pi-command",
                 pi_command[0],
-                "--pipe",
-                pipe_path,
+                "--pipe-name",
+                pipe_name,
                 "--url",
                 ollama_url,
                 "--metadata",

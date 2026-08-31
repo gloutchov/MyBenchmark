@@ -22,7 +22,12 @@ from localagent_bench.sandbox import (
     prepare_sandbox_launch,
     select_sandbox,
 )
-from localagent_bench.windows_appcontainer import PIPE_CLIENT_READ_WRITE, _pipe_sddl
+from localagent_bench.windows_appcontainer import (
+    PIPE_CLIENT_READ_WRITE,
+    AppContainerError,
+    _appcontainer_pipe_path,
+    _pipe_sddl,
+)
 
 
 def successful_probe(_command: list[str]) -> tuple[bool, str]:
@@ -200,9 +205,18 @@ class SandboxTests(unittest.TestCase):
             )
             rendered = " ".join(launch.command)
             self.assertIn("windows_appcontainer.py run", rendered)
-            self.assertIn(r"\\.\pipe\LOCAL\LocalAgentBenchmark-", rendered)
+            self.assertIn("--pipe-name LocalAgentBenchmark-", rendered)
             self.assertEqual("appcontainer-named-pipe", launch.metadata["network_transport"])
             self.assertIn("--import=data:text/javascript;base64,", launch.environment["NODE_OPTIONS"])
+
+    def test_windows_host_pipe_targets_exact_appcontainer_namespace(self):
+        path = _appcontainer_pipe_path("broker", "S-1-15-2-1234", 7)
+        self.assertEqual(
+            r"\\?\pipe\Sessions\7\AppContainerNamedObjects\S-1-15-2-1234\broker",
+            path,
+        )
+        with self.assertRaises(AppContainerError):
+            _appcontainer_pipe_path(r"nested\broker", "S-1-15-2-1234", 7)
 
     def test_enforced_transport_rejects_non_loopback_ollama(self):
         selection = SandboxSelection(

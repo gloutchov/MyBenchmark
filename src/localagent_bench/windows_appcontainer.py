@@ -16,6 +16,7 @@ import threading
 import uuid
 from ctypes import wintypes
 from pathlib import Path
+from typing import Callable
 from urllib.parse import urlparse
 
 
@@ -246,6 +247,11 @@ def _configure(kernel32, userenv, advapi32) -> None:
     kernel32.GetStdHandle.restype = wintypes.HANDLE
     kernel32.GetCurrentProcess.argtypes = []
     kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel32.ProcessIdToSessionId.argtypes = [
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    kernel32.ProcessIdToSessionId.restype = wintypes.BOOL
     kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
     kernel32.CloseHandle.restype = wintypes.BOOL
     kernel32.CreateNamedPipeW.argtypes = [
@@ -431,7 +437,12 @@ def _create_job(kernel32):
     return job
 
 
-def _launch(sid: ctypes.c_void_p, command: list[str], cwd: Path) -> int:
+def _launch(
+    sid: ctypes.c_void_p,
+    command: list[str],
+    cwd: Path,
+    before_resume: Callable[[int], None] | None = None,
+) -> int:
     kernel32, _userenv, _advapi32 = _libraries()
     size = ctypes.c_size_t()
     kernel32.InitializeProcThreadAttributeList(None, 1, 0, ctypes.byref(size))
@@ -479,6 +490,8 @@ def _launch(sid: ctypes.c_void_p, command: list[str], cwd: Path) -> int:
         try:
             if not kernel32.AssignProcessToJobObject(job, process.hProcess):
                 raise _last_error("AssignProcessToJobObject failed")
+            if before_resume is not None:
+                before_resume(int(process.dwProcessId))
             if kernel32.ResumeThread(process.hThread) == 0xFFFFFFFF:
                 raise _last_error("ResumeThread failed")
             kernel32.CloseHandle(process.hThread)
@@ -515,6 +528,23 @@ def _pipe_sddl(owner_sid: str, appcontainer_sid: str) -> str:
         f"D:P(A;;GA;;;{owner_sid})"
         f"(A;;0x{PIPE_CLIENT_READ_WRITE:08x};;;{appcontainer_sid})"
     )
+
+
+def _appcontainer_pipe_path(pipe_name: str, appcontainer_sid: str, session_id: int) -> str:
+    if not pipe_name or "\\" in pipe_name or "/" in pipe_name:
+        raise AppContainerError("invalid AppContainer pipe name")
+    return (
+        rf"\\?\pipe\Sessions\{session_id}\AppContainerNamedObjects"
+        rf"\{appcontainer_sid}\{pipe_name}"
+    )
+
+
+def _process_session_id(process_id: int) -> int:
+    kernel32, _userenv, _advapi32 = _libraries()
+    session_id = wintypes.DWORD()
+    if not kernel32.ProcessIdToSessionId(process_id, ctypes.byref(session_id)):
+        raise _last_error("ProcessIdToSessionId failed")
+    return int(session_id.value)
 
 
 class NamedPipeBroker:
@@ -665,14 +695,20 @@ def run_container(args, command: list[str]) -> int:
     _write_metadata(args.metadata, metadata)
     try:
         granted = _grant_paths(sid_text, workspace, agent_dir, install_root)
-        broker = NamedPipeBroker(
-            args.pipe,
-            _current_token_owner_sid(),
-            sid_text,
-            _target(args.url),
-        )
-        broker.start()
-        return _launch(sid, command, workspace)
+        owner_sid = _current_token_owner_sid()
+        target = _target(args.url)
+
+        def start_broker(process_id: int) -> None:
+            nonlocal broker
+            pipe_path = _appcontainer_pipe_path(
+                args.pipe_name,
+                sid_text,
+                _process_session_id(process_id),
+            )
+            broker = NamedPipeBroker(pipe_path, owner_sid, sid_text, target)
+            broker.start()
+
+        return _launch(sid, command, workspace, start_broker)
     finally:
         if broker is not None:
             broker.close()
@@ -708,7 +744,7 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--workspace", type=Path, required=True)
     run.add_argument("--agent-dir", type=Path, required=True)
     run.add_argument("--pi-command", required=True)
-    run.add_argument("--pipe", required=True)
+    run.add_argument("--pipe-name", required=True)
     run.add_argument("--url", required=True)
     run.add_argument("--metadata", type=Path, required=True)
     run.add_argument("command", nargs=argparse.REMAINDER)

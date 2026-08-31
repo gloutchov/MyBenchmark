@@ -22,7 +22,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install Linux sandbox backend
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install --yes bubblewrap util-linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes bubblewrap util-linux
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Compile Python sources
         run: python -m compileall -q benchmark.py src cases tests
       - name: Run unit tests
