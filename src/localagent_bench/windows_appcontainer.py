@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import uuid
 from ctypes import wintypes
 from pathlib import Path
@@ -267,6 +268,15 @@ def _configure(kernel32, userenv, advapi32) -> None:
     kernel32.CreateNamedPipeW.restype = wintypes.HANDLE
     kernel32.ConnectNamedPipe.argtypes = [wintypes.HANDLE, ctypes.c_void_p]
     kernel32.ConnectNamedPipe.restype = wintypes.BOOL
+    kernel32.PeekNamedPipe.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        ctypes.POINTER(wintypes.DWORD),
+        ctypes.c_void_p,
+    ]
+    kernel32.PeekNamedPipe.restype = wintypes.BOOL
     kernel32.DisconnectNamedPipe.argtypes = [wintypes.HANDLE]
     kernel32.DisconnectNamedPipe.restype = wintypes.BOOL
     kernel32.ReadFile.argtypes = [
@@ -643,7 +653,23 @@ class NamedPipeBroker:
         def pipe_to_socket() -> None:
             buffer = ctypes.create_string_buffer(65536)
             count = wintypes.DWORD()
-            while kernel32.ReadFile(handle, buffer, len(buffer), ctypes.byref(count), None):
+            available = wintypes.DWORD()
+            while True:
+                if not kernel32.PeekNamedPipe(
+                    handle, None, 0, None, ctypes.byref(available), None
+                ):
+                    break
+                if not available.value:
+                    time.sleep(0.005)
+                    continue
+                if not kernel32.ReadFile(
+                    handle,
+                    buffer,
+                    min(len(buffer), available.value),
+                    ctypes.byref(count),
+                    None,
+                ):
+                    break
                 if not count.value:
                     break
                 self.events.append(f"pipe_read:{count.value}")
