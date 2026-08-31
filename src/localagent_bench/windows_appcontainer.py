@@ -25,9 +25,14 @@ ERROR_PIPE_CONNECTED = 535
 EXTENDED_STARTUPINFO_PRESENT = 0x00080000
 CREATE_SUSPENDED = 0x00000004
 STARTF_USESTDHANDLES = 0x00000100
+TOKEN_QUERY = 0x0008
+TOKEN_OWNER = 4
 PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES = 0x00020009
 JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
 JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
+PIPE_ACCESS_DUPLEX = 0x00000003
+PIPE_REJECT_REMOTE_CLIENTS = 0x00000008
+PIPE_CLIENT_READ_WRITE = 0x0012019B
 WAIT_FAILED = 0xFFFFFFFF
 INFINITE = 0xFFFFFFFF
 SE_GROUP_ENABLED = 0x00000004
@@ -89,6 +94,10 @@ class SECURITY_ATTRIBUTES(ctypes.Structure):
         ("lpSecurityDescriptor", ctypes.c_void_p),
         ("bInheritHandle", wintypes.BOOL),
     ]
+
+
+class TOKEN_OWNER_INFORMATION(ctypes.Structure):
+    _fields_ = [("Owner", ctypes.c_void_p)]
 
 
 class IO_COUNTERS(ctypes.Structure):
@@ -171,6 +180,20 @@ def _configure(kernel32, userenv, advapi32) -> None:
         ctypes.POINTER(wintypes.DWORD),
     ]
     advapi32.ConvertStringSecurityDescriptorToSecurityDescriptorW.restype = wintypes.BOOL
+    advapi32.OpenProcessToken.argtypes = [
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.HANDLE),
+    ]
+    advapi32.OpenProcessToken.restype = wintypes.BOOL
+    advapi32.GetTokenInformation.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    advapi32.GetTokenInformation.restype = wintypes.BOOL
     kernel32.InitializeProcThreadAttributeList.argtypes = [
         ctypes.c_void_p,
         wintypes.DWORD,
@@ -221,6 +244,8 @@ def _configure(kernel32, userenv, advapi32) -> None:
     kernel32.GetExitCodeProcess.restype = wintypes.BOOL
     kernel32.GetStdHandle.argtypes = [wintypes.DWORD]
     kernel32.GetStdHandle.restype = wintypes.HANDLE
+    kernel32.GetCurrentProcess.argtypes = []
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
     kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
     kernel32.CloseHandle.restype = wintypes.BOOL
     kernel32.CreateNamedPipeW.argtypes = [
@@ -293,6 +318,40 @@ def _delete_profile(name: str) -> bool:
 def _free_sid(sid: ctypes.c_void_p) -> None:
     _kernel32, _userenv, advapi32 = _libraries()
     advapi32.FreeSid(sid)
+
+
+def _sid_to_string(sid: ctypes.c_void_p) -> str:
+    kernel32, _userenv, advapi32 = _libraries()
+    sid_text = wintypes.LPWSTR()
+    if not advapi32.ConvertSidToStringSidW(sid, ctypes.byref(sid_text)):
+        raise _last_error("ConvertSidToStringSidW failed")
+    try:
+        return sid_text.value
+    finally:
+        kernel32.LocalFree(sid_text)
+
+
+def _current_token_owner_sid() -> str:
+    kernel32, _userenv, advapi32 = _libraries()
+    token = wintypes.HANDLE()
+    if not advapi32.OpenProcessToken(
+        kernel32.GetCurrentProcess(), TOKEN_QUERY, ctypes.byref(token)
+    ):
+        raise _last_error("OpenProcessToken failed")
+    try:
+        size = wintypes.DWORD()
+        advapi32.GetTokenInformation(token, TOKEN_OWNER, None, 0, ctypes.byref(size))
+        if ctypes.get_last_error() != ERROR_INSUFFICIENT_BUFFER or not size.value:
+            raise _last_error("GetTokenInformation sizing failed")
+        buffer = ctypes.create_string_buffer(size.value)
+        if not advapi32.GetTokenInformation(
+            token, TOKEN_OWNER, buffer, size.value, ctypes.byref(size)
+        ):
+            raise _last_error("GetTokenInformation failed")
+        owner = ctypes.cast(buffer, ctypes.POINTER(TOKEN_OWNER_INFORMATION)).contents.Owner
+        return _sid_to_string(owner)
+    finally:
+        kernel32.CloseHandle(token)
 
 
 def _pi_install_root(command_name: str) -> Path:
@@ -451,10 +510,24 @@ def _target(url: str) -> tuple[str, int]:
     return parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80)
 
 
+def _pipe_sddl(owner_sid: str, appcontainer_sid: str) -> str:
+    return (
+        f"D:P(A;;GA;;;{owner_sid})"
+        f"(A;;0x{PIPE_CLIENT_READ_WRITE:08x};;;{appcontainer_sid})"
+    )
+
+
 class NamedPipeBroker:
-    def __init__(self, pipe_path: str, sid: str, target: tuple[str, int]):
+    def __init__(
+        self,
+        pipe_path: str,
+        owner_sid: str,
+        appcontainer_sid: str,
+        target: tuple[str, int],
+    ):
         self.pipe_path = pipe_path
-        self.sid = sid
+        self.owner_sid = owner_sid
+        self.appcontainer_sid = appcontainer_sid
         self.target = target
         self.stop = threading.Event()
         self.ready = threading.Event()
@@ -475,7 +548,7 @@ class NamedPipeBroker:
     def _security(self):
         kernel32, _userenv, advapi32 = _libraries()
         descriptor = ctypes.c_void_p()
-        sddl = f"D:P(A;;GA;;;{self.sid})"
+        sddl = _pipe_sddl(self.owner_sid, self.appcontainer_sid)
         if not advapi32.ConvertStringSecurityDescriptorToSecurityDescriptorW(
             sddl, 1, ctypes.byref(descriptor), None
         ):
@@ -496,8 +569,8 @@ class NamedPipeBroker:
             while not self.stop.is_set():
                 handle = kernel32.CreateNamedPipeW(
                     self.pipe_path,
-                    0x00000003,
-                    0x00000000,
+                    PIPE_ACCESS_DUPLEX,
+                    PIPE_REJECT_REMOTE_CLIENTS,
                     255,
                     65536,
                     65536,
@@ -592,7 +665,12 @@ def run_container(args, command: list[str]) -> int:
     _write_metadata(args.metadata, metadata)
     try:
         granted = _grant_paths(sid_text, workspace, agent_dir, install_root)
-        broker = NamedPipeBroker(args.pipe, sid_text, _target(args.url))
+        broker = NamedPipeBroker(
+            args.pipe,
+            _current_token_owner_sid(),
+            sid_text,
+            _target(args.url),
+        )
         broker.start()
         return _launch(sid, command, workspace)
     finally:

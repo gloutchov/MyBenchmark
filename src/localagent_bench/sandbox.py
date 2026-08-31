@@ -92,20 +92,23 @@ def _native_candidate(
         executable = which("bwrap")
         if not executable:
             return None, "bubblewrap (bwrap) non disponibile"
+        unshare = which("unshare")
+        if not unshare:
+            return None, "util-linux unshare non disponibile"
         ok, detail = probe(
             [
+                unshare,
+                "--user",
+                "--map-root-user",
+                "--net",
                 executable,
-                "--unshare-user",
-                "--uid",
-                "0",
-                "--gid",
-                "0",
                 "--ro-bind",
                 "/",
                 "/",
                 "--unshare-pid",
-                "--unshare-net",
                 "--die-with-parent",
+                "--cap-drop",
+                "ALL",
                 "/bin/true",
             ]
         )
@@ -119,7 +122,7 @@ def _native_candidate(
                 filesystem_isolation=True,
                 process_isolation=True,
                 network_isolation=True,
-                detail="bubblewrap isola file, processi e rete; un broker Unix inoltra soltanto verso Ollama",
+                detail="unshare crea una rete vuota e bubblewrap isola file e processi; un broker Unix inoltra soltanto verso Ollama",
             ),
             detail,
         )
@@ -305,17 +308,13 @@ def _linux_command(
     visible_paths = (workspace, agent_dir, *((private_install,) if private_install else ()))
     args: list[str] = [
         executable,
-        "--unshare-user",
-        "--uid",
-        "0",
-        "--gid",
-        "0",
         "--unshare-pid",
         "--unshare-ipc",
         "--unshare-uts",
-        "--unshare-net",
         "--die-with-parent",
         "--new-session",
+        "--cap-drop",
+        "ALL",
         "--proc",
         "/proc",
         "--dev",
@@ -408,13 +407,23 @@ def prepare_sandbox_launch(
         executable = shutil.which("bwrap")
         if not executable:
             raise SandboxError("bubblewrap non è più disponibile")
+        unshare = shutil.which("unshare")
+        if not unshare:
+            raise SandboxError("util-linux unshare non è più disponibile")
         host, port = _loopback_target(ollama_url)
         scratch = workspace / ".benchmark-scratch"
         scratch.mkdir(parents=True, exist_ok=True)
         socket_path = scratch / "ollama.sock"
         node_options, shim_sha256 = _network_shim(host, port, str(socket_path))
         transport = Path(__file__).with_name("sandbox_transport.py")
-        isolated = _linux_command(executable, tuple(command), workspace, agent_dir, pi_command)
+        bubblewrapped = _linux_command(executable, tuple(command), workspace, agent_dir, pi_command)
+        isolated = (
+            unshare,
+            "--user",
+            "--map-root-user",
+            "--net",
+            *bubblewrapped,
+        )
         metadata.update(
             {
                 "network_transport": "workspace-unix-socket",

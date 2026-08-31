@@ -22,6 +22,7 @@ from localagent_bench.sandbox import (
     prepare_sandbox_launch,
     select_sandbox,
 )
+from localagent_bench.windows_appcontainer import PIPE_CLIENT_READ_WRITE, _pipe_sddl
 
 
 def successful_probe(_command: list[str]) -> tuple[bool, str]:
@@ -61,7 +62,7 @@ class SandboxTests(unittest.TestCase):
         linux = select_sandbox(
             "required",
             system="Linux",
-            which=lambda name: "/usr/bin/bwrap" if name == "bwrap" else None,
+            which=lambda name: f"/usr/bin/{name}" if name in {"bwrap", "unshare"} else None,
             probe=successful_probe,
         )
         self.assertTrue(linux.filesystem_isolation)
@@ -133,9 +134,13 @@ class SandboxTests(unittest.TestCase):
         self.assertIn(f"--bind {agent_dir} {agent_dir}", rendered)
         self.assertNotIn(f"--ro-bind {workspace.parent.parent.parent} {workspace.parent.parent.parent}", rendered)
         self.assertIn("--unshare-pid", command)
-        self.assertIn("--unshare-net", command)
+        self.assertIn("--cap-drop", command)
+        self.assertNotIn("--unshare-net", command)
 
-    @patch("localagent_bench.sandbox.shutil.which", return_value="/usr/bin/bwrap")
+    @patch(
+        "localagent_bench.sandbox.shutil.which",
+        side_effect=lambda name: f"/usr/bin/{name}" if name in {"bwrap", "unshare"} else None,
+    )
     @patch("localagent_bench.sandbox._common_install_root", return_value=None)
     def test_linux_launch_uses_fixed_unix_transport_and_node_shim(self, _install_mock, _which_mock):
         selection = SandboxSelection(
@@ -156,11 +161,23 @@ class SandboxTests(unittest.TestCase):
                 pi_command=("pi",),
             )
             self.assertIn("sandbox_transport.py", " ".join(launch.command))
-            self.assertIn("--unshare-net", launch.command)
+            self.assertIn("--net", launch.command)
+            self.assertIn("--map-root-user", launch.command)
+            self.assertNotIn("--unshare-net", launch.command)
             self.assertEqual("workspace-unix-socket", launch.metadata["network_transport"])
             self.assertEqual("127.0.0.1:11434", launch.metadata["network_target"])
             self.assertIn("--import=data:text/javascript;base64,", launch.environment["NODE_OPTIONS"])
             self.assertEqual(64, len(str(launch.metadata["network_shim_sha256"])))
+
+    def test_windows_pipe_acl_requires_owner_and_exact_appcontainer(self):
+        owner = "S-1-5-21-1-2-3-1001"
+        package = "S-1-15-2-1234"
+        sddl = _pipe_sddl(owner, package)
+        self.assertEqual(
+            f"D:P(A;;GA;;;{owner})(A;;0x{PIPE_CLIENT_READ_WRITE:08x};;;{package})",
+            sddl,
+        )
+        self.assertNotIn(";;;S-1-15-2-1)", sddl)
 
     @patch("localagent_bench.sandbox._probe_command", return_value=(True, "ok"))
     def test_windows_launch_uses_appcontainer_without_network_capabilities(self, _probe_mock):
@@ -208,8 +225,11 @@ class SandboxTests(unittest.TestCase):
                 )
 
     @unittest.skipUnless(
-        sys.platform.startswith("linux") and shutil.which("bwrap") and shutil.which("node"),
-        "richiede Linux, bubblewrap e Node",
+        sys.platform.startswith("linux")
+        and shutil.which("bwrap")
+        and shutil.which("unshare")
+        and shutil.which("node"),
+        "richiede Linux, bubblewrap, unshare e Node",
     )
     def test_linux_backend_enforces_network_namespace_with_fixed_ollama_broker(self):
         selection = select_sandbox("required")
