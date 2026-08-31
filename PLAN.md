@@ -138,7 +138,7 @@ Versione corrente / Current version: **0.3.0**
 - Test: unit e test negativi per selezione backend, ACL/capability, path assoluti, traversal, symlink/junction/reparse point, registry e rete; processi figli indiretti e sopravvissuti; porte loopback consentite e negate; probe reali Windows e Linux; smoke Pi/Ollama enforced su host Windows e Linux; regressione macOS; CI sui tre OS; verifica che gli stessi criteri di integrità e lo stesso schema report valgano per ogni backend.
 - Documentazione: README e manuali bilingui, quick start dedicati Windows/Linux, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e piano; prerequisiti, limiti residui e troubleshooting per ogni backend.
 - Release: milestone rilasciabile con GitHub release; artifact o pacchetto installabile e checksum SHA-256 se viene introdotta distribuzione fuori checkout.
-- Stato: **implementazione candidata completata sul branch `milestone/3-cross-platform-sandbox`. Linux usa `unshare` per un network namespace vuoto, bubblewrap per filesystem/processi e un broker Unix a destinazione Ollama fissa. Windows usa AppContainer senza capability di rete, ACL/DACL sul SID esatto, named pipe nel namespace della sessione e Job Object kill-on-close. Compileall e 50 test locali sono verdi; la CI dei backend `33424327842` e la CI finale con documentazione `33425552438` sono verdi su macOS, Ubuntu e Windows. Restano lo smoke Pi/Ollama reale in `required` su host Windows e Linux, l'avallo del progettista e le operazioni di merge/tag/release.**
+- Stato: **implementazione candidata completata sul branch `milestone/3-cross-platform-sandbox`. Linux usa `unshare` per un network namespace vuoto, bubblewrap per filesystem/processi e un broker Unix a destinazione Ollama fissa. Windows usa AppContainer senza capability di rete, ACL/DACL sul SID esatto, named pipe nel namespace della sessione e Job Object kill-on-close. Compileall e 50 test locali sono verdi; la CI dei backend `33424327842`, la CI con documentazione `33425552438` e l'ultima CI del branch `33425751027` sono verdi su macOS, Ubuntu e Windows. Il progettista ha autorizzato esplicitamente il merge il 2026-08-31 lasciando gli smoke Pi/Ollama reali in `required` su host Windows e Linux come follow-up obbligatorio prima di tag e release.**
 
 ### Checklist milestone 3
 
@@ -157,7 +157,7 @@ Versione corrente / Current version: **0.3.0**
 - [x] README, quick start, manuali, SECURITY_MODEL, MAP e AGENTS aggiornati
 - [x] Compileall e 50 test rieseguiti dopo la documentazione (verdi; 7 probe OS non applicabili nel sandbox locale)
 - [x] CI finale del branch verificata dopo la documentazione (`33425552438`)
-- [ ] Approvazione esplicita del progettista prima del merge
+- [x] Approvazione esplicita del progettista prima del merge (2026-08-31; smoke reali Windows/Linux mantenuti come follow-up pre-tag)
 - [ ] Commit finale, merge verso `main` e CI su `main`
 - [ ] Tag `v0.3.0`, GitHub release e verifiche previste completati
 
