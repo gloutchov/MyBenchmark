@@ -43,8 +43,7 @@ class SandboxTransportTests(unittest.TestCase):
             with tempfile.TemporaryDirectory(dir=ROOT) as directory:
                 root = Path(directory)
                 socket_path = root / "ollama.sock"
-                shim = root / "network-shim.cjs"
-                _network_shim(shim, "127.0.0.1", port, str(socket_path))
+                node_options, _sha256 = _network_shim("127.0.0.1", port, str(socket_path))
                 code = (
                     "const net=require('node:net');"
                     f"const client=net.connect({port},'127.0.0.1',()=>client.write('ping'));"
@@ -53,7 +52,7 @@ class SandboxTransportTests(unittest.TestCase):
                 )
                 command = [
                     shutil.which("env") or "/usr/bin/env",
-                    f"NODE_OPTIONS=--require={shim}",
+                    f"NODE_OPTIONS={node_options}",
                     shutil.which("node") or "node",
                     "-e",
                     code,

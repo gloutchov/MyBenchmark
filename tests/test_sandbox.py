@@ -159,9 +159,7 @@ class SandboxTests(unittest.TestCase):
             self.assertIn("--unshare-net", launch.command)
             self.assertEqual("workspace-unix-socket", launch.metadata["network_transport"])
             self.assertEqual("127.0.0.1:11434", launch.metadata["network_target"])
-            self.assertIn("--require=", launch.environment["NODE_OPTIONS"])
-            shim = workspace / ".benchmark-scratch" / "network-shim.cjs"
-            self.assertTrue(shim.is_file())
+            self.assertIn("--import=data:text/javascript;base64,", launch.environment["NODE_OPTIONS"])
             self.assertEqual(64, len(str(launch.metadata["network_shim_sha256"])))
 
     @patch("localagent_bench.sandbox._probe_command", return_value=(True, "ok"))
@@ -187,7 +185,7 @@ class SandboxTests(unittest.TestCase):
             self.assertIn("windows_appcontainer.py run", rendered)
             self.assertIn(r"\\.\pipe\LOCAL\LocalAgentBenchmark-", rendered)
             self.assertEqual("appcontainer-named-pipe", launch.metadata["network_transport"])
-            self.assertIn("--require=", launch.environment["NODE_OPTIONS"])
+            self.assertIn("--import=data:text/javascript;base64,", launch.environment["NODE_OPTIONS"])
 
     def test_enforced_transport_rejects_non_loopback_ollama(self):
         selection = SandboxSelection(

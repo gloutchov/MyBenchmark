@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -94,6 +95,11 @@ def _native_candidate(
         ok, detail = probe(
             [
                 executable,
+                "--unshare-user",
+                "--uid",
+                "0",
+                "--gid",
+                "0",
                 "--ro-bind",
                 "/",
                 "/",
@@ -299,6 +305,11 @@ def _linux_command(
     visible_paths = (workspace, agent_dir, *((private_install,) if private_install else ()))
     args: list[str] = [
         executable,
+        "--unshare-user",
+        "--uid",
+        "0",
+        "--gid",
+        "0",
         "--unshare-pid",
         "--unshare-ipc",
         "--unshare-uts",
@@ -332,9 +343,9 @@ def _loopback_target(ollama_url: str) -> tuple[str, int]:
     return parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80)
 
 
-def _network_shim(path: Path, host: str, port: int, transport: str) -> str:
+def _network_shim(host: str, port: int, transport: str) -> tuple[str, str]:
     source = f"""'use strict';
-const net = require('node:net');
+import net from 'node:net';
 const originalConnect = net.connect;
 const targetHost = {json.dumps(host)};
 const targetPort = {port};
@@ -359,8 +370,11 @@ function connect(...args) {{
 net.connect = connect;
 net.createConnection = connect;
 """
-    path.write_text(source, encoding="utf-8")
-    return hashlib.sha256(source.encode("utf-8")).hexdigest()
+    encoded = base64.b64encode(source.encode("utf-8")).decode("ascii")
+    return (
+        f"--import=data:text/javascript;base64,{encoded}",
+        hashlib.sha256(source.encode("utf-8")).hexdigest(),
+    )
 
 
 def prepare_sandbox_launch(
@@ -398,8 +412,7 @@ def prepare_sandbox_launch(
         scratch = workspace / ".benchmark-scratch"
         scratch.mkdir(parents=True, exist_ok=True)
         socket_path = scratch / "ollama.sock"
-        shim_path = scratch / "network-shim.cjs"
-        shim_sha256 = _network_shim(shim_path, host, port, str(socket_path))
+        node_options, shim_sha256 = _network_shim(host, port, str(socket_path))
         transport = Path(__file__).with_name("sandbox_transport.py")
         isolated = _linux_command(executable, tuple(command), workspace, agent_dir, pi_command)
         metadata.update(
@@ -421,7 +434,7 @@ def prepare_sandbox_launch(
                 *isolated,
             ),
             metadata,
-            {"NODE_OPTIONS": f"--require={shim_path}"},
+            {"NODE_OPTIONS": node_options},
         )
     if selection.backend == "windows-appcontainer":
         host, port = _loopback_target(ollama_url)
@@ -430,9 +443,8 @@ def prepare_sandbox_launch(
         digest = hashlib.sha256(str(workspace.resolve()).encode("utf-8")).hexdigest()[:24]
         profile_name = f"LocalAgentBenchmark.{digest}"
         pipe_path = rf"\\.\pipe\LOCAL\LocalAgentBenchmark-{digest}"
-        shim_path = scratch / "network-shim.cjs"
         runtime_metadata = scratch / "windows-sandbox.json"
-        shim_sha256 = _network_shim(shim_path, host, port, pipe_path)
+        node_options, shim_sha256 = _network_shim(host, port, pipe_path)
         launcher = Path(__file__).with_name("windows_appcontainer.py")
         metadata.update(
             {
@@ -466,6 +478,6 @@ def prepare_sandbox_launch(
                 *command,
             ),
             metadata,
-            {"NODE_OPTIONS": f"--require={shim_path}"},
+            {"NODE_OPTIONS": node_options},
         )
     raise SandboxError(f"Backend sandbox sconosciuto: {selection.backend}")
