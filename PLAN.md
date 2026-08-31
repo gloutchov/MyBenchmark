@@ -97,7 +97,7 @@ Versione corrente / Current version: **0.2.0**
 - Criteri di accettazione: uscita dalla workspace bloccata tecnicamente nel backend sandbox; modalità corrente mantenuta e segnalata; report aggregato su più run.
 - Test: unit, integrazione, sicurezza e smoke macOS/Windows/Linux.
 - Documentazione: tutti i manuali, security model e MAP.
-- Stato: **correzione post-diagnostico verificata sul branch `milestone/2-reproducibility-sandbox`. Il run standard `20260830-182507` ha confermato enforcement e audit dei tentativi esterni, ma ha anche mostrato che il profilo Seatbelt negava a Node il `realpath` degli antenati della workspace, rendendo inutilizzabili i tool Pi `edit`/`write` e invalidando la classifica. Il profilo ora concede soltanto metadata letterali sugli antenati dei path autorizzati. Compileall e 40 test sono verdi; tre probe macOS reali verificano `realpath`, sostituzione interna, lettura esterna negata e rete limitata. Il diagnostico `20260830-201021` ha confermato 11 tool `write` reali senza `EPERM`, ma il modello è poi andato in timeout e ha violato il confine con un `cd` assoluto non quotato. Lo smoke valido `20260830-202615` ha completato `targeted_patch` con Qwen 9B MLX a 100/100 in 151,9 s, integrità valida, Seatbelt enforced e tre tool `edit` riusciti senza errori. La prima CI del fix ha evidenziato un'assunzione del test strutturale tra volumi Windows diversi, corretta nel commit `02e965f`; le CI finali push `33328347558` e PR `33328349531` sono verdi su macOS, Windows e Ubuntu. Il progettista ha approvato esplicitamente il 2026-08-31 merge, tag `v0.2.0`, push e rimozione del branch; resta da completare e verificare il workflow autorizzato. Le altre capacità M2, il confronto `comparison-m2-real-bounded`, il limite Windows audit-only accettato e il follow-up M3 restano invariati.**
+- Stato: **milestone integrata con fast-forward su `main` dopo l'approvazione esplicita del progettista. Il run standard `20260830-182507` ha individuato il diniego `realpath` degli antenati della workspace, poi corretto concedendo soltanto metadata letterali sui path autorizzati. Compileall e 40 test sono verdi; i probe macOS verificano `realpath`, sostituzione interna, lettura esterna negata e rete limitata. Dopo il diagnostico `20260830-201021`, lo smoke valido `20260830-202615` ha completato `targeted_patch` con Qwen 9B MLX a 100/100 in 151,9 s, integrità valida, Seatbelt enforced e tre tool `edit` riusciti. Le CI finali del branch (`33418463014`), della PR (`33418466714`) e di `main` (`33418580601`) sono verdi su macOS, Windows e Ubuntu. Tag `v0.2.0`, push e rimozione del branch sono autorizzati nel workflow corrente; la GitHub release non è inclusa nell'autorizzazione e resta pendente. Il confronto `comparison-m2-real-bounded`, il limite Windows audit-only accettato e il follow-up M3 restano invariati.**
 
 ### Checklist milestone 2
 
@@ -123,7 +123,10 @@ Versione corrente / Current version: **0.2.0**
 - [x] SECURITY_MODEL e MAP aggiornati
 - [x] AGENTS e PLAN aggiornati
 - [x] Approvazione esplicita del progettista prima del merge (2026-08-31)
-- [ ] Commit finale, PR/merge, CI `main`, tag `v0.2.0` e release previsti verificati
+- [x] Commit finale e merge fast-forward della PR #2 verso `main`
+- [x] CI verificata sul branch (`33418463014`), sulla PR (`33418466714`) e su `main` (`33418580601`)
+- [x] Tag `v0.2.0`, push e rimozione branch autorizzati dal progettista nel workflow di chiusura
+- [ ] GitHub release `v0.2.0` da autorizzare, pubblicare e verificare separatamente
 
 ## Milestone 3 – Parità sandbox multipiattaforma
 
