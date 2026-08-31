@@ -4,7 +4,7 @@ Benchmark personale, ripetibile e offline per confrontare modelli Ollama usati c
 
 Personal, repeatable, offline benchmark for comparing Ollama models used as coding agents through [Pi](https://pi.dev). Its scenarios derive from this repository's operating rules: small patches, modular architecture, tests, security, configuration, i18n, documentation, and Git discipline.
 
-Stato / Status: **0.2.0 – sandbox OS e confronti multi-run / OS sandbox and multi-run comparisons**
+Stato / Status: **0.3.0 candidate – sandbox OS multipiattaforma / cross-platform OS sandbox**
 Piattaforme / Platforms: macOS, Windows, Linux
 Licenza / License: Apache-2.0
 
@@ -31,9 +31,9 @@ Il punteggio composito pesa **qualità 80%**, **completamento 10%**, **velocità
 - Pi installato e disponibile come comando `pi`;
 - almeno un modello Ollama già scaricato e capace di tool calling.
 
-La sandbox OS è opzionale: macOS usa `sandbox-exec` quando il probe riesce; Linux usa `bwrap` se installato; per la 0.2.0 Windows mantiene esplicitamente la modalità `audit-only`. `doctor` mostra sempre il backend realmente disponibile.
+La sandbox OS è opzionale: macOS usa `sandbox-exec`; Linux richiede `bwrap`, `unshare` e user/network namespace utilizzabili; Windows 10/11 usa AppContainer. Ogni backend viene applicato solo dopo un probe reale. `doctor` mostra sempre il backend e le capacità effettivamente disponibili.
 
-The OS sandbox is optional: macOS uses `sandbox-exec` when its probe succeeds, Linux uses `bwrap` when installed, and Windows explicitly remains in `audit-only` mode for 0.2.0. `doctor` always reports the backend that is actually available.
+The OS sandbox is optional: macOS uses `sandbox-exec`; Linux requires `bwrap`, `unshare`, and usable user/network namespaces; Windows 10/11 uses AppContainer. Each backend is enabled only after a real probe. `doctor` always reports the backend and capabilities that are actually available.
 
 Non servono pacchetti Python esterni. Pi 0.84.3 è la versione verificata durante la creazione; il comando `doctor` aiuta a rilevare incompatibilità future.
 
@@ -136,11 +136,11 @@ Il runner crea per ogni task un repository Git nuovo da uno snapshot condiviso, 
 
 For each task, the runner creates a fresh Git repository from the shared snapshot, copies this `AGENTS.md`, prepends a bilingual boundary policy to the prompt, and uses a separate Pi directory. The policy forbids network and external paths and designates `.benchmark-scratch/` for tests and temporary files. Pi receives `--offline`, and Ollama remains on loopback. Fixtures include the materials required by each case and contain no real credentials.
 
-`--sandbox audit` conserva il comportamento 0.1.x: policy e rilevamento, senza blocco OS. `auto` usa il backend nativo quando supera il probe e altrimenti registra un fallback esplicito; `required` interrompe prima delle task se l'isolamento non è disponibile. Su macOS Seatbelt blocca letture/scritture nelle aree utente esterne e limita la rete alla porta loopback di Ollama, ma `sandbox-exec` è deprecato. Per mantenere operativi i tool Pi, il profilo concede soltanto metadata sui singoli antenati dei path autorizzati, senza consentire listing o lettura dei loro contenuti. Su Linux bubblewrap nasconde le aree utente esterne e isola il process tree; la rete host resta disponibile per Ollama ed è quindi ancora coperta soltanto da policy e audit. Per scelta progettuale, Windows 0.2.0 non integra AppContainer e resta dichiaratamente audit-only; `required` fallisce senza fallback.
+`--sandbox audit` conserva il comportamento 0.1.x: policy e rilevamento, senza blocco OS. `auto` usa il backend nativo quando supera il probe e altrimenti registra un fallback esplicito; `required` interrompe prima delle task se l'isolamento non è disponibile. Su macOS Seatbelt blocca letture/scritture nelle aree utente esterne e limita la rete alla porta loopback di Ollama, ma `sandbox-exec` è deprecato. Su Linux `unshare` crea un network namespace vuoto e bubblewrap limita filesystem e processi; un broker host raggiungibile solo tramite socket Unix inoltra verso l'unico endpoint Ollama configurato. Su Windows AppContainer viene avviato senza capability di rete, con ACL temporanee sui soli path necessari, Job Object kill-on-close e un named pipe autorizzato per il SID esatto del container verso lo stesso broker a destinazione fissa.
 
-`--sandbox audit` preserves the 0.1.x behavior: policy and detection without OS enforcement. `auto` uses a native backend only after a successful probe and records an explicit fallback otherwise; `required` stops before tasks when enforcement is unavailable. On macOS, Seatbelt blocks external user-file access and restricts networking to Ollama's loopback port, but `sandbox-exec` is deprecated. To keep Pi tools operational, the profile grants metadata access only to the individual ancestors of authorized paths, without allowing their contents to be listed or read. On Linux, bubblewrap hides external user areas and isolates the process tree; host networking remains available for Ollama and is therefore still governed only by policy and audit. By design, Windows 0.2.0 does not integrate AppContainer and remains explicitly audit-only; `required` fails without fallback.
+`--sandbox audit` preserves the 0.1.x behavior: policy and detection without OS enforcement. `auto` uses a native backend only after a successful probe and records an explicit fallback otherwise; `required` stops before tasks when enforcement is unavailable. On macOS, Seatbelt blocks external user-file access and restricts networking to Ollama's loopback port, but `sandbox-exec` is deprecated. On Linux, `unshare` creates an empty network namespace and bubblewrap limits filesystems and processes; a host broker reachable only through a Unix socket forwards to the single configured Ollama endpoint. On Windows, AppContainer runs without network capabilities, with temporary ACLs on only the required paths, a kill-on-close Job Object, and a named pipe authorized for the container's exact SID to the same fixed-destination broker.
 
-An enforced backend narrows risk but does not make untrusted real data safe by itself. System runtime paths remain readable, graders still run as trusted host processes, result artifacts may contain sensitive content, and the Linux backend does not firewall network access. Read [SECURITY_MODEL.md](SECURITY_MODEL.md).
+An enforced backend narrows risk but does not make untrusted real data safe by itself. Required runtime paths remain readable, graders and brokers run as trusted host processes, result artifacts may contain sensitive content, and `audit`/`auto` fallback remain detection rather than containment. Read [SECURITY_MODEL.md](SECURITY_MODEL.md).
 
 ## Sviluppo / Development
 
@@ -159,12 +159,14 @@ Non modificare le fixture durante un run. Per aggiungere un caso, crea `cases/<i
 
 ## Distribuzione / Distribution
 
-Il progetto viene eseguito direttamente dal checkout e non produce ancora release o artifact. Quando sarà prevista una distribuzione, saranno aggiunti wheel/pacchetto, smoke test fuori dal checkout e checksum SHA-256 secondo [`PLAN.md`](PLAN.md).
+Il progetto viene eseguito direttamente dal checkout. I tag sorgente non includono ancora wheel o artifact binari; un'eventuale distribuzione fuori checkout richiederà packaging smoke e checksum SHA-256 secondo [`PLAN.md`](PLAN.md).
 
 ## Documentazione / Documentation
 
 - [Manuale italiano](ISTRUZIONI.md)
 - [English manual](INSTRUCTIONS.md)
+- [Avvio rapido Linux / Linux quick start](QUICK-START_Linux.md)
+- [Avvio rapido Windows / Windows quick start](QUICK-START_Windows.md)
 - [Modello di sicurezza bilingue](SECURITY_MODEL.md)
 - [Piano di sviluppo](PLAN.md)
 - [Mappa del repository](MAP.md)

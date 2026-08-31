@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.2.0**
+Versione corrente / Current version: **0.3.0**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -138,7 +138,7 @@ Versione corrente / Current version: **0.2.0**
 - Test: unit e test negativi per selezione backend, ACL/capability, path assoluti, traversal, symlink/junction/reparse point, registry e rete; processi figli indiretti e sopravvissuti; porte loopback consentite e negate; probe reali Windows e Linux; smoke Pi/Ollama enforced su host Windows e Linux; regressione macOS; CI sui tre OS; verifica che gli stessi criteri di integrità e lo stesso schema report valgano per ogni backend.
 - Documentazione: README e manuali bilingui, quick start dedicati Windows/Linux, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e piano; prerequisiti, limiti residui e troubleshooting per ogni backend.
 - Release: milestone rilasciabile con GitHub release; artifact o pacchetto installabile e checksum SHA-256 se viene introdotta distribuzione fuori checkout.
-- Stato: **in corso sul branch `milestone/3-cross-platform-sandbox`. Il prototipo usa un broker host a destinazione fissa: socket Unix interno alla workspace per bubblewrap con `--unshare-net`, named pipe `LOCAL` con DACL sul solo SID del container per Windows AppContainer senza capability di rete. Uno shim Node precaricato reindirizza soltanto l'endpoint Ollama configurato; gli altri processi restano confinati dal backend OS. Il launcher Windows aggiunge ACL temporanee alle sole directory necessarie, usa un Job Object kill-on-close e rimuove ACL e profilo al termine. Compileall e 48 test locali sono verdi, con i probe reali Linux/Windows demandati alla CI multipiattaforma appena il primo commit viene pubblicato.**
+- Stato: **implementazione candidata completata sul branch `milestone/3-cross-platform-sandbox`. Linux usa `unshare` per un network namespace vuoto, bubblewrap per filesystem/processi e un broker Unix a destinazione Ollama fissa. Windows usa AppContainer senza capability di rete, ACL/DACL sul SID esatto, named pipe nel namespace della sessione e Job Object kill-on-close. Compileall e 50 test locali sono verdi; la CI `33424327842` ha verificato i backend reali su macOS, Ubuntu e Windows. Restano lo smoke Pi/Ollama reale in `required` su host Windows e Linux, la CI finale dopo la documentazione, l'avallo del progettista e le operazioni di merge/tag/release.**
 
 ### Checklist milestone 3
 
@@ -150,12 +150,16 @@ Versione corrente / Current version: **0.2.0**
 - [x] ACL Windows temporanee limitate a workspace, configurazione Pi e runtime Pi
 - [x] Probe fail-closed e fallback `auto` esplicito mantenuti
 - [x] Test strutturali e negativi iniziali aggiunti
-- [ ] Probe reali Linux e Windows verificati in CI
-- [ ] Correzioni emerse dai probe multipiattaforma completate
+- [x] Probe reali Linux e Windows verificati in CI (`33424327842`)
+- [x] Correzioni emerse dai probe multipiattaforma completate
 - [ ] Smoke Pi/Ollama enforced su Windows e Linux eseguiti
-- [ ] Versione 0.3.0 sincronizzata
-- [ ] README, quick start, manuali, SECURITY_MODEL, MAP e AGENTS aggiornati
-- [ ] Test completi, CI finale e avallo pre-merge verificati
+- [x] Versione 0.3.0 sincronizzata
+- [x] README, quick start, manuali, SECURITY_MODEL, MAP e AGENTS aggiornati
+- [x] Compileall e 50 test rieseguiti dopo la documentazione (verdi; 7 probe OS non applicabili nel sandbox locale)
+- [ ] CI finale del branch verificata dopo la documentazione
+- [ ] Approvazione esplicita del progettista prima del merge
+- [ ] Commit finale, merge verso `main` e CI su `main`
+- [ ] Tag `v0.3.0`, GitHub release e verifiche previste completati
 
 ## Milestone 4 – Casi personali estensibili
 

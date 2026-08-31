@@ -12,7 +12,7 @@ LocalAgent Benchmark confronta modelli locali Ollama quando lavorano come coding
 - modelli Ollama già scaricati;
 - spazio libero sufficiente per una copia delle fixture per ogni esecuzione.
 
-Per l'isolamento OS opzionale servono `sandbox-exec` utilizzabile su macOS oppure `bwrap` su Linux. Windows usa attualmente soltanto audit e controlli d'integrità. `doctor` mostra disponibilità e backend effettivo senza installare componenti.
+Per l'isolamento OS opzionale servono `sandbox-exec` utilizzabile su macOS; `bwrap`, `unshare` e user/network namespace utilizzabili su Linux; oppure Windows 10/11 con AppContainer. `doctor` esegue un probe reale e mostra disponibilità, backend e capacità effettive senza installare componenti. Le procedure specifiche sono in [QUICK-START_Linux.md](QUICK-START_Linux.md) e [QUICK-START_Windows.md](QUICK-START_Windows.md).
 
 Verificare l'ambiente:
 
@@ -114,12 +114,14 @@ All'avvio `AGENTS.md`, `.gitignore`, prompt, fixture e grader selezionati devono
 - `violations_detected`: leggere prima la tabella **Violazioni rilevate**, poi aprire `report.json`, `run.json` e il relativo `pi-events.jsonl`; il modello indicato è escluso e non va reinserito manualmente in classifica. La rigenerazione del report applica l'audit corrente agli eventi più vecchi senza cambiare i `result.json` originali.
 - `snapshot_compromised`: il runner ha interrotto la matrice perché la fotografia condivisa non è più affidabile; conservare gli artefatti per diagnosi e avviare un nuovo run solo dopo aver risolto la causa.
 - `Sandbox OS richiesta ma non disponibile`: installare/abilitare il backend indicato da `doctor`, usare consapevolmente `--sandbox auto` per consentire fallback oppure `--sandbox audit` per il comportamento storico.
+- `linux-bubblewrap` non disponibile: verificare `bwrap`, `unshare` e la policy di user namespace seguendo il quick start Linux; non eseguire il benchmark come root per aggirare il probe.
+- `windows-appcontainer` non disponibile: eseguire `doctor` come utente standard e verificare ACL, profilo AppContainer e named pipe seguendo il quick start Windows.
 
 Il runner restituisce exit code `1` se una o più task terminano con errore o timeout oppure se l'integrità non è valida, ma scrive comunque il report disponibile. Uno score basso con stato `ok` e integrità `ok` è invece un risultato valido e non rende fallito il comando.
 
 ## 9. Sicurezza e privacy
 
-Non inserire dati privati, repository reali o credenziali nelle fixture. `audit` non è una sandbox. Il backend macOS restringe file utente esterni e rete salvo Ollama loopback; per risolvere correttamente i path dei tool Pi concede soltanto metadata sui singoli antenati dei path autorizzati, non il listing o la lettura dei loro contenuti. È basato sulla deprecata interfaccia `sandbox-exec`. Bubblewrap su Linux isola filesystem utente e process tree, ma conserva la rete host per raggiungere Ollama. I grader restano processi fidati eseguiti fuori sandbox. Consultare `SECURITY_MODEL.md`.
+Non inserire dati privati, repository reali o credenziali nelle fixture. `audit` e il fallback di `auto` non sono sandbox. Il backend macOS restringe file utente esterni e rete salvo Ollama loopback ed è basato sulla deprecata interfaccia `sandbox-exec`. Su Linux Pi opera in un network namespace vuoto e raggiunge soltanto il broker Ollama tramite un socket Unix interno alla workspace. Su Windows AppContainer non riceve capability di rete e usa un named pipe dedicato al suo SID; ACL temporanee concedono solo i path necessari e un Job Object termina i discendenti. Broker e grader restano processi fidati eseguiti fuori sandbox. Consultare `SECURITY_MODEL.md`.
 
 ## 10. Limiti noti
 
@@ -127,7 +129,9 @@ Non inserire dati privati, repository reali o credenziali nelle fixture. `audit`
 - I tempi dipendono da hardware, quantizzazione, pressione di memoria e temperatura.
 - Il runner è progettato per provider Ollama; non offre ancora un adapter Codex di controllo.
 - I task sono sintetici e devono essere ampliati quando cambia il tipo di lavoro abituale.
-- Per scelta progettuale, Windows 0.2.0 non integra ancora AppContainer e resta dichiaratamente in `audit-only`; `required` fallisce senza fallback.
-- Il backend Linux non blocca la rete; comandi dinamici o offuscati possono ancora eludere l'audit.
+- Il backend Linux dipende da user/network namespace non privilegiati; su host con policy kernel o AppArmor più restrittive il probe fallisce e `required` interrompe il run.
+- AppContainer concede lettura al runtime Pi e applica/rimuove ACL e profilo in best effort; un arresto anomalo del launcher può richiedere pulizia o diagnosi manuale.
+- Il broker inoltra soltanto alla destinazione Ollama configurata, ma non autentica né filtra semanticamente il contenuto delle richieste.
+- Comandi dinamici o offuscati possono ancora eludere l'audit quando non è attivo un backend enforced.
 - `sandbox-exec` è deprecato e può non essere disponibile in future versioni macOS; `required` evita fallback silenziosi.
 - Le metriche POSIX possono non includere integralmente tutti i discendenti; RAPL misura il sistema host e può non essere leggibile senza privilegi.
