@@ -423,7 +423,7 @@ def _patch_windows_pi_shell(destination_dist: Path) -> None:
     )
     stdio_marker = 'stdio:[commandFromStdin?"pipe":"ignore","pipe","pipe"]'
     stdio_replacement = (
-        'stdio:process.platform==="win32"?"ignore":'
+        'stdio:process.platform==="win32"?"inherit":'
         '[commandFromStdin?"pipe":"ignore","pipe","pipe"]'
     )
     output_marker = "let exitCode=await waitForChildProcess(child);if(signal?.aborted)"

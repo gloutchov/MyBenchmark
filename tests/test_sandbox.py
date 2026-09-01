@@ -272,7 +272,7 @@ class SandboxTests(unittest.TestCase):
             self.assertIn('shell:process.env.ComSpec??"cmd.exe"', patched)
             self.assertIn('args:["/d","/v:on","/s","/c"]', patched)
             self.assertIn("Execute Windows cmd.exe commands", patched)
-            self.assertIn('stdio:process.platform==="win32"?"ignore"', patched)
+            self.assertIn('stdio:process.platform==="win32"?"inherit"', patched)
             self.assertIn("process.getBuiltinModule", patched)
 
     def test_enforced_transport_rejects_non_loopback_ollama(self):
@@ -447,7 +447,7 @@ class SandboxTests(unittest.TestCase):
                 "const child=spawn(process.env.ComSpec,"
                 "['/d','/v:on','/s','/c',"
                 "`(echo staged) > ${output} 2>&1 & echo !errorlevel! > ${output}.exit`],"
-                "{stdio:'ignore',windowsHide:true});"
+                "{stdio:'inherit',windowsHide:true});"
                 "child.on('error',error=>{console.error(error);process.exit(8)});"
                 "child.on('exit',code=>{"
                 "const reported=Number(fs.readFileSync(output+'.exit','utf8').trim());"
