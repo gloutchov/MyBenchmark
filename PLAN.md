@@ -175,7 +175,7 @@ Versione corrente / Current version: **0.4.0**
 - Test: schema e discovery; manifesti oltre 64 KiB o corrotti; ID discordanti; path POSIX/Windows non sicuri; pesi e contratti grader invalidi; baseline già completate; creazione atomica e rifiuto overwrite; CLI create/validate; configurazione legacy; snapshot manifesti/rubriche; compatibilità report schema 3; suite completa multipiattaforma.
 - Documentazione: README e manuali bilingui, `QUICK-START_Case-Author.md`, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e piano.
 - Release: milestone rilasciabile `v0.4.0`; nessun artifact binario nuovo, perché l'esecuzione resta dal checkout. Tag e GitHub release soltanto dopo merge e autorizzazione esplicita.
-- Stato: **implementazione e documentazione completate sul branch `milestone/4-case-sdk`; i quattro casi esistenti sono migrati a manifesti scoperti automaticamente. Compileall, 63 test locali e `case validate` sui quattro casi sono verdi; 8 probe OS risultano non applicabili nel sandbox locale. Restano push/CI multipiattaforma, avallo pre-merge, merge, tag e release.**
+- Stato: **implementazione e documentazione completate sul branch `milestone/4-case-sdk`; i quattro casi esistenti sono migrati a manifesti scoperti automaticamente. Compileall, 63 test locali e `case validate` sui quattro casi sono verdi; 8 probe OS risultano non applicabili nel sandbox locale. La CI del branch `33535189256` è verde su macOS, Windows e Ubuntu, inclusa la validazione esplicita di manifesti e grader. La milestone è pronta per l'avallo pre-merge; merge, CI su `main`, tag e release restano sospesi.**
 
 ### Checklist milestone 4
 
@@ -193,7 +193,7 @@ Versione corrente / Current version: **0.4.0**
 - [x] README, manuali, quick start autore, SECURITY_MODEL, MAP e AGENTS aggiornati
 - [x] CI aggiornata per validare documenti, schema e calibrazione casi
 - [x] Commit finale creato sul branch milestone
-- [ ] Branch pubblicato e CI macOS/Windows/Linux verificata
+- [x] Branch pubblicato e CI macOS/Windows/Linux verificata (`33535189256`)
 - [ ] Approvazione esplicita del progettista prima del merge
 - [ ] Merge verso `main` e CI su `main`
 - [ ] Tag `v0.4.0` e GitHub release autorizzati, pubblicati e verificati
