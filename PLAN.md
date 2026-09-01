@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.3.0**
+Versione corrente / Current version: **0.4.0**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -170,11 +170,33 @@ Versione corrente / Current version: **0.3.0**
 - Obiettivo: rendere semplice importare nuovi casi e pesi senza modificare il core.
 - Branch previsto: `milestone/4-case-sdk`
 - Incremento versione: `+0.1.0`
-- Attività: schema manifesto per caso, validatore, template, guida autore e rubriche manuali opzionali.
-- Criteri di accettazione: un nuovo caso può essere aggiunto da template e validato con un comando.
-- Test: schema, casi corrotti, compatibilità report.
-- Documentazione: guida bilingue e quick start autore.
-- Stato: pianificata.
+- Attività: schema JSON manifesto per caso; discovery confinata sotto `cases/`; titoli bilingui, categoria, peso e path dichiarati dal caso; validatore strutturale e di calibrazione; template atomico; guida autore; rubriche manuali opzionali conservate separatamente; compatibilità di lettura per configurazioni inline e result schema 3 precedenti.
+- Criteri di accettazione: `case create` genera senza overwrite un caso autocontenuto e subito selezionabile con `--cases`; `case validate` controlla tutti i manifesti o una selezione, esegue i grader revisionati, impone massimo/somma di 100 punti e baseline sotto 60; path assoluti, traversal, symlink sui path dichiarati, fixture con symlink esterni, pesi invalidi, campi sconosciuti e directory incomplete vengono rifiutati; manifesto e rubrica entrano nello snapshot/hash; lo score manuale non altera la classifica automatica.
+- Test: schema e discovery; manifesti oltre 64 KiB o corrotti; ID discordanti; path POSIX/Windows non sicuri; pesi e contratti grader invalidi; baseline già completate; creazione atomica e rifiuto overwrite; CLI create/validate; configurazione legacy; snapshot manifesti/rubriche; compatibilità report schema 3; suite completa multipiattaforma.
+- Documentazione: README e manuali bilingui, `QUICK-START_Case-Author.md`, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e piano.
+- Release: milestone rilasciabile `v0.4.0`; nessun artifact binario nuovo, perché l'esecuzione resta dal checkout. Tag e GitHub release soltanto dopo merge e autorizzazione esplicita.
+- Stato: **implementazione e documentazione completate sul branch `milestone/4-case-sdk`; i quattro casi esistenti sono migrati a manifesti scoperti automaticamente. Compileall, 63 test locali e `case validate` sui quattro casi sono verdi; 8 probe OS risultano non applicabili nel sandbox locale. Restano push/CI multipiattaforma, avallo pre-merge, merge, tag e release.**
+
+### Checklist milestone 4
+
+- [x] Branch milestone creato (`milestone/4-case-sdk`)
+- [x] Schema pubblico `schemas/case.schema.json` e manifesti dei quattro casi aggiunti
+- [x] Discovery confinata e compatibilità configurazione inline pre-0.4 implementate
+- [x] Comando `case create` atomico e senza overwrite implementato
+- [x] Comando `case validate` con protocollo grader e calibrazione baseline implementato
+- [x] Rubrica manuale opzionale mantenuta separata dallo score automatico
+- [x] Manifesti e rubriche inclusi in preflight, snapshot, hash e artefatti del run
+- [x] Test negativi, template, CLI, snapshot e compatibilità report aggiunti
+- [x] Compileall e 63 test locali verdi (8 probe OS non applicabili)
+- [x] Validazione esplicita dei quattro casi verde
+- [x] Versione 0.4.0 sincronizzata in `VERSION`, package, README e piano
+- [x] README, manuali, quick start autore, SECURITY_MODEL, MAP e AGENTS aggiornati
+- [x] CI aggiornata per validare documenti, schema e calibrazione casi
+- [x] Commit finale creato sul branch milestone
+- [ ] Branch pubblicato e CI macOS/Windows/Linux verificata
+- [ ] Approvazione esplicita del progettista prima del merge
+- [ ] Merge verso `main` e CI su `main`
+- [ ] Tag `v0.4.0` e GitHub release autorizzati, pubblicati e verificati
 
 ## Milestone 5 – Finalissima dashboard interattiva
 

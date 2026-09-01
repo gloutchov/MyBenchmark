@@ -108,8 +108,15 @@ def _copy_tracked_tree(repository_root: Path, source: Path, destination: Path) -
             raise InputIntegrityError(f"Copia snapshot non verificata: {repository_relative}")
 
 
+def _copy_verified_file(source: Path, destination: Path, label: str) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, destination)
+    if _entry_fingerprint(source) != _entry_fingerprint(destination):
+        raise InputIntegrityError(f"La copia di {label} non coincide con la sorgente")
+
+
 def require_clean_inputs(root: Path, cases: Iterable[CaseSpec]) -> None:
-    """Reject dirty AGENTS, prompts, graders, or fixture inputs."""
+    """Reject dirty instructions, manifests, prompts, graders, rubrics, or fixtures."""
     try:
         repository_root = Path(_git(root, "rev-parse", "--show-toplevel").stdout.strip()).resolve()
     except (OSError, subprocess.CalledProcessError) as exc:
@@ -160,30 +167,45 @@ def snapshot_cases(
         policy_snapshot.write_text(execution_policy, encoding="utf-8")
         policy_hash = fingerprint_tree(policy_snapshot)
     snapshot_specs: list[CaseSpec] = []
-    case_manifest: dict[str, dict[str, str]] = {}
+    case_manifest: dict[str, dict[str, object]] = {}
     cases_root = destination / "cases"
     cases_root.mkdir()
     repository_root = agents_path.parent
     for case in cases:
         case_root = cases_root / case.id
-        fixture = case_root / "fixture"
         case_root.mkdir()
-        shutil.copy2(case.prompt_path, case_root / "prompt.md")
-        shutil.copy2(case.grader_path, case_root / "grader.py")
-        if _entry_fingerprint(case.prompt_path) != _entry_fingerprint(case_root / "prompt.md"):
-            raise InputIntegrityError(f"La copia del prompt {case.id} non coincide con la sorgente")
-        if _entry_fingerprint(case.grader_path) != _entry_fingerprint(case_root / "grader.py"):
-            raise InputIntegrityError(f"La copia del grader {case.id} non coincide con la sorgente")
+        prompt_relative = case.prompt_path.relative_to(case.directory)
+        fixture_relative = case.fixture_path.relative_to(case.directory)
+        grader_relative = case.grader_path.relative_to(case.directory)
+        prompt = case_root / prompt_relative
+        fixture = case_root / fixture_relative
+        grader = case_root / grader_relative
+        _copy_verified_file(case.prompt_path, prompt, f"prompt {case.id}")
+        _copy_verified_file(case.grader_path, grader, f"grader {case.id}")
         _copy_tracked_tree(repository_root, case.fixture_path, fixture)
+        manifest_path: Path | None = None
+        if case.manifest_path is not None:
+            manifest_relative = case.manifest_path.relative_to(case.directory)
+            manifest_path = case_root / manifest_relative
+            _copy_verified_file(case.manifest_path, manifest_path, f"manifesto {case.id}")
+        rubric_path: Path | None = None
+        if case.manual_rubric_path is not None:
+            rubric_relative = case.manual_rubric_path.relative_to(case.directory)
+            rubric_path = case_root / rubric_relative
+            _copy_verified_file(case.manual_rubric_path, rubric_path, f"rubrica {case.id}")
         snapshot = CaseSpec(
             id=case.id,
             title=case.title,
+            title_en=case.title_en,
             category=case.category,
             weight=case.weight,
             directory=case_root,
-            prompt_path=case_root / "prompt.md",
+            prompt_path=prompt,
             fixture_path=fixture,
-            grader_path=case_root / "grader.py",
+            grader_path=grader,
+            manifest_path=manifest_path,
+            manual_rubric_path=rubric_path,
+            manual_rubric_max_score=case.manual_rubric_max_score,
         )
         snapshot_specs.append(snapshot)
         input_hash = fingerprint_tree(snapshot.directory)
@@ -191,6 +213,21 @@ def snapshot_cases(
             "prompt_sha256": fingerprint_tree(snapshot.prompt_path),
             "fixture_sha256": fingerprint_tree(snapshot.fixture_path),
             "grader_sha256": fingerprint_tree(snapshot.grader_path),
+            "manifest_sha256": fingerprint_tree(snapshot.manifest_path) if snapshot.manifest_path else None,
+            "manual_rubric_sha256": (
+                fingerprint_tree(snapshot.manual_rubric_path) if snapshot.manual_rubric_path else None
+            ),
+            "prompt_path": prompt_relative.as_posix(),
+            "fixture_path": fixture_relative.as_posix(),
+            "grader_path": grader_relative.as_posix(),
+            "manifest_path": (
+                snapshot.manifest_path.relative_to(case_root).as_posix() if snapshot.manifest_path else None
+            ),
+            "manual_rubric_path": (
+                snapshot.manual_rubric_path.relative_to(case_root).as_posix()
+                if snapshot.manual_rubric_path
+                else None
+            ),
             "input_sha256": input_hash,
             "effective_input_sha256": hashlib.sha256(
                 f"{input_hash}\0{policy_hash}".encode("utf-8")
@@ -226,18 +263,29 @@ def verify_snapshot(destination: Path, manifest: dict[str, object]) -> list[str]
             changed.append(f"cases/{case_id}")
             continue
         case_root = destination / "cases" / case_id
+        prompt_relative = str(expected.get("prompt_path") or "prompt.md")
+        fixture_relative = str(expected.get("fixture_path") or "fixture")
+        grader_relative = str(expected.get("grader_path") or "grader.py")
         checks = {
-            "prompt.md": fingerprint_tree(case_root / "prompt.md"),
-            "fixture": fingerprint_tree(case_root / "fixture"),
-            "grader.py": fingerprint_tree(case_root / "grader.py"),
+            prompt_relative: fingerprint_tree(case_root / prompt_relative),
+            fixture_relative: fingerprint_tree(case_root / fixture_relative),
+            grader_relative: fingerprint_tree(case_root / grader_relative),
             "input": fingerprint_tree(case_root),
         }
         expected_keys = {
-            "prompt.md": "prompt_sha256",
-            "fixture": "fixture_sha256",
-            "grader.py": "grader_sha256",
+            prompt_relative: "prompt_sha256",
+            fixture_relative: "fixture_sha256",
+            grader_relative: "grader_sha256",
             "input": "input_sha256",
         }
+        manifest_relative = expected.get("manifest_path")
+        if isinstance(manifest_relative, str) and manifest_relative:
+            checks[manifest_relative] = fingerprint_tree(case_root / manifest_relative)
+            expected_keys[manifest_relative] = "manifest_sha256"
+        rubric_relative = expected.get("manual_rubric_path")
+        if isinstance(rubric_relative, str) and rubric_relative:
+            checks[rubric_relative] = fingerprint_tree(case_root / rubric_relative)
+            expected_keys[rubric_relative] = "manual_rubric_sha256"
         for label, actual in checks.items():
             if actual != expected.get(expected_keys[label]):
                 changed.append(f"cases/{case_id}/{label}")

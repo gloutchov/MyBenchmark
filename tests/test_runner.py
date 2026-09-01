@@ -50,7 +50,7 @@ class RunnerGitTests(unittest.TestCase):
 
     def test_snapshot_is_stable_and_detects_changes(self):
         config = load_config(ROOT / "benchmark.json")
-        case = config.cases["targeted_patch"]
+        case = config.cases["milestone_closure"]
         with tempfile.TemporaryDirectory() as directory:
             context = Path(directory) / "context"
             snapshots, manifest = snapshot_cases(
@@ -61,12 +61,16 @@ class RunnerGitTests(unittest.TestCase):
                 EXECUTION_POLICY,
             )
             self.assertEqual(
-                manifest["cases"]["targeted_patch"]["fixture_sha256"],
+                manifest["cases"]["milestone_closure"]["fixture_sha256"],
                 fingerprint_tree(snapshots[0].fixture_path),
             )
             self.assertFalse(any(path.name == "__pycache__" for path in snapshots[0].fixture_path.rglob("*")))
             self.assertTrue((context / "EXECUTION_POLICY.snapshot.md").is_file())
-            self.assertTrue(manifest["cases"]["targeted_patch"]["effective_input_sha256"])
+            self.assertTrue(manifest["cases"]["milestone_closure"]["effective_input_sha256"])
+            self.assertTrue(snapshots[0].manifest_path.is_file())
+            self.assertTrue(snapshots[0].manual_rubric_path.is_file())
+            self.assertTrue(manifest["cases"]["milestone_closure"]["manifest_sha256"])
+            self.assertTrue(manifest["cases"]["milestone_closure"]["manual_rubric_sha256"])
             self.assertEqual([], verify_snapshot(context, manifest))
             baseline_trees = []
             for name in ("first", "second"):
@@ -82,7 +86,7 @@ class RunnerGitTests(unittest.TestCase):
             self.assertEqual(baseline_trees[0], baseline_trees[1])
             prompt = snapshots[0].prompt_path
             prompt.write_text(prompt.read_text(encoding="utf-8") + "\nchanged\n", encoding="utf-8")
-            self.assertIn("cases/targeted_patch/prompt.md", verify_snapshot(context, manifest))
+            self.assertIn("cases/milestone_closure/prompt.md", verify_snapshot(context, manifest))
 
     def test_milestone_fixture_provides_required_license(self):
         config = load_config(ROOT / "benchmark.json")
@@ -143,7 +147,7 @@ class RunnerGitTests(unittest.TestCase):
                 config,
                 profile="smoke",
                 requested_models=["model:a"],
-                requested_cases=None,
+                requested_cases=["milestone_closure"],
                 repetitions=1,
                 timeout_seconds=30,
                 use_warmup=False,
@@ -159,13 +163,17 @@ class RunnerGitTests(unittest.TestCase):
             self.assertEqual("passed", report["integrity"]["status"])
             manifest = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
             self.assertEqual(7, manifest["order_seed"])
-            self.assertEqual("0.3.0", manifest["benchmark_version"])
+            self.assertEqual("0.4.0", manifest["benchmark_version"])
             self.assertEqual(32768, manifest["configuration"]["context_window"])
             self.assertEqual(30, manifest["configuration"]["timeout_seconds"])
             self.assertEqual(AUDIT_VERSION, manifest["execution_policy"]["audit_version"])
             self.assertEqual("audit-only", manifest["sandbox"]["backend"])
             self.assertFalse(manifest["sandbox"]["enforced"])
             self.assertEqual(3, result["schema_version"])
+            self.assertEqual(1, result["case_manifest_schema_version"])
+            self.assertEqual("Milestone closure, versioning, and Git discipline", result["case_title_en"])
+            self.assertFalse(result["manual_rubric"]["included_in_automatic_score"])
+            self.assertTrue((result_path.parent / "manual-rubric.md").is_file())
             self.assertTrue(result["system_metrics"]["process"]["available"])
             self.assertIn("hardware", manifest["environment"])
             self.assertIn("Non accedere alla rete", run_pi_mock.call_args.args[3])
@@ -174,6 +182,8 @@ class RunnerGitTests(unittest.TestCase):
             markdown = (run_dir / "REPORT.md").read_text(encoding="utf-8")
             self.assertIn("Sandbox: **audit-only** (audit-only)", markdown)
             self.assertIn("0.30s", markdown)
+            self.assertIn("## Rubriche manuali", markdown)
+            self.assertIn("manual-rubric.md", markdown)
 
     def test_preflight_rejects_dirty_case_inputs(self):
         with tempfile.TemporaryDirectory() as directory:

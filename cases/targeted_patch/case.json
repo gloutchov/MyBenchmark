@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schemas/case.schema.json",
+  "schema_version": 1,
+  "id": "targeted_patch",
+  "title": {
+    "it": "Patch mirata con regressioni e documentazione",
+    "en": "Targeted patch with regressions and documentation"
+  },
+  "category": "implementation",
+  "weight": 1.0,
+  "paths": {
+    "prompt": "prompt.md",
+    "fixture": "fixture",
+    "grader": "grader.py"
+  }
+}

@@ -9,14 +9,18 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from localagent_bench.config import load_config
 
 
 class GraderTests(unittest.TestCase):
     def test_baselines_score_below_completion_threshold(self):
-        for case in ("targeted_patch", "secure_workspace", "config_i18n", "milestone_closure"):
-            with self.subTest(case=case):
+        config = load_config(ROOT / "benchmark.json")
+        for case in config.cases.values():
+            with self.subTest(case=case.id):
                 result = subprocess.run(
-                    [sys.executable, str(ROOT / "cases" / case / "grader.py"), str(ROOT / "cases" / case / "fixture")],
+                    [sys.executable, str(case.grader_path), str(case.fixture_path)],
                     env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
                     capture_output=True,
                     text=True,

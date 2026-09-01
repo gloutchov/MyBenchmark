@@ -1,0 +1,20 @@
+{
+  "$schema": "../../schemas/case.schema.json",
+  "schema_version": 1,
+  "id": "milestone_closure",
+  "title": {
+    "it": "Chiusura milestone, versioning e disciplina Git",
+    "en": "Milestone closure, versioning, and Git discipline"
+  },
+  "category": "workflow",
+  "weight": 0.75,
+  "paths": {
+    "prompt": "prompt.md",
+    "fixture": "fixture",
+    "grader": "grader.py"
+  },
+  "manual_rubric": {
+    "path": "manual-rubric.md",
+    "max_score": 20
+  }
+}

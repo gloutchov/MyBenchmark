@@ -8,6 +8,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from .case_sdk import (
+    CaseValidationError,
+    create_case_template,
+    validate_case_selection,
+)
 from .config import ConfigError, load_config
 from .comparison import ComparisonError, write_comparison
 from .ollama import OllamaError
@@ -58,6 +63,22 @@ def _parser() -> argparse.ArgumentParser:
     compare = subparsers.add_parser("compare", help="Confronta statisticamente più run compatibili")
     compare.add_argument("run_dirs", type=Path, nargs="+")
     compare.add_argument("--output", type=Path, help="Directory del confronto")
+
+    case = subparsers.add_parser("case", help="Crea e valida casi estensibili")
+    case_commands = case.add_subparsers(dest="case_command", required=True)
+    validate = case_commands.add_parser("validate", help="Valida manifesti, grader e calibrazione baseline")
+    validate.add_argument("case_ids", nargs="*", help="ID da validare (default: tutti)")
+    create = case_commands.add_parser("create", help="Crea un nuovo caso dal template")
+    create.add_argument("case_id", help="ID portabile del caso")
+    create.add_argument("--title-it", required=True, help="Titolo italiano")
+    create.add_argument("--title-en", required=True, help="Titolo inglese")
+    create.add_argument("--category", default="custom", help="Categoria (default: custom)")
+    create.add_argument("--weight", type=float, default=1.0, help="Peso positivo (default: 1.0)")
+    create.add_argument(
+        "--manual-rubric",
+        action="store_true",
+        help="Aggiunge una rubrica umana opzionale, separata dal punteggio automatico",
+    )
     return parser
 
 
@@ -129,7 +150,35 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Confronto completato: {output.resolve()}")
             print(f"Modelli aggregati: {len(comparison['models'])}")
             return 0
-    except (ConfigError, BenchmarkError, ComparisonError, OllamaError, OSError) as exc:
+        if args.command == "case":
+            if args.case_command == "create":
+                created = create_case_template(
+                    config.cases_directory,
+                    args.case_id,
+                    title_it=args.title_it,
+                    title_en=args.title_en,
+                    category=args.category,
+                    weight=args.weight,
+                    include_manual_rubric=args.manual_rubric,
+                )
+                print(f"Caso creato e validato: {created.directory}")
+                print(f"Esecuzione diretta: python3 benchmark.py run --cases {created.id}")
+                print("Prima di un run, personalizza prompt, fixture e grader, poi committa gli input.")
+                return 0
+            selected_ids = args.case_ids or list(config.cases)
+            unknown = sorted(set(selected_ids) - set(config.cases))
+            if unknown:
+                raise CaseValidationError(f"Casi sconosciuti: {', '.join(unknown)}")
+            reports = validate_case_selection(config.cases[case_id] for case_id in dict.fromkeys(selected_ids))
+            for report in reports:
+                rubric = "sì" if report["manual_rubric"] else "no"
+                print(
+                    f"[OK] {report['id']}: baseline {report['baseline_score']:g}/100, "
+                    f"peso {report['weight']:g}, rubrica manuale {rubric}"
+                )
+            print(f"Validazione completata: {len(reports)} casi validi")
+            return 0
+    except (CaseValidationError, ConfigError, BenchmarkError, ComparisonError, OllamaError, OSError) as exc:
         print(f"Errore: {exc}", file=sys.stderr)
         return 2
     return 2

@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .case_sdk import CASE_SCHEMA_VERSION
 from .config import BenchmarkConfig, CaseSpec
 from . import __version__
 from .grading import grade_workspace
@@ -223,7 +224,13 @@ def doctor(config: BenchmarkConfig) -> dict[str, Any]:
     except InputIntegrityError as exc:
         checks.append({"name": "inputs", "ok": False, "detail": str(exc).splitlines()[0]})
     else:
-        checks.append({"name": "inputs", "ok": True, "detail": "AGENTS, .gitignore, prompt, fixture e grader puliti"})
+        checks.append(
+            {
+                "name": "inputs",
+                "ok": True,
+                "detail": "AGENTS, .gitignore, manifesti, prompt, fixture, grader e rubriche puliti",
+            }
+        )
     return {"ok": all(check["ok"] for check in checks), "checks": checks, "models": [asdict(model) for model in models]}
 
 
@@ -367,6 +374,15 @@ def run_benchmark(
         workspace = case_dir / "workspace"
         agent_dir = case_dir / ".pi-agent"
         case_dir.mkdir(parents=True, exist_ok=True)
+        manual_rubric: dict[str, object] | None = None
+        if case.manual_rubric_path is not None:
+            rubric_artifact = case_dir / "manual-rubric.md"
+            shutil.copy2(case.manual_rubric_path, rubric_artifact)
+            manual_rubric = {
+                "path": rubric_artifact.name,
+                "max_score": case.manual_rubric_max_score,
+                "included_in_automatic_score": False,
+            }
         write_models_config(
             agent_dir,
             config.ollama_url,
@@ -461,8 +477,11 @@ def run_benchmark(
             "model": model,
             "case_id": case.id,
             "case_title": case.title,
+            "case_title_en": case.title_en,
             "case_category": case.category,
             "case_weight": case.weight,
+            "case_manifest_schema_version": CASE_SCHEMA_VERSION if case.manifest_path else None,
+            "manual_rubric": manual_rubric,
             "repetition": repetition,
             "status": pi_run.status,
             "exit_code": pi_run.exit_code,

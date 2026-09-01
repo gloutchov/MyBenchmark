@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localagent-benchmark.invalid/schemas/case.schema.json",
+  "title": "LocalAgent Benchmark case manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "title", "category", "weight", "paths"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "title": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["it", "en"],
+      "properties": {
+        "it": {"type": "string", "minLength": 1, "maxLength": 200},
+        "en": {"type": "string", "minLength": 1, "maxLength": 200}
+      }
+    },
+    "category": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "weight": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 100
+    },
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prompt", "fixture", "grader"],
+      "properties": {
+        "prompt": {"$ref": "#/$defs/relativePath"},
+        "fixture": {"$ref": "#/$defs/relativePath"},
+        "grader": {"$ref": "#/$defs/relativePath"}
+      }
+    },
+    "manual_rubric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "max_score"],
+      "properties": {
+        "path": {"$ref": "#/$defs/relativePath"},
+        "max_score": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100
+        }
+      }
+    }
+  },
+  "$defs": {
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    }
+  }
+}

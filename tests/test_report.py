@@ -13,13 +13,14 @@ from localagent_bench.report import write_report
 
 
 class ReportTests(unittest.TestCase):
-    def test_report_ranks_quality_first(self):
+    def test_report_ranks_quality_first_and_accepts_pre_manifest_results(self):
         with tempfile.TemporaryDirectory() as directory:
             run_dir = Path(directory)
             for model, score, duration, tokens in (("accurate", 90, 20, 200), ("fast", 60, 5, 50)):
                 case_dir = run_dir / "models" / model / "cases" / "case-r1"
                 case_dir.mkdir(parents=True)
                 result = {
+                    "schema_version": 3,
                     "model": model,
                     "case_id": "case",
                     "case_weight": 1,
@@ -34,6 +35,7 @@ class ReportTests(unittest.TestCase):
             self.assertEqual("accurate", report["leaderboard"][0]["model"])
             self.assertEqual(90, report["leaderboard"][0]["case_scores"]["case"])
             self.assertEqual(3, report["schema_version"])
+            self.assertNotIn("case_manifest_schema_version", report["results"][0])
             self.assertEqual(3, report["integrity"]["audit_version"])
             self.assertIsNone(report["leaderboard"][0]["median_energy_joules"])
             self.assertTrue((run_dir / "REPORT.md").exists())

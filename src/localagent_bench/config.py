@@ -8,6 +8,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from .case_sdk import (
+    CaseSpec,
+    CaseValidationError,
+    discover_case_manifests,
+    resolve_cases_directory,
+    safe_case_id,
+)
 from .sandbox import SANDBOX_MODES
 
 
@@ -29,18 +36,6 @@ class Defaults:
 
 
 @dataclass(frozen=True)
-class CaseSpec:
-    id: str
-    title: str
-    category: str
-    weight: float
-    directory: Path
-    prompt_path: Path
-    fixture_path: Path
-    grader_path: Path
-
-
-@dataclass(frozen=True)
 class BenchmarkConfig:
     root: Path
     ollama_url: str
@@ -49,6 +44,7 @@ class BenchmarkConfig:
     defaults: Defaults
     profiles: dict[str, tuple[str, ...]]
     cases: dict[str, CaseSpec]
+    cases_directory: Path
 
 
 def _require(mapping: dict[str, Any], key: str, expected: type) -> Any:
@@ -56,10 +52,6 @@ def _require(mapping: dict[str, Any], key: str, expected: type) -> Any:
     if not isinstance(value, expected):
         raise ConfigError(f"'{key}' deve essere di tipo {expected.__name__}")
     return value
-
-
-def _safe_case_id(value: str) -> bool:
-    return bool(value) and all(ch.isalnum() or ch in "-_" for ch in value)
 
 
 def load_config(path: Path) -> BenchmarkConfig:
@@ -114,33 +106,49 @@ def load_config(path: Path) -> BenchmarkConfig:
     else:
         raise ConfigError("models deve essere 'installed' o una lista non vuota")
 
-    cases_raw = _require(raw, "cases", list)
-    cases: dict[str, CaseSpec] = {}
-    for item in cases_raw:
-        if not isinstance(item, dict):
-            raise ConfigError("Ogni caso deve essere un oggetto")
-        case_id = _require(item, "id", str)
-        if not _safe_case_id(case_id) or case_id in cases:
-            raise ConfigError(f"ID caso non valido o duplicato: {case_id!r}")
-        directory = (root / "cases" / case_id).resolve()
-        if directory.parent != (root / "cases").resolve():
-            raise ConfigError(f"Il caso esce da cases/: {case_id}")
-        spec = CaseSpec(
-            id=case_id,
-            title=_require(item, "title", str),
-            category=_require(item, "category", str),
-            weight=float(item.get("weight", 1)),
-            directory=directory,
-            prompt_path=directory / "prompt.md",
-            fixture_path=directory / "fixture",
-            grader_path=directory / "grader.py",
-        )
-        if spec.weight <= 0:
-            raise ConfigError(f"Peso non valido per {case_id}")
-        for required_path in (spec.prompt_path, spec.fixture_path, spec.grader_path):
-            if not required_path.exists():
-                raise ConfigError(f"File del caso mancante: {required_path}")
-        cases[case_id] = spec
+    cases_raw = raw.get("cases")
+    if isinstance(cases_raw, dict):
+        unknown = sorted(set(cases_raw) - {"directory"})
+        if unknown:
+            raise ConfigError(f"Campi sconosciuti in cases: {', '.join(unknown)}")
+        try:
+            cases_directory = resolve_cases_directory(root, cases_raw.get("directory", "cases"))
+            cases = discover_case_manifests(cases_directory)
+        except CaseValidationError as exc:
+            raise ConfigError(str(exc)) from exc
+    elif isinstance(cases_raw, list):
+        # Compatibility for pre-0.4 configurations. New cases should use case.json discovery.
+        cases_directory = (root / "cases").resolve()
+        cases = {}
+        for item in cases_raw:
+            if not isinstance(item, dict):
+                raise ConfigError("Ogni caso legacy deve essere un oggetto")
+            case_id = _require(item, "id", str)
+            if not safe_case_id(case_id) or case_id in cases:
+                raise ConfigError(f"ID caso non valido o duplicato: {case_id!r}")
+            directory = (cases_directory / case_id).resolve()
+            if directory.parent != cases_directory:
+                raise ConfigError(f"Il caso esce da cases/: {case_id}")
+            title = _require(item, "title", str)
+            spec = CaseSpec(
+                id=case_id,
+                title=title,
+                title_en=str(item.get("title_en", title)),
+                category=_require(item, "category", str),
+                weight=float(item.get("weight", 1)),
+                directory=directory,
+                prompt_path=directory / "prompt.md",
+                fixture_path=directory / "fixture",
+                grader_path=directory / "grader.py",
+            )
+            if spec.weight <= 0:
+                raise ConfigError(f"Peso non valido per {case_id}")
+            for required_path in (spec.prompt_path, spec.fixture_path, spec.grader_path):
+                if not required_path.exists():
+                    raise ConfigError(f"File del caso mancante: {required_path}")
+            cases[case_id] = spec
+    else:
+        raise ConfigError("cases deve essere un oggetto di discovery o una lista legacy")
 
     profiles_raw = _require(raw, "profiles", dict)
     profiles: dict[str, tuple[str, ...]] = {}
@@ -162,4 +170,5 @@ def load_config(path: Path) -> BenchmarkConfig:
         defaults=defaults,
         profiles=profiles,
         cases=cases,
+        cases_directory=cases_directory,
     )

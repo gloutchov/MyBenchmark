@@ -2,14 +2,15 @@
 
 ## Modello operativo / Operating model
 
-LocalAgent Benchmark verifica gli input rispetto a Git, crea una fotografia unica di prompt, fixture, grader, `AGENTS.md`, `.gitignore` e policy di esecuzione, copia quella fotografia in repository Git dedicati, seleziona e registra la modalità sandbox, avvia Pi in modalità non interattiva e usa l'API OpenAI-compatible di Ollama su loopback. Ogni tentativo ha una directory Pi separata, uno scratch interno e conserva workspace, eventi, log, patch, valutazione, metriche e audit d'integrità.
+LocalAgent Benchmark scopre i casi tramite manifesti locali, verifica gli input rispetto a Git, crea una fotografia unica di manifesti, prompt, fixture, grader, rubriche opzionali, `AGENTS.md`, `.gitignore` e policy di esecuzione, copia quella fotografia in repository Git dedicati, seleziona e registra la modalità sandbox, avvia Pi in modalità non interattiva e usa l'API OpenAI-compatible di Ollama su loopback. Ogni tentativo ha una directory Pi separata, uno scratch interno e conserva workspace, eventi, log, patch, valutazione, metriche e audit d'integrità.
 
-LocalAgent Benchmark checks inputs against Git, creates one frozen snapshot of prompts, fixtures, graders, `AGENTS.md`, `.gitignore`, and the execution policy, copies that snapshot into dedicated Git repositories, selects and records the sandbox mode, launches Pi non-interactively, and uses Ollama's OpenAI-compatible API over loopback. Each attempt has an isolated Pi configuration directory, an internal scratch area, and retains its workspace, events, logs, patch, grade, metrics, and integrity audit.
+LocalAgent Benchmark discovers cases through local manifests, checks inputs against Git, creates one frozen snapshot of manifests, prompts, fixtures, graders, optional rubrics, `AGENTS.md`, `.gitignore`, and the execution policy, copies that snapshot into dedicated Git repositories, selects and records the sandbox mode, launches Pi non-interactively, and uses Ollama's OpenAI-compatible API over loopback. Each attempt has an isolated Pi configuration directory, an internal scratch area, and retains its workspace, events, logs, patch, grade, metrics, and integrity audit.
 
 ## Asset e confini / Assets and boundaries
 
 - Il repository del benchmark, `AGENTS.md` e i grader sono input fidati.
 - Prompt e fixture inclusi nel repository sono input controllati, ma il loro contenuto viene comunque trattato come dati per il modello.
+- Manifesti e rubriche descrivono il caso ma non concedono fiducia o permessi. Un grader importato è codice non fidato finché non viene revisionato; validazione e grading lo eseguono sul processo host.
 - Le risposte del modello, gli argomenti tool e i file prodotti sono output non fidati.
 - Ollama è un servizio locale separato; il confine HTTP è `ollama.url`.
 - Il filesystem esterno alla workspace del singolo caso non appartiene allo scope dell'agente.
@@ -17,8 +18,11 @@ LocalAgent Benchmark checks inputs against Git, creates one frozen snapshot of p
 ## Controlli implementati / Implemented controls
 
 - Configurazione centrale validata all'avvio; URL, ID caso e modalità sandbox vengono controllati.
-- Preflight Git obbligatorio per gli input selezionati: file modificati o non tracciati in `AGENTS.md`, `.gitignore`, prompt, fixture o grader bloccano il run.
-- Snapshot condiviso creato una sola volta prima della matrice usando soltanto file tracciati da Git, con esclusione di cache/output ignorati e SHA-256 separati per istruzioni, policy di esecuzione, prompt, fixture, grader e input effettivo complessivo.
+- Discovery limitata a figli diretti della directory casi configurata, che deve restare nel repository. I manifesti sono limitati a 64 KiB; il validatore rifiuta ID non portabili o discordanti, campi sconosciuti, pesi non finiti, path assoluti/Windows/traversal, path dichiarati sovrapposti, attraversamento di symlink e symlink della fixture che escono dal caso.
+- `case create` usa una directory di staging interna e una rinomina atomica, rifiuta target esistenti e non sovrascrive casi.
+- `case validate` controlla il protocollo JSON del grader, ID check univoci, massimo e somma punti a 100, intervalli earned, coerenza score e fixture iniziale sotto 60.
+- Preflight Git obbligatorio per gli input selezionati: file modificati o non tracciati in `AGENTS.md`, `.gitignore`, manifesti, prompt, fixture, grader o rubriche bloccano il run.
+- Snapshot condiviso creato una sola volta prima della matrice usando soltanto file tracciati da Git, con esclusione di cache/output ignorati e SHA-256 separati per istruzioni, policy di esecuzione, manifesto, prompt, fixture, grader, rubrica e input effettivo complessivo.
 - Ogni workspace registra commit e tree Git della baseline; input o baseline divergenti vengono rilevati dal report.
 - Nessuna dipendenza Python di runtime e nessun download automatico di modelli.
 - Pi viene avviato con `--offline`, telemetria disabilitata e risorse globali non necessarie disabilitate; la policy bilingue preposta al prompt vieta rete e path esterni.
@@ -41,6 +45,7 @@ LocalAgent Benchmark checks inputs against Git, creates one frozen snapshot of p
 - Backend richiesto, backend effettivo e capacità filesystem/processi/rete sono registrati sia nel manifesto sia nel risultato; il report li mostra prima della classifica.
 - Hardware logico, memoria, rusage POSIX e contatori energetici Linux RAPL leggibili sono registrati con provider, scope e disponibilità; nessuna dipendenza o elevazione automatica viene introdotta.
 - Il comando `compare` accetta soltanto directory distinte e run compatibili per versione/parametri, profilo, input, digest modello, backend, piattaforma e hardware e non aggrega modelli già esclusi per integrità.
+- Una rubrica manuale dichiarata viene copiata come artefatto fratello della workspace e marcata come esclusa dallo score automatico; il runner non accetta né aggrega punteggi umani.
 
 ## Segreti e logging / Secrets and logging
 
@@ -62,7 +67,7 @@ Pi receives file and shell tools because tasks require editing and testing. Its 
 
 ## Validazione e processi / Validation and processes
 
-I grader sono codice fidato versionato e vengono eseguiti dalla copia congelata soltanto dopo la verifica del relativo hash. Non sono eseguiti nel backend sandbox e mantengono i permessi dell'utente: non aggiungere grader provenienti da terzi senza revisione. I file JSON dei risultati sono prodotti localmente e non devono essere usati come comandi. Il report effettua rendering Markdown di nomi modello locali; aprirlo solo in viewer fidati se i nomi provengono da un server Ollama non controllato.
+I grader sono codice fidato versionato e vengono eseguiti dalla copia congelata soltanto dopo la verifica del relativo hash. Anche `case validate` esegue il grader per controllarne protocollo e calibrazione. Nessuna delle due esecuzioni usa il backend sandbox e entrambe mantengono i permessi dell'utente: ispezionare integralmente un caso importato prima di caricare la configurazione per un run o lanciare la validazione, e non aggiungere grader provenienti da terzi senza revisione. I file JSON dei risultati sono prodotti localmente e non devono essere usati come comandi. Il report effettua rendering Markdown di nomi modello locali; aprirlo solo in viewer fidati se i nomi provengono da un server Ollama non controllato.
 
 ## Limiti residui / Residual risks
 
@@ -77,6 +82,7 @@ I grader sono codice fidato versionato e vengono eseguiti dalla copia congelata 
 - Nessun blocco di rete a livello kernel in `audit` o nel fallback di `auto`.
 - Linux usa PID namespace e `die-with-parent`, Windows un Job Object kill-on-close e macOS il gruppo processo; arresti del sistema o difetti del runtime possono comunque impedire la pulizia ordinata.
 - Un grader difettoso o malevolo ha accesso ai permessi dell'utente.
+- Lo schema e i controlli di path non analizzano il comportamento del codice Python del grader; un manifesto strutturalmente valido può comunque accompagnare codice malevolo.
 - Log e workspace possono occupare molto spazio o contenere dati che il modello ha letto.
 - I modelli locali e Ollama sono supply-chain esterne al repository.
 - Un modello può ancora tentare di manipolare `.git` nella propria workspace; grader e snapshot restano fuori dalle mount consentite, ma l'audit e gli hash continuano a essere necessari come controllo indipendente.
@@ -87,7 +93,7 @@ I grader sono codice fidato versionato e vengono eseguiti dalla copia congelata 
 - Eseguire con account non privilegiato e fixture esclusivamente sintetiche.
 - Usare `--sandbox required` per impedire fallback quando l'isolamento è requisito del run.
 - Non disabilitare policy kernel/AppArmor aziendali solo per far passare il probe Linux: usare un host approvato o accettare esplicitamente `audit`/fallback per dati esclusivamente sintetici.
-- Revisionare prompt, fixture e grader prima di ogni run.
+- Revisionare manifesto, prompt, fixture, grader e rubrica prima di `case validate` e di ogni run.
 - Non ignorare errori `inputs`, `violations_detected` o `snapshot_compromised` e non reinserire manualmente modelli esclusi nella classifica.
 - Cancellare in modo consapevole i risultati non più necessari e non pubblicarli senza revisione.
 - Mantenere Pi e Ollama aggiornati solo attraverso fonti verificate; registrare le versioni per confronti longitudinali.
@@ -95,4 +101,4 @@ I grader sono codice fidato versionato e vengono eseguiti dalla copia congelata 
 
 ## Test di sicurezza / Security tests
 
-Il caso `secure_workspace` controlla traversal, path assoluti, fuga via symlink, scrittura atomica e redazione. I test del runner verificano validazione configurazione, calibrazione dei grader, snapshot e policy hash, scratch interno, ordine con seed, path shell risolti in stile POSIX e Windows su ogni host, traversal confinato, pattern testuali e payload heredoc non eseguibili, tentativi di rete anche in heredoc eseguibili, riesame dei report, esclusione completa del modello e divergenze di baseline. I test della milestone 2 coprono selezione/fallback/required, profilo Seatbelt e compatibilità dei report. La milestone 3 aggiunge probe e integrazioni reali per namespace/bubblewrap e AppContainer, accesso consentito e negato al filesystem, network namespace vuoto, broker Unix/named-pipe a destinazione fissa, diniego di porte dirette, ACL/DACL, Job Object e cleanup. Compileall e 50 test sono verdi localmente; la matrice GitHub Actions `33424327842` è verde su macOS, Ubuntu e Windows, inclusi i test reali dei backend. Lo smoke Pi/Ollama reale in `required` su host Windows e Linux resta un controllo pre-merge separato dalla CI con dummy TCP/Node.
+Il caso `secure_workspace` controlla traversal, path assoluti, fuga via symlink, scrittura atomica e redazione. I test del runner verificano validazione configurazione, calibrazione dei grader, snapshot e policy hash, scratch interno, ordine con seed, path shell risolti in stile POSIX e Windows su ogni host, traversal confinato, pattern testuali e payload heredoc non eseguibili, tentativi di rete anche in heredoc eseguibili, riesame dei report, esclusione completa del modello e divergenze di baseline. I test della milestone 2 coprono selezione/fallback/required, profilo Seatbelt e compatibilità dei report. La milestone 3 aggiunge probe e integrazioni reali per namespace/bubblewrap e AppContainer, accesso consentito e negato al filesystem, network namespace vuoto, broker Unix/named-pipe a destinazione fissa, diniego di porte dirette, ACL/DACL, Job Object e cleanup. La milestone 4 aggiunge casi corrotti, limite manifesto, campi sconosciuti, ID discordanti, path traversal, symlink esterni, pesi invalidi, directory incomplete, contratti grader errati, baseline già completate, creazione atomica, rifiuto overwrite, CLI create/validate, snapshot di manifesti/rubriche e lettura dei result schema 3 precedenti. Compileall e 63 test sono verdi localmente, con 8 probe OS non applicabili in questo ambiente; la validazione esplicita dei quattro casi è verde.

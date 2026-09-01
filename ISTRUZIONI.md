@@ -2,7 +2,7 @@
 
 ## 1. Scopo
 
-LocalAgent Benchmark confronta modelli locali Ollama quando lavorano come coding agent attraverso Pi. Ogni modello riceve input copiati dallo stesso snapshot congelato di `AGENTS.md`, prompt e fixture Git. Il risultato viene misurato con controlli automatici e conservato per revisione manuale.
+LocalAgent Benchmark confronta modelli locali Ollama quando lavorano come coding agent attraverso Pi. Ogni modello riceve input copiati dallo stesso snapshot congelato di `AGENTS.md`, manifesto, prompt e fixture Git. Il risultato viene misurato con controlli automatici e conservato per revisione manuale.
 
 ## 2. Requisiti
 
@@ -77,9 +77,32 @@ Il confronto accetta soltanto directory distinte e run con versione/parametri, p
 - `models`: `installed` oppure lista stabile;
 - `defaults`: timeout, ripetizioni, thinking, warmup, keep-alive, contesto, output massimo, temperatura e modalità sandbox;
 - `profiles`: gruppi di casi;
-- `cases`: metadati e pesi.
+- `cases.directory`: directory, interna al repository, da cui scoprire i manifesti `case.json`.
 
 La configurazione viene validata all'avvio. Non contiene e non deve contenere segreti. Il valore `apiKey` generato per il provider Ollama è il placeholder letterale `ollama`, ignorato dal server locale.
+
+### Creazione e validazione di casi personali
+
+Creare uno scheletro autocontenuto:
+
+```bash
+python3 benchmark.py case create api_contract \
+  --title-it "Contratto API" \
+  --title-en "API contract" \
+  --category architecture \
+  --weight 1.25 \
+  --manual-rubric
+```
+
+Il comando crea `case.json`, `prompt.md`, `fixture/`, `grader.py` e, se richiesta, `manual-rubric.md`. I metadati e il peso vivono nel manifesto; per eseguire il caso non serve modificare il core. Aggiungere l'ID a un profilo di `benchmark.json` soltanto se deve far parte stabilmente di quel gruppo.
+
+Dopo aver personalizzato materiali sintetici e controlli, validare il caso:
+
+```bash
+python3 benchmark.py case validate api_contract
+```
+
+Senza ID, `case validate` controlla tutti i casi. Verifica schema strutturale, path confinati, file richiesti, contratto JSON del grader, somma di 100 punti e baseline sotto 60. Il grader viene eseguito con i permessi dell'utente e fuori dalla sandbox dell'agente: revisionare sempre il codice dei casi importati prima della validazione. La guida completa è in [QUICK-START_Case-Author.md](QUICK-START_Case-Author.md).
 
 ## 6. Come leggere il report
 
@@ -93,6 +116,7 @@ Leggere prima **Ambiente e isolamento** e **Integrità del run**. La prima sezio
 - Confrontare `score_stddev` dopo almeno tre ripetizioni.
 - Trattare energia RAPL come misura host-wide: è utile soltanto a parità di macchina e carico, non come consumo esclusivo del modello.
 - Aprire `diff.patch` e `workspace/` prima di scegliere il modello.
+- Se esiste `manual-rubric.md`, compilarla separatamente: non entra nel punteggio automatico.
 
 Il modello primo in classifica non è automaticamente il migliore per ogni uso. Per attività security-sensitive può essere preferibile il migliore nel caso `secure_workspace`; per manutenzione ordinaria conta di più `targeted_patch`.
 
@@ -100,7 +124,7 @@ Il modello primo in classifica non è automaticamente il migliore per ogni uso. 
 
 Usare stessa configurazione, stesso profilo, stesso numero di ripetizioni, stesso seed e stesso computer. Chiudere carichi pesanti e mantenere condizioni termiche/alimentazione comparabili. Prima di ogni cambio modello il runner scarica il modello precedente, registra un nuovo warmup e poi avvia la task, così l'ordine randomizzato non mantiene più modelli residenti involontariamente.
 
-All'avvio `AGENTS.md`, `.gitignore`, prompt, fixture e grader selezionati devono essere puliti rispetto a Git. Il runner copia una volta in `benchmark-context/` soltanto i file tracciati e la policy di esecuzione, escludendo cache e output ignorati, e tutte le workspace nascono da quella fotografia. Ogni workspace contiene `.benchmark-scratch/`, ignorata da Git e usata anche come `TMPDIR`, `TMP` e `TEMP`: i modelli devono usarla per smoke test e file temporanei senza ricorrere a `/tmp`. Non modificare né sorgenti né snapshot durante il run. La temperatura zero limita, ma non elimina, la variabilità. Conservare l'intera directory del run quando il risultato deve essere confrontato nel tempo.
+All'avvio `AGENTS.md`, `.gitignore`, manifesti, prompt, fixture, grader e rubriche selezionati devono essere puliti rispetto a Git. Il runner copia una volta in `benchmark-context/` soltanto i file tracciati e la policy di esecuzione, escludendo cache e output ignorati, e tutte le workspace nascono da quella fotografia. Gli hash degli input includono anche manifesto e rubrica. Ogni workspace contiene `.benchmark-scratch/`, ignorata da Git e usata anche come `TMPDIR`, `TMP` e `TEMP`: i modelli devono usarla per smoke test e file temporanei senza ricorrere a `/tmp`. Non modificare né sorgenti né snapshot durante il run. La temperatura zero limita, ma non elimina, la variabilità. Conservare l'intera directory del run quando il risultato deve essere confrontato nel tempo.
 
 ## 8. Risoluzione problemi
 
@@ -111,6 +135,8 @@ All'avvio `AGENTS.md`, `.gitignore`, prompt, fixture e grader selezionati devono
 - score basso con uscita corretta: leggere `grade.json`; il modello può aver risposto senza modificare i file o aver interpretato male un vincolo.
 - token a zero: alcune combinazioni provider/modello non riportano usage; la qualità resta valida, mentre l'efficienza token non viene premiata.
 - `Input benchmark modificati`: ripristinare o committare intenzionalmente `AGENTS.md`, `.gitignore` e i file dei casi prima di riprovare; non usare una fixture già completata.
+- `Manifesto mancante` o `paths.*`: completare `case.json`, usare soltanto path relativi POSIX interni al caso e rimuovere symlink sui path dichiarati; rieseguire `case validate`.
+- errore `max_score`, `points`, `earned` o baseline: correggere il contratto del grader; i check devono totalizzare 100 e la fixture iniziale deve restare sotto 60.
 - `violations_detected`: leggere prima la tabella **Violazioni rilevate**, poi aprire `report.json`, `run.json` e il relativo `pi-events.jsonl`; il modello indicato è escluso e non va reinserito manualmente in classifica. La rigenerazione del report applica l'audit corrente agli eventi più vecchi senza cambiare i `result.json` originali.
 - `snapshot_compromised`: il runner ha interrotto la matrice perché la fotografia condivisa non è più affidabile; conservare gli artefatti per diagnosi e avviare un nuovo run solo dopo aver risolto la causa.
 - `Sandbox OS richiesta ma non disponibile`: installare/abilitare il backend indicato da `doctor`, usare consapevolmente `--sandbox auto` per consentire fallback oppure `--sandbox audit` per il comportamento storico.
@@ -121,11 +147,12 @@ Il runner restituisce exit code `1` se una o più task terminano con errore o ti
 
 ## 9. Sicurezza e privacy
 
-Non inserire dati privati, repository reali o credenziali nelle fixture. `audit` e il fallback di `auto` non sono sandbox. Il backend macOS restringe file utente esterni e rete salvo Ollama loopback ed è basato sulla deprecata interfaccia `sandbox-exec`. Su Linux Pi opera in un network namespace vuoto e raggiunge soltanto il broker Ollama tramite un socket Unix interno alla workspace. Su Windows AppContainer non riceve capability di rete e usa un named pipe dedicato al suo SID; ACL temporanee concedono solo i path necessari e un Job Object termina i discendenti. Broker e grader restano processi fidati eseguiti fuori sandbox. Consultare `SECURITY_MODEL.md`.
+Non inserire dati privati, repository reali o credenziali nelle fixture. Manifesti e template non concedono permessi: un grader importato resta codice non fidato finché non viene revisionato, perché validazione e grading lo eseguono sul processo host. `audit` e il fallback di `auto` non sono sandbox. Il backend macOS restringe file utente esterni e rete salvo Ollama loopback ed è basato sulla deprecata interfaccia `sandbox-exec`. Su Linux Pi opera in un network namespace vuoto e raggiunge soltanto il broker Ollama tramite un socket Unix interno alla workspace. Su Windows AppContainer non riceve capability di rete e usa un named pipe dedicato al suo SID; ACL temporanee concedono solo i path necessari e un Job Object termina i discendenti. Broker e grader restano processi fidati eseguiti fuori sandbox. Consultare `SECURITY_MODEL.md`.
 
 ## 10. Limiti noti
 
 - I grader automatici non misurano interamente leggibilità o qualità delle spiegazioni.
+- Le rubriche manuali sono artefatti di supporto: il runner non raccoglie né aggrega il punteggio umano.
 - I tempi dipendono da hardware, quantizzazione, pressione di memoria e temperatura.
 - Il runner è progettato per provider Ollama; non offre ancora un adapter Codex di controllo.
 - I task sono sintetici e devono essere ampliati quando cambia il tipo di lavoro abituale.

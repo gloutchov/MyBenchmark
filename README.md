@@ -4,7 +4,7 @@ Benchmark personale, ripetibile e offline per confrontare modelli Ollama usati c
 
 Personal, repeatable, offline benchmark for comparing Ollama models used as coding agents through [Pi](https://pi.dev). Its scenarios derive from this repository's operating rules: small patches, modular architecture, tests, security, configuration, i18n, documentation, and Git discipline.
 
-Stato / Status: **0.3.0 – sandbox OS multipiattaforma / cross-platform OS sandbox**
+Stato / Status: **0.4.0 – SDK per casi personali estensibili / extensible personal case SDK**
 Piattaforme / Platforms: macOS, Windows, Linux
 Verifica reale / Real-world validation: **run benchmark Pi/Ollama reali verificati soltanto su macOS e Windows; Linux è coperto dalla CI, ma non è ancora stato validato con uno smoke Pi/Ollama reale. / Real Pi/Ollama benchmark runs have been verified only on macOS and Windows; Linux is covered by CI, but has not yet been validated with a real Pi/Ollama smoke run.**
 Licenza / License: Apache-2.0
@@ -18,6 +18,7 @@ Il benchmark valuta il risultato completo dell'agente, non una singola risposta 
 - sicurezza di path, scritture e log;
 - configurazione validata, i18n e preferenze UI;
 - aggiornamento coordinato di versione, piano e documentazione;
+- casi personali descritti da manifesti validati, con pesi e rubriche manuali opzionali;
 - stato di uscita, timeout, errori tool, token e tempo end-to-end.
 
 The benchmark evaluates the complete agent outcome rather than a single text response: functional quality, scope discipline, security, configuration/i18n, documentation, Git workflow, failures, tokens, and end-to-end time.
@@ -45,6 +46,7 @@ No external Python packages are required. Pi 0.84.3 was the version verified dur
 ```bash
 python3 benchmark.py doctor
 python3 benchmark.py list
+python3 benchmark.py case validate
 python3 benchmark.py run --profile smoke --models qwen3.5:9b-Q4_K_M
 ```
 
@@ -53,6 +55,22 @@ Per richiedere isolamento OS senza accettare fallback:
 ```bash
 python3 benchmark.py run --profile smoke --models qwen3.5:9b-Q4_K_M --sandbox required
 ```
+
+Per creare e validare un caso personale senza modificare il core:
+
+```bash
+python3 benchmark.py case create api_contract \
+  --title-it "Contratto API" \
+  --title-en "API contract" \
+  --category architecture \
+  --weight 1.25 \
+  --manual-rubric
+python3 benchmark.py case validate api_contract
+```
+
+Il comando crea atomicamente `cases/api_contract/` con manifesto, prompt, fixture, grader calibrato e rubrica opzionale. Personalizzare gli input sintetici e committarli prima di un run; il nuovo caso è subito selezionabile con `--cases api_contract` e può essere aggiunto a un profilo in `benchmark.json`. La procedura completa è in [QUICK-START_Case-Author.md](QUICK-START_Case-Author.md).
+
+The command atomically creates `cases/api_contract/` with a manifest, prompt, fixture, calibrated grader, and optional rubric. Customize and commit the synthetic inputs before a run; the case is immediately selectable with `--cases api_contract` and can be added to a `benchmark.json` profile. See [QUICK-START_Case-Author.md](QUICK-START_Case-Author.md) for the complete workflow.
 
 Per un primo confronto di tutti i modelli installati:
 
@@ -95,11 +113,11 @@ Ogni run crea `results/YYYYMMDD-HHMMSS/` con:
 
 - `REPORT.md` e `report.json`: classifica, isolamento effettivo, metriche disponibili e dettaglio;
 - `run.json`: ambiente/hardware, versioni, backend sandbox effettivo, commit/stato Git, modelli, seed, ordine task, hash input e policy di esecuzione, warmup e stato d'integrità;
-- per ogni modello/caso: workspace finale, eventi JSONL di Pi, risposta finale, stderr, stato Git, patch, score e singoli check.
+- per ogni modello/caso: workspace finale, eventi JSONL di Pi, risposta finale, stderr, stato Git, patch, score, singoli check e, quando dichiarata, `manual-rubric.md` separata dal punteggio automatico.
 
-All'avvio il runner rifiuta `AGENTS.md`, `.gitignore`, prompt, fixture o grader selezionati se modificati rispetto a Git. Crea poi un unico snapshot dei soli file tracciati e della policy di esecuzione, escludendo cache e output ignorati, e registra hash e tree Git delle baseline. Ogni task riceve una directory `.benchmark-scratch/` interna e ignorata da Git; `TMPDIR`, `TMP` e `TEMP` puntano lì. Path shell risolti fuori workspace, tentativi espliciti di rete, modifiche al repository o allo snapshot e baseline non uniformi escludono dalla classifica l'intero modello coinvolto; una modifica allo snapshot interrompe anche la matrice. Il report mostra stato e dettaglio delle violazioni prima della classifica.
+All'avvio il runner rifiuta `AGENTS.md`, `.gitignore`, manifesti, prompt, fixture, grader o rubriche selezionati se modificati rispetto a Git. Crea poi un unico snapshot dei soli file tracciati e della policy di esecuzione, escludendo cache e output ignorati, e registra hash e tree Git delle baseline. Ogni task riceve una directory `.benchmark-scratch/` interna e ignorata da Git; `TMPDIR`, `TMP` e `TEMP` puntano lì. Path shell risolti fuori workspace, tentativi espliciti di rete, modifiche al repository o allo snapshot e baseline non uniformi escludono dalla classifica l'intero modello coinvolto; una modifica allo snapshot interrompe anche la matrice. Il report mostra stato e dettaglio delle violazioni prima della classifica.
 
-At startup the runner rejects selected benchmark inputs that differ from Git, creates one frozen snapshot containing tracked files and the execution policy (excluding ignored caches and outputs), and records input hashes and baseline Git trees. Each task gets an internal Git-ignored `.benchmark-scratch/` directory used by `TMPDIR`, `TMP`, and `TEMP`. Shell paths resolved outside the workspace, explicit network attempts, repository/snapshot mutation, or a divergent baseline disqualify the affected model. Snapshot mutation also aborts the remaining matrix. Integrity status and violation details are shown before the leaderboard.
+At startup the runner rejects selected instructions, manifests, prompts, fixtures, graders, or manual rubrics that differ from Git, creates one frozen snapshot containing tracked files and the execution policy (excluding ignored caches and outputs), and records input hashes and baseline Git trees. Each task gets an internal Git-ignored `.benchmark-scratch/` directory used by `TMPDIR`, `TMP`, and `TEMP`. Shell paths resolved outside the workspace, explicit network attempts, repository/snapshot mutation, or a divergent baseline disqualify the affected model. Snapshot mutation also aborts the remaining matrix. Integrity status and violation details are shown before the leaderboard.
 
 Il comando termina con exit code `1` se almeno una task va in timeout o Pi restituisce un errore, pur completando il resto della matrice e generando il report. Un punteggio sotto 60 senza errore operativo non cambia l'exit code: è un risultato del modello, non un guasto del runner.
 
@@ -127,7 +145,7 @@ The command writes `comparison.json` and `COMPARISON.md` with mean, median, stan
 
 ## Configurazione / Configuration
 
-[`benchmark.json`](benchmark.json) centralizza URL Ollama, comando Pi, timeout, thinking, contesto, token massimi, warmup, sandbox, profili, casi e pesi. `"models": "installed"` rileva tutti i modelli da `/api/tags`; una lista esplicita rende il set stabile. `defaults.sandbox` accetta `audit`, `auto` o `required`; il default conservativo e retrocompatibile è `audit`.
+[`benchmark.json`](benchmark.json) centralizza URL Ollama, comando Pi, timeout, thinking, contesto, token massimi, warmup, sandbox, profili e directory di discovery dei casi. Ogni `cases/<id>/case.json`, verificabile contro [`schemas/case.schema.json`](schemas/case.schema.json), contiene ID, titoli bilingui, categoria, peso e path relativi; i manifesti pre-0.4 inline restano leggibili per compatibilità. `"models": "installed"` rileva tutti i modelli da `/api/tags`; una lista esplicita rende il set stabile. `defaults.sandbox` accetta `audit`, `auto` o `required`; il default conservativo e retrocompatibile è `audit`.
 
 La temperatura è zero per ridurre la varianza. Le ripetizioni restano necessarie: tool calling e generazione locale non sono perfettamente deterministici. L'ordine delle task viene randomizzato e registrato; `--seed` permette di riprodurlo. Per un confronto decisionale usare almeno tre ripetizioni e la stessa alimentazione/condizione termica.
 
@@ -148,6 +166,7 @@ An enforced backend narrows risk but does not make untrusted real data safe by i
 ```bash
 python3 -m compileall -q benchmark.py src cases tests
 python3 -m unittest discover -s tests -v
+python3 benchmark.py case validate
 ```
 
 Per rigenerare un report esistente:
@@ -156,7 +175,9 @@ Per rigenerare un report esistente:
 python3 benchmark.py report results/20260825-120000
 ```
 
-Non modificare le fixture durante un run. Per aggiungere un caso, crea `cases/<id>/prompt.md`, `fixture/`, `grader.py`, registra caso e profilo in `benchmark.json`, quindi aggiungi test di calibrazione.
+Non modificare gli input durante un run. Per aggiungere un caso usa `case create`, personalizza i file generati e poi esegui `case validate`: il grader deve assegnare esattamente 100 punti e mantenere la fixture iniziale sotto 60. I grader importati sono codice da revisionare prima della validazione perché vengono eseguiti con i permessi dell'utente, fuori dalla sandbox dell'agente.
+
+Do not edit case inputs during a run. Use `case create`, customize the scaffold, and run `case validate`: the grader must allocate exactly 100 points and keep the initial fixture below 60. Review imported graders before validation because they execute with the user's permissions outside the agent sandbox.
 
 ## Distribuzione / Distribution
 
@@ -168,6 +189,7 @@ Il progetto viene eseguito direttamente dal checkout. I tag sorgente non includo
 - [English manual](INSTRUCTIONS.md)
 - [Avvio rapido Linux / Linux quick start](QUICK-START_Linux.md)
 - [Avvio rapido Windows / Windows quick start](QUICK-START_Windows.md)
+- [Guida autore casi / Case author quick start](QUICK-START_Case-Author.md)
 - [Modello di sicurezza bilingue](SECURITY_MODEL.md)
 - [Piano di sviluppo](PLAN.md)
 - [Mappa del repository](MAP.md)

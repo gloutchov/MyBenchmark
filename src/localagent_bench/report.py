@@ -526,6 +526,39 @@ def render_markdown(report: dict[str, Any], run_dir: Path) -> str:
             )
         )
 
+    rubric_results = [
+        result
+        for result in report.get("results", [])
+        if isinstance(result.get("manual_rubric"), dict)
+        and result["manual_rubric"].get("path") == "manual-rubric.md"
+    ]
+    if rubric_results:
+        lines.extend(
+            [
+                "",
+                "## Rubriche manuali",
+                "",
+                "Le rubriche seguenti sono facoltative e non modificano score automatico o classifica:",
+                "",
+            ]
+        )
+        for result in rubric_results:
+            rubric = result["manual_rubric"]
+            result_path = Path(str(result.get("_path", "")))
+            rubric_path = result_path.parent / str(rubric["path"])
+            max_score = rubric.get("max_score")
+            max_score_text = (
+                f"{float(max_score):g}"
+                if isinstance(max_score, (int, float)) and not isinstance(max_score, bool)
+                else "n/d"
+            )
+            lines.append(
+                f"- `{result.get('model', '?')}` · `{result.get('case_id', '?')}` · "
+                f"rip. {result.get('repetition', 1)}: "
+                f"[{rubric_path.name}]({rubric_path.as_posix()}) "
+                f"(massimo manuale {max_score_text})."
+            )
+
     lines.extend(["", "## Lettura dei risultati", ""])
     if leaderboard:
         best = leaderboard[0]

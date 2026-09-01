@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schemas/case.schema.json",
+  "schema_version": 1,
+  "id": "config_i18n",
+  "title": {
+    "it": "Configurazione validata e preferenze lingua/tema",
+    "en": "Validated configuration and language/theme preferences"
+  },
+  "category": "architecture",
+  "weight": 1.0,
+  "paths": {
+    "prompt": "prompt.md",
+    "fixture": "fixture",
+    "grader": "grader.py"
+  }
+}

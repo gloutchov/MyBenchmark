@@ -551,14 +551,16 @@ Prima di iniziare lo sviluppo effettivo:
 - Il comando di verifica locale è `python3 -m unittest discover -s tests -v`; eseguire anche `python3 -m compileall -q benchmark.py src cases tests` quando cambia codice Python.
 - Mantenere il runtime Python privo di dipendenze esterne finché non esiste una motivazione documentata.
 - Non modificare fixture o grader mentre un benchmark è in esecuzione.
-- Prima di un run, mantenere puliti rispetto a Git `AGENTS.md`, `.gitignore` e tutti i prompt, fixture e grader selezionati: il preflight deve fallire, non essere aggirato, se questi input divergono.
+- Prima di un run, mantenere puliti rispetto a Git `AGENTS.md`, `.gitignore` e tutti i manifesti, prompt, fixture, grader e rubriche selezionati: il preflight deve fallire, non essere aggirato, se questi input divergono.
 - Ogni run deve usare un unico snapshot verificato per tutti i modelli, includere e hashare la policy di esecuzione, e registrare SHA-256, commit/stato Git, tree delle baseline, seed e ordine delle task.
 - Preparare `.benchmark-scratch/` dentro ogni workspace, ignorarla in Git e usarla per `TMPDIR`, `TMP` e `TEMP`; prompt e fixture devono contenere tutto il necessario senza richiedere `/tmp`, repository esterni o rete.
 - Trattare path espliciti risolti fuori workspace, tentativi di rete, mutazioni del repository/snapshot e baseline divergenti come violazioni d'integrità: escludere l'intero modello dalla classifica e interrompere la matrice se lo snapshot condiviso cambia.
 - Versionare l'audit, riesaminare gli eventi precedenti quando possibile e mostrare nel report motivo, target ed evidenza senza alterare i `result.json` originali.
 - Nei comandi shell distinguere il controllo eseguito dai payload letterali: un heredoc scritto su file non va interpretato come sequenza di path/comandi, mentre un heredoc inviato a un interprete deve mantenere i controlli applicabili.
 - `--seed` deve rendere riproducibile l'ordine randomizzato; unload e warmup vanno registrati a ogni cambio modello.
-- Ogni nuovo caso deve avere prompt, fixture, grader con massimo 100 punti e un test di calibrazione che mantenga la fixture iniziale sotto la soglia di completamento.
+- Ogni nuovo caso deve avere un `case.json` conforme a `schemas/case.schema.json`, titoli italiano/inglese, prompt, fixture, grader con massimo e somma punti pari a 100 e un test di calibrazione che mantenga la fixture iniziale sotto la soglia di completamento.
+- Creare i casi con `python3 benchmark.py case create ...` quando possibile e validarli con `python3 benchmark.py case validate [ID]`; revisionare prima il grader perché il validatore lo esegue fuori sandbox con i permessi dell'utente.
+- I path dichiarati dal manifesto devono essere relativi e confinati alla directory del caso. Le rubriche manuali sono opzionali, vengono conservate come artefatti separati e non devono modificare lo score automatico.
 - Non includere credenziali, repository reali o dati privati nelle fixture.
 - Trattare `results/` come output locale potenzialmente sensibile; non versionarlo.
 - Il runner deve continuare a registrare configurazione, versioni, risposta, eventi, patch, stato Git e dettaglio dei check per rendere ogni punteggio verificabile.

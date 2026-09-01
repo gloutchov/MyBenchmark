@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-LocalAgent Benchmark compares local Ollama models acting as coding agents through Pi. Every model receives inputs copied from the same frozen snapshot of `AGENTS.md`, prompt, and Git fixture. Independent checks score the resulting workspace, while raw artifacts remain available for human review.
+LocalAgent Benchmark compares local Ollama models acting as coding agents through Pi. Every model receives inputs copied from the same frozen snapshot of `AGENTS.md`, the case manifest, prompt, and Git fixture. Independent checks score the resulting workspace, while raw artifacts remain available for human review.
 
 ## 2. Requirements
 
@@ -20,7 +20,7 @@ Verify the environment without running an agent task:
 python3 benchmark.py doctor
 ```
 
-The command also verifies that `AGENTS.md`, `.gitignore`, prompts, fixtures, and graders are clean relative to Git.
+The command also verifies that `AGENTS.md`, `.gitignore`, manifests, prompts, fixtures, graders, and optional rubrics are clean relative to Git.
 
 ## 3. First run
 
@@ -60,9 +60,32 @@ The command accepts only distinct directories and runs with matching versions/pa
 
 ## 5. Configuration
 
-`benchmark.json` is the central configuration file. It defines the Ollama URL, Pi command, model selection, timeout, repetitions, thinking level, warmup, context and output limits, temperature, sandbox mode, profiles, cases, and weights.
+`benchmark.json` is the central configuration file. It defines the Ollama URL, Pi command, model selection, timeout, repetitions, thinking level, warmup, context and output limits, temperature, sandbox mode, profiles, and the in-repository case discovery directory. Each `cases/<id>/case.json` holds bilingual titles, category, weight, and relative input paths.
 
 Configuration is validated at startup. It must not contain secrets. The generated Ollama provider uses the literal dummy key `ollama`, which the local server ignores.
+
+### Creating and validating personal cases
+
+Create a self-contained scaffold:
+
+```bash
+python3 benchmark.py case create api_contract \
+  --title-it "Contratto API" \
+  --title-en "API contract" \
+  --category architecture \
+  --weight 1.25 \
+  --manual-rubric
+```
+
+The command creates `case.json`, `prompt.md`, `fixture/`, `grader.py`, and, when requested, `manual-rubric.md`. Metadata and weight live in the manifest, so core code does not need modification. Add the ID to a `benchmark.json` profile only when it should become a permanent member of that group.
+
+After replacing the examples with synthetic inputs and observable checks, validate the case:
+
+```bash
+python3 benchmark.py case validate api_contract
+```
+
+Without IDs, `case validate` checks every discovered case. It validates structure, confined paths, required files, the grader JSON contract, exactly 100 allocated points, and an initial score below 60. The grader executes with the user's permissions outside the agent sandbox; always review imported grader code before validation. See [QUICK-START_Case-Author.md](QUICK-START_Case-Author.md) for the full author workflow.
 
 ## 6. Reading results
 
@@ -76,12 +99,13 @@ Read **Environment and isolation** and **Run integrity** before the leaderboard.
 - Score standard deviation becomes useful after at least three repetitions.
 - Treat RAPL energy as a host-wide measurement: compare it only on the same machine under similar load.
 - Inspect the patch and final workspace for top-ranked models.
+- Complete `manual-rubric.md` separately when present; it never changes the automatic score.
 
 The overall winner is not necessarily best for every activity. A security-heavy workflow may favor the best `secure_workspace` score, while ordinary maintenance may favor `targeted_patch`.
 
 ## 7. Reproducibility
 
-Use the same configuration, profile, repetitions, seed, hardware, and similar system load. At each model switch the runner unloads the previous model, records a new warmup, and then starts the task. Selected inputs must be clean at startup; only tracked files and the execution policy are copied once into `benchmark-context/`, excluding ignored caches and outputs. Every workspace contains a Git-ignored `.benchmark-scratch/` directory also used for `TMPDIR`, `TMP`, and `TEMP`; models must use it for smoke tests and temporary files instead of `/tmp`. Do not modify source inputs or the snapshot during a run. Temperature zero reduces but does not eliminate variance.
+Use the same configuration, profile, repetitions, seed, hardware, and similar system load. At each model switch the runner unloads the previous model, records a new warmup, and then starts the task. Selected manifests, prompts, fixtures, graders, and rubrics must be clean at startup; only tracked files and the execution policy are copied once into `benchmark-context/`, excluding ignored caches and outputs. Input hashes include the manifest and optional rubric. Every workspace contains a Git-ignored `.benchmark-scratch/` directory also used for `TMPDIR`, `TMP`, and `TEMP`; models must use it for smoke tests and temporary files instead of `/tmp`. Do not modify source inputs or the snapshot during a run. Temperature zero reduces but does not eliminate variance.
 
 ## 8. Troubleshooting
 
@@ -92,6 +116,8 @@ Use the same configuration, profile, repetitions, seed, hardware, and similar sy
 - Low score with a successful exit: inspect `grade.json`; the model may have answered without editing or missed a constraint.
 - Zero usage tokens: some model/provider combinations omit usage; quality remains valid, while token efficiency receives no credit.
 - `Input benchmark modificati`: restore or intentionally commit the listed benchmark inputs before rerunning.
+- `Manifesto mancante` or `paths.*`: complete `case.json`, use only POSIX-style relative paths inside the case, remove symlinks from declared paths, and rerun `case validate`.
+- `max_score`, `points`, `earned`, or baseline errors: repair the grader contract; checks must total 100 and the starting fixture must remain below 60.
 - `violations_detected`: read **Detected violations**, then inspect `report.json`, `run.json`, and the corresponding `pi-events.jsonl`; do not manually restore the disqualified model to the leaderboard. Regenerating a report applies the current audit to older events without changing their original `result.json` files.
 - `snapshot_compromised`: preserve the diagnostic artifacts, fix the cause, and start a new run.
 - `Sandbox OS richiesta ma non disponibile`: install or enable the backend reported by `doctor`, deliberately use `--sandbox auto` to permit fallback, or choose `--sandbox audit` for the historical behavior.
@@ -102,11 +128,12 @@ The runner exits with code `1` when one or more tasks end in an error or timeout
 
 ## 9. Security and privacy
 
-Do not add private data, real repositories, or credentials to cases. `audit` and the `auto` fallback are not sandboxes. The macOS backend restricts external user files and networking except Ollama loopback and relies on the deprecated `sandbox-exec` interface. On Linux, Pi runs in an empty network namespace and reaches only the Ollama broker through a Unix socket inside the workspace. On Windows, AppContainer receives no network capabilities and uses a named pipe dedicated to its SID; temporary ACLs grant only required paths, and a Job Object terminates descendants. Brokers and graders remain trusted host processes outside the sandbox. Read `SECURITY_MODEL.md` before extending the benchmark.
+Do not add private data, real repositories, or credentials to cases. Manifests and templates do not grant trust: an imported grader remains untrusted until reviewed because validation and grading execute it on the host. `audit` and the `auto` fallback are not sandboxes. The macOS backend restricts external user files and networking except Ollama loopback and relies on the deprecated `sandbox-exec` interface. On Linux, Pi runs in an empty network namespace and reaches only the Ollama broker through a Unix socket inside the workspace. On Windows, AppContainer receives no network capabilities and uses a named pipe dedicated to its SID; temporary ACLs grant only required paths, and a Job Object terminates descendants. Brokers and graders remain trusted host processes outside the sandbox. Read `SECURITY_MODEL.md` before extending the benchmark.
 
 ## 10. Known limitations
 
 - Automatic graders cannot fully judge code taste or explanation quality.
+- Manual rubrics are review aids; the runner does not collect or aggregate human scores.
 - Timing depends on hardware, quantization, memory pressure, and thermals.
 - The runner currently targets Ollama and does not include a Codex control adapter.
 - Synthetic tasks should evolve with your actual workflow.
