@@ -175,7 +175,7 @@ Versione corrente / Current version: **0.4.0**
 - Test: schema e discovery; manifesti oltre 64 KiB o corrotti; ID discordanti; path POSIX/Windows non sicuri; pesi e contratti grader invalidi; baseline già completate; creazione atomica e rifiuto overwrite; CLI create/validate; configurazione legacy; snapshot manifesti/rubriche; compatibilità report schema 3; suite completa multipiattaforma.
 - Documentazione: README e manuali bilingui, `QUICK-START_Case-Author.md`, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e piano.
 - Release: milestone rilasciabile `v0.4.0`; nessun artifact binario nuovo, perché l'esecuzione resta dal checkout. Tag e GitHub release soltanto dopo merge e autorizzazione esplicita.
-- Stato: **implementazione e documentazione completate sul branch `milestone/4-case-sdk`; i quattro casi esistenti sono migrati a manifesti scoperti automaticamente. Compileall, 63 test locali e `case validate` sui quattro casi sono verdi; 8 probe OS risultano non applicabili nel sandbox locale. Le CI finali del branch `33535189256` e `33535352417` sono verdi su macOS, Windows e Ubuntu, inclusa la validazione esplicita di manifesti e grader. Il run Pi/Ollama reale `20260901-193330` ha eseguito tramite manifesti `targeted_patch` e `secure_workspace` con `qwen3.5:9b-mlx` e Seatbelt in modalità `required`: le task sono terminate con score grezzi 100/100 e 90/100; il tentativo del modello di usare `/tmp/update_agents.py` è stato bloccato dalla sandbox e ha correttamente escluso il modello dalla classifica. Il progettista ha accettato il run come verifica funzionale di M4 e ha autorizzato commit, merge, tag, GitHub release, push e successiva rimozione del branch il 2026-09-01.**
+- Stato: **implementazione e documentazione completate; i quattro casi esistenti sono migrati a manifesti scoperti automaticamente. Compileall, 63 test locali e `case validate` sui quattro casi sono verdi; 8 probe OS risultano non applicabili nel sandbox locale. Il run Pi/Ollama reale `20260901-193330` ha eseguito tramite manifesti `targeted_patch` e `secure_workspace` con `qwen3.5:9b-mlx` e Seatbelt in modalità `required`: le task sono terminate con score grezzi 100/100 e 90/100; il tentativo del modello di usare `/tmp/update_agents.py` è stato bloccato dalla sandbox e ha correttamente escluso il modello dalla classifica. Il progettista ha accettato il run come verifica funzionale di M4 e ha autorizzato commit, merge, tag, GitHub release, push e successiva rimozione del branch il 2026-09-01. Il branch è stato integrato con fast-forward su `main`; la CI finale del branch `33542311823` e quella post-merge su `main` `33542444039` sono verdi su macOS, Windows e Ubuntu. Restano da pubblicare e verificare tag e release, quindi da eliminare il branch milestone.**
 
 ### Checklist milestone 4
 
@@ -194,9 +194,9 @@ Versione corrente / Current version: **0.4.0**
 - [x] README, manuali, quick start autore, SECURITY_MODEL, MAP e AGENTS aggiornati
 - [x] CI aggiornata per validare documenti, schema e calibrazione casi
 - [x] Commit finale creato sul branch milestone
-- [x] Branch pubblicato e CI macOS/Windows/Linux verificata (`33535189256`, `33535352417`)
+- [x] Branch pubblicato e CI macOS/Windows/Linux verificata (`33535189256`, `33535352417`, `33542311823`)
 - [x] Approvazione esplicita del progettista per commit, merge, tag, GitHub release, push e successiva rimozione branch (2026-09-01)
-- [ ] Merge verso `main` e CI su `main`
+- [x] Merge fast-forward verso `main`, push e CI post-merge verificata (`33542444039`)
 - [ ] Tag `v0.4.0` pubblicato e verificato
 - [ ] GitHub release `v0.4.0` pubblicata e verificata
 - [ ] Branch milestone eliminato dopo le verifiche di chiusura
