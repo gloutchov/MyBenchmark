@@ -10,7 +10,7 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -26,6 +26,9 @@ from localagent_bench.windows_appcontainer import (
     PIPE_CLIENT_READ_WRITE,
     AppContainerError,
     _appcontainer_pipe_path,
+    _connect_upstream,
+    _npm_pi_command,
+    _patch_windows_pi_shell,
     _pipe_sddl,
 )
 
@@ -202,12 +205,34 @@ class SandboxTests(unittest.TestCase):
                 agent_dir=agent_dir,
                 ollama_url="http://127.0.0.1:11434",
                 pi_command=("pi",),
+                timeout_seconds=60,
             )
             rendered = " ".join(launch.command)
             self.assertIn("windows_appcontainer.py run", rendered)
             self.assertIn("--pipe-name LocalAgentBenchmark-", rendered)
+            self.assertIn("--timeout 60", rendered)
             self.assertEqual("appcontainer-named-pipe", launch.metadata["network_transport"])
             self.assertIn("--import=data:text/javascript;base64,", launch.environment["NODE_OPTIONS"])
+            wrapper = root / "pi.cmd"
+            cli = (
+                root
+                / "node_modules"
+                / "@earendil-works"
+                / "pi-coding-agent"
+                / "dist"
+                / "bundle"
+                / "cli.js"
+            )
+            cli.parent.mkdir(parents=True)
+            cli.write_text("", encoding="utf-8")
+            with patch(
+                "localagent_bench.windows_appcontainer.shutil.which",
+                return_value=str(root / "node.exe"),
+            ):
+                self.assertEqual(
+                    [str(root / "node.exe"), str(cli), "--offline"],
+                    _npm_pi_command(wrapper, ["--offline"]),
+                )
 
     def test_windows_host_pipe_targets_exact_appcontainer_namespace(self):
         path = _appcontainer_pipe_path("broker", "S-1-15-2-1234", 7)
@@ -217,6 +242,38 @@ class SandboxTests(unittest.TestCase):
         )
         with self.assertRaises(AppContainerError):
             _appcontainer_pipe_path(r"nested\broker", "S-1-15-2-1234", 7)
+
+    def test_windows_broker_uses_timeout_only_for_upstream_connection(self):
+        upstream = MagicMock()
+        with patch(
+            "localagent_bench.windows_appcontainer.socket.create_connection",
+            return_value=upstream,
+        ) as connect:
+            self.assertIs(upstream, _connect_upstream(("127.0.0.1", 11434)))
+        connect.assert_called_once_with(("127.0.0.1", 11434), timeout=10)
+        upstream.settimeout.assert_called_once_with(None)
+
+    def test_windows_staged_pi_bundle_uses_cmd_shell(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            dist = Path(directory)
+            chunks = dist / "bundle" / "chunks"
+            chunks.mkdir(parents=True)
+            chunk = chunks / "chunk.js"
+            chunk.write_text(
+                'if(process.platform==="win32"){let paths=[];'
+                'snippet:"Execute bash commands (ls, grep, find, etc.)";'
+                'let shellConfig=resolveShellConfig();try{await fsAccess(cwd,constants2.F_OK);'
+                'stdio:[commandFromStdin?"pipe":"ignore","pipe","pipe"];'
+                'let exitCode=await waitForChildProcess(child);if(signal?.aborted)',
+                encoding="utf-8",
+            )
+            _patch_windows_pi_shell(dist)
+            patched = chunk.read_text(encoding="utf-8")
+            self.assertIn('shell:process.env.ComSpec??"cmd.exe"', patched)
+            self.assertIn('args:["/d","/v:on","/s","/c"]', patched)
+            self.assertIn("Execute Windows cmd.exe commands", patched)
+            self.assertIn('stdio:process.platform==="win32"?"ignore"', patched)
+            self.assertIn("process.getBuiltinModule", patched)
 
     def test_enforced_transport_rejects_non_loopback_ollama(self):
         selection = SandboxSelection(
@@ -318,7 +375,11 @@ class SandboxTests(unittest.TestCase):
             outside = root / "outside.txt"
             outside.write_text("private", encoding="utf-8")
             code = (
-                "from pathlib import Path; import sys; "
+                "from pathlib import Path; import os, subprocess, sys; "
+                "assert Path.cwd() == Path(sys.argv[3]); "
+                "subprocess.run([os.environ['COMSPEC'], '/d', '/s', '/c', "
+                "'echo child>child.txt'], check=True, timeout=5); "
+                "Path(sys.argv[4]).write_text('scratch', encoding='utf-8'); "
                 "Path(sys.argv[1]).write_text('inside', encoding='utf-8'); "
                 "\ntry: Path(sys.argv[2]).read_text(encoding='utf-8')\n"
                 "except (PermissionError, OSError): raise SystemExit(0)\n"
@@ -326,7 +387,15 @@ class SandboxTests(unittest.TestCase):
             )
             launch = prepare_sandbox_launch(
                 selection,
-                [sys.executable, "-c", code, str(inside), str(outside)],
+                [
+                    sys.executable,
+                    "-c",
+                    code,
+                    str(inside),
+                    str(outside),
+                    str(workspace),
+                    str(workspace / ".benchmark-scratch" / "python.txt"),
+                ],
                 workspace=workspace,
                 agent_dir=agent_dir,
                 ollama_url="http://127.0.0.1:11434",
@@ -345,6 +414,11 @@ class SandboxTests(unittest.TestCase):
             )
             self.assertEqual(0, result.returncode, result.stderr)
             self.assertEqual("inside", inside.read_text(encoding="utf-8"))
+            self.assertEqual("child", (workspace / "child.txt").read_text(encoding="utf-8").strip())
+            self.assertEqual(
+                "scratch",
+                (workspace / ".benchmark-scratch" / "python.txt").read_text(encoding="utf-8"),
+            )
             metadata = json.loads(
                 (workspace / ".benchmark-scratch" / "windows-sandbox.json").read_text(
                     encoding="utf-8"
@@ -354,6 +428,54 @@ class SandboxTests(unittest.TestCase):
             self.assertTrue(metadata["job_kill_on_close"])
             self.assertTrue(metadata["acl_removed"])
             self.assertTrue(metadata["profile_deleted"])
+
+    @unittest.skipUnless(sys.platform == "win32" and shutil.which("node"), "richiede Windows e Node")
+    def test_windows_backend_node_child_runs_cmd_shell(self):
+        selection = select_sandbox("required")
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            agent_dir = root / "agent"
+            workspace.mkdir()
+            agent_dir.mkdir()
+            node = shutil.which("node")
+            assert node is not None
+            code = (
+                "const fs=require('fs');"
+                "const {spawn}=require('child_process');"
+                "const output='.benchmark-scratch/shell-output.log';"
+                "const child=spawn(process.env.ComSpec,"
+                "['/d','/v:on','/s','/c',"
+                "`(echo staged) > ${output} 2>&1 & echo !errorlevel! > ${output}.exit`],"
+                "{stdio:'ignore',windowsHide:true});"
+                "child.on('error',error=>{console.error(error);process.exit(8)});"
+                "child.on('exit',code=>{"
+                "const reported=Number(fs.readFileSync(output+'.exit','utf8').trim());"
+                "if(reported===0)fs.writeFileSync('shell.txt',fs.readFileSync(output));"
+                "else console.error('cmd exit',code,'reported',reported);"
+                "fs.rmSync(output,{force:true});fs.rmSync(output+'.exit',{force:true});"
+                "process.exit(reported)});"
+                "setTimeout(()=>process.exit(10),5000);"
+            )
+            launch = prepare_sandbox_launch(
+                selection,
+                [node, "-e", code],
+                workspace=workspace,
+                agent_dir=agent_dir,
+                ollama_url="http://127.0.0.1:11434",
+                pi_command=(node,),
+                timeout_seconds=20,
+            )
+            result = subprocess.run(
+                launch.command,
+                cwd=workspace,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=60,
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual("staged", (workspace / "shell.txt").read_text(encoding="utf-8").strip())
 
     @unittest.skipUnless(sys.platform == "win32" and shutil.which("node"), "richiede Windows e Node")
     def test_windows_backend_routes_only_ollama_through_named_pipe(self):

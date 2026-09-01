@@ -184,8 +184,11 @@ def run_pi(
         agent_dir=agent_dir,
         ollama_url=ollama_url,
         pi_command=pi_command,
+        timeout_seconds=timeout_seconds,
     )
     env.update(launch.environment)
+    if sandbox.backend == "windows-appcontainer":
+        env.pop("NODE_EXTRA_CA_CERTS", None)
     collector = SystemMetricCollector.start()
     started = time.monotonic()
     process = subprocess.Popen(
@@ -198,8 +201,14 @@ def run_pi(
         start_new_session=(os.name == "posix"),
     )
     try:
-        stdout, stderr = process.communicate(timeout=timeout_seconds)
-        status = "ok" if process.returncode == 0 else "pi_error"
+        outer_timeout = timeout_seconds + 300 if sandbox.backend == "windows-appcontainer" else timeout_seconds
+        stdout, stderr = process.communicate(timeout=outer_timeout)
+        if process.returncode == 0:
+            status = "ok"
+        elif process.returncode == 124 and sandbox.backend == "windows-appcontainer":
+            status = "timeout"
+        else:
+            status = "pi_error"
     except subprocess.TimeoutExpired:
         _terminate(process)
         stdout, stderr = process.communicate()

@@ -36,6 +36,7 @@ PIPE_ACCESS_DUPLEX = 0x00000003
 PIPE_REJECT_REMOTE_CLIENTS = 0x00000008
 PIPE_CLIENT_READ_WRITE = 0x0012019B
 WAIT_FAILED = 0xFFFFFFFF
+WAIT_TIMEOUT = 0x00000102
 INFINITE = 0xFFFFFFFF
 SE_GROUP_ENABLED = 0x00000004
 _LIBRARY_CACHE = None
@@ -375,32 +376,236 @@ def _pi_install_root(command_name: str) -> Path:
     if not executable:
         raise AppContainerError(f"Pi command not found: {command_name}")
     path = Path(executable).resolve(strict=False)
-    return path.parent.parent if path.parent.name.lower() == "bin" else path.parent
+    return path.parent.parent if path.parent.name.lower() in {"bin", "cmd"} else path.parent
 
 
-def _icacls(path: Path, action: str, sid: str, permission: str | None = None) -> None:
+def _pi_runtime_roots(command_name: str) -> tuple[Path, ...]:
+    executable = shutil.which(command_name)
+    if not executable:
+        raise AppContainerError(f"Pi command not found: {command_name}")
+    wrapper = Path(executable).suffix.lower() in {".bat", ".cmd"}
+    staged_npm_pi = wrapper and _npm_pi_command(Path(executable), []) is not None
+    roots = [] if staged_npm_pi else [_pi_install_root(executable)]
+    return tuple(roots)
+
+
+def _npm_pi_command(executable: Path, arguments: list[str]) -> list[str] | None:
+    if executable.suffix.lower() not in {".bat", ".cmd"}:
+        return None
+    node = shutil.which("node")
+    if not node:
+        raise AppContainerError("Node runtime not found for Pi command wrapper")
+    for package in ("@earendil-works", "@mariozechner"):
+        cli = executable.parent / "node_modules" / package / "pi-coding-agent" / "dist" / "bundle" / "cli.js"
+        if cli.is_file():
+            return [node, str(cli), *arguments]
+    return None
+
+
+def _patch_windows_pi_shell(destination_dist: Path) -> None:
+    shell_marker = 'if(process.platform==="win32"){let paths=[]'
+    shell_replacement = (
+        'if(process.platform==="win32")return{shell:process.env.ComSpec??"cmd.exe",'
+        'args:["/d","/v:on","/s","/c"]};if(process.platform==="win32"){let paths=[]'
+    )
+    prompt_marker = 'snippet:"Execute bash commands (ls, grep, find, etc.)"'
+    prompt_replacement = (
+        'snippet:"Execute Windows cmd.exe commands (dir, type, python, etc.); '
+        'use cmd syntax, not Bash or PowerShell"'
+    )
+    operations_marker = "let shellConfig=resolveShellConfig();try{await fsAccess(cwd,constants2.F_OK)"
+    operations_replacement = (
+        'let shellConfig=resolveShellConfig(),windowsOutputFile;'
+        'if(process.platform==="win32"){windowsOutputFile=".benchmark-scratch/pi-shell-"+'
+        'process.pid+"-"+Date.now()+"-"+Math.random().toString(16).slice(2)+".log";'
+        'command=`(${command}) > ${windowsOutputFile} 2>&1 & '
+        'echo !errorlevel! > ${windowsOutputFile}.exit`}try{await fsAccess(cwd,constants2.F_OK)'
+    )
+    stdio_marker = 'stdio:[commandFromStdin?"pipe":"ignore","pipe","pipe"]'
+    stdio_replacement = (
+        'stdio:process.platform==="win32"?"ignore":'
+        '[commandFromStdin?"pipe":"ignore","pipe","pipe"]'
+    )
+    output_marker = "let exitCode=await waitForChildProcess(child);if(signal?.aborted)"
+    output_replacement = (
+        'let exitCode=await waitForChildProcess(child);if(windowsOutputFile)try{'
+        'let fs=process.getBuiltinModule("node:fs"),'
+        'data=fs.existsSync(windowsOutputFile)?fs.readFileSync(windowsOutputFile):Buffer.alloc(0);'
+        'data.length&&onData(data);let exitFile=windowsOutputFile+".exit",'
+        'reported=fs.existsSync(exitFile)?fs.readFileSync(exitFile,"utf8").trim():"";'
+        '/^-?\\d+$/.test(reported)&&(exitCode=Number(reported));'
+        'fs.rmSync(windowsOutputFile,{force:!0}),fs.rmSync(exitFile,{force:!0})}catch{}'
+        'if(signal?.aborted)'
+    )
+    candidates: list[tuple[Path, str]] = []
+    for path in (destination_dist / "bundle" / "chunks").glob("*.js"):
+        source = path.read_text(encoding="utf-8")
+        markers = (
+            shell_marker,
+            prompt_marker,
+            operations_marker,
+            stdio_marker,
+            output_marker,
+        )
+        if all(marker in source for marker in markers):
+            candidates.append((path, source))
+    if len(candidates) != 1:
+        raise AppContainerError("staged Pi bundle has an unsupported Windows shell layout")
+    path, source = candidates[0]
+    source = source.replace(shell_marker, shell_replacement, 1)
+    source = source.replace(prompt_marker, prompt_replacement, 1)
+    source = source.replace(operations_marker, operations_replacement, 1)
+    source = source.replace(stdio_marker, stdio_replacement, 1)
+    source = source.replace(output_marker, output_replacement, 1)
+    path.write_text(source, encoding="utf-8")
+
+
+def _stage_pi_command(command: list[str], runtime_dir: Path) -> tuple[list[str], str | None]:
+    executable = shutil.which(command[0])
+    if not executable:
+        raise AppContainerError(f"command not found: {command[0]}")
+    npm_pi = _npm_pi_command(Path(executable), command[1:])
+    if npm_pi is None:
+        return command, None
+    source_cli = Path(npm_pi[1])
+    package_root = source_cli.parents[2]
+    destination_dist = runtime_dir / "package" / "dist"
+    shutil.copytree(source_cli.parents[1], destination_dist)
+    shutil.copy2(package_root / "package.json", runtime_dir / "package" / "package.json")
+    if os.name == "nt":
+        _patch_windows_pi_shell(destination_dist)
+    destination = destination_dist / "bundle" / "cli.js"
+    tree_hash = hashlib.sha256()
+    for path in sorted(runtime_dir.rglob("*")):
+        if not path.is_file():
+            continue
+        tree_hash.update(path.relative_to(runtime_dir).as_posix().encode("utf-8"))
+        tree_hash.update(b"\0")
+        tree_hash.update(path.read_bytes())
+    digest = tree_hash.hexdigest()
+    return [
+        npm_pi[0],
+        "--preserve-symlinks",
+        "--preserve-symlinks-main",
+        str(destination),
+        *npm_pi[2:],
+    ], digest
+
+
+def _copy_python_runtime(executable: Path, destination: Path) -> Path:
+    source = executable.parent
+    destination.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(executable, destination / "python.exe")
+    for path in source.glob("python*.dll"):
+        shutil.copy2(path, destination / path.name)
+    for path in source.glob("vcruntime*.dll"):
+        shutil.copy2(path, destination / path.name)
+    if (source / "DLLs").is_dir():
+        shutil.copytree(source / "DLLs", destination / "DLLs")
+
+    excluded = {
+        "__pycache__",
+        "ensurepip",
+        "idlelib",
+        "site-packages",
+        "test",
+        "tkinter",
+        "turtledemo",
+    }
+
+    def ignore(directory: str, names: list[str]) -> set[str]:
+        ignored = {"__pycache__"} & set(names)
+        if Path(directory) == source / "Lib":
+            ignored.update(excluded & set(names))
+        return ignored
+
+    shutil.copytree(source / "Lib", destination / "Lib", ignore=ignore)
+    return destination / "python.exe"
+
+
+def _stage_toolchain(
+    command: list[str],
+    runtime_dir: Path,
+    *,
+    include_agent_tools: bool,
+) -> tuple[list[str], dict[str, str], list[str]]:
+    environment: dict[str, str] = {}
+    staged: list[str] = []
+    path_entries: list[str] = []
+    resolved_command = Path(command[0]).resolve(strict=False)
+    name = resolved_command.name.lower()
+
+    if name in {"node", "node.exe"}:
+        node_dir = runtime_dir / "node"
+        node_dir.mkdir(parents=True, exist_ok=True)
+        staged_node = node_dir / "node.exe"
+        shutil.copy2(resolved_command, staged_node)
+        command[0] = str(staged_node)
+        path_entries.append(str(node_dir))
+        staged.append("node")
+
+    python = shutil.which("python") if include_agent_tools else None
+    if name.startswith("python"):
+        python = str(resolved_command)
+    if python:
+        python_dir = runtime_dir / "python"
+        staged_python = _copy_python_runtime(Path(python), python_dir)
+        if name.startswith("python"):
+            command[0] = str(staged_python)
+        path_entries.append(str(python_dir))
+        environment["PYTHONHOME"] = str(python_dir)
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
+        staged.append("python")
+
+    if path_entries:
+        environment["PATH"] = os.pathsep.join((*path_entries, os.environ.get("PATH", "")))
+    return command, environment, staged
+
+
+def _icacls(
+    path: Path,
+    action: str,
+    sid: str,
+    permission: str | None = None,
+    *,
+    inherit: bool = False,
+    tree: bool = False,
+) -> None:
     if action == "grant":
         assert permission is not None
-        args = ["icacls", str(path), "/grant", f"*{sid}:(OI)(CI){permission}", "/T", "/C", "/Q"]
+        inheritance = "(OI)(CI)" if inherit else ""
+        args = ["icacls", str(path), "/grant", f"*{sid}:{inheritance}{permission}"]
     else:
-        args = ["icacls", str(path), "/remove", f"*{sid}", "/T", "/C", "/Q"]
+        args = ["icacls", str(path), "/remove", f"*{sid}"]
+    if tree:
+        args.append("/T")
+    args.append("/Q")
     result = subprocess.run(args, capture_output=True, text=True, check=False, timeout=120)
     if result.returncode != 0:
         detail = (result.stderr or result.stdout).strip().splitlines()
         raise AppContainerError(f"icacls {action} failed: {detail[0] if detail else result.returncode}")
 
 
-def _grant_paths(sid: str, workspace: Path, agent_dir: Path, install_root: Path) -> list[Path]:
-    permissions = [(workspace, "M"), (agent_dir, "M"), (install_root, "RX")]
+def _grant_paths(
+    sid: str,
+    workspace: Path,
+    agent_dir: Path,
+    runtime_roots: tuple[Path, ...],
+) -> list[Path]:
+    permissions = [
+        (workspace, "M", True),
+        (agent_dir, "M", True),
+        *((runtime_root, "RX", True) for runtime_root in runtime_roots),
+    ]
     granted: list[Path] = []
     try:
-        for path, permission in permissions:
-            _icacls(path, "grant", sid, permission)
+        for path, permission, inherit in permissions:
+            _icacls(path, "grant", sid, permission, inherit=inherit, tree=True)
             granted.append(path)
     except Exception:
         for path in reversed(granted):
             try:
-                _icacls(path, "remove", sid)
+                _icacls(path, "remove", sid, tree=True)
             except AppContainerError:
                 pass
         raise
@@ -411,7 +616,7 @@ def _remove_paths(sid: str, paths: list[Path]) -> bool:
     clean = True
     for path in reversed(paths):
         try:
-            _icacls(path, "remove", sid)
+            _icacls(path, "remove", sid, tree=True)
         except AppContainerError:
             clean = False
     return clean
@@ -423,6 +628,9 @@ def _resolved_command(command: list[str]) -> list[str]:
         raise AppContainerError(f"command not found: {command[0]}")
     resolved = [executable, *command[1:]]
     if Path(executable).suffix.lower() in {".bat", ".cmd"}:
+        npm_pi = _npm_pi_command(Path(executable), command[1:])
+        if npm_pi is not None:
+            return npm_pi
         shell = os.environ.get("COMSPEC") or shutil.which("cmd.exe")
         if not shell:
             raise AppContainerError("cmd.exe is unavailable")
@@ -452,6 +660,7 @@ def _launch(
     command: list[str],
     cwd: Path,
     before_resume: Callable[[int], None] | None = None,
+    timeout_seconds: int | None = None,
 ) -> int:
     kernel32, _userenv, _advapi32 = _libraries()
     size = ctypes.c_size_t()
@@ -506,7 +715,14 @@ def _launch(
                 raise _last_error("ResumeThread failed")
             kernel32.CloseHandle(process.hThread)
             process.hThread = None
-            if kernel32.WaitForSingleObject(process.hProcess, INFINITE) == WAIT_FAILED:
+            wait_ms = INFINITE if timeout_seconds is None else min(timeout_seconds * 1000, 0xFFFFFFFE)
+            wait_result = kernel32.WaitForSingleObject(process.hProcess, wait_ms)
+            if wait_result == WAIT_TIMEOUT:
+                kernel32.CloseHandle(job)
+                job = None
+                kernel32.WaitForSingleObject(process.hProcess, 5000)
+                return 124
+            if wait_result == WAIT_FAILED:
                 raise _last_error("WaitForSingleObject failed")
             exit_code = wintypes.DWORD()
             if not kernel32.GetExitCodeProcess(process.hProcess, ctypes.byref(exit_code)):
@@ -518,7 +734,8 @@ def _launch(
             if process.hProcess:
                 kernel32.CloseHandle(process.hProcess)
     finally:
-        kernel32.CloseHandle(job)
+        if job:
+            kernel32.CloseHandle(job)
         kernel32.DeleteProcThreadAttributeList(attributes)
 
 
@@ -555,6 +772,12 @@ def _process_session_id(process_id: int) -> int:
     if not kernel32.ProcessIdToSessionId(process_id, ctypes.byref(session_id)):
         raise _last_error("ProcessIdToSessionId failed")
     return int(session_id.value)
+
+
+def _connect_upstream(target: tuple[str, int]) -> socket.socket:
+    upstream = socket.create_connection(target, timeout=10)
+    upstream.settimeout(None)
+    return upstream
 
 
 class NamedPipeBroker:
@@ -643,7 +866,7 @@ class NamedPipeBroker:
     def _handle(self, handle) -> None:
         kernel32, _userenv, _advapi32 = _libraries()
         try:
-            upstream = socket.create_connection(self.target, timeout=10)
+            upstream = _connect_upstream(self.target)
             self.events.append("upstream_connected")
         except OSError as exc:
             self.events.append(f"upstream_connect_failed:{getattr(exc, 'winerror', None)}")
@@ -681,8 +904,8 @@ class NamedPipeBroker:
             self.events.append(f"pipe_read_closed:{ctypes.get_last_error()}")
             try:
                 upstream.shutdown(socket.SHUT_WR)
-            except OSError:
-                pass
+            except OSError as exc:
+                self.events.append(f"upstream_shutdown_failed:{getattr(exc, 'winerror', None)}")
 
         def socket_to_pipe() -> None:
             written = wintypes.DWORD()
@@ -697,8 +920,8 @@ class NamedPipeBroker:
                         self.events.append(f"pipe_write_failed:{ctypes.get_last_error()}")
                         break
                     self.events.append(f"pipe_write:{written.value}")
-            except OSError:
-                pass
+            except OSError as exc:
+                self.events.append(f"upstream_read_failed:{getattr(exc, 'winerror', None)}")
 
         first = threading.Thread(target=pipe_to_socket, daemon=True)
         second = threading.Thread(target=socket_to_pipe, daemon=True)
@@ -719,20 +942,39 @@ def _write_metadata(path: Path, payload: dict[str, object]) -> None:
 def run_container(args, command: list[str]) -> int:
     workspace = args.workspace.resolve()
     agent_dir = args.agent_dir.resolve()
-    install_root = _pi_install_root(args.pi_command)
-    sid, created, sid_text = _create_profile(args.profile)
+    staged_runtime = agent_dir.parent / ".pi-runtime"
+    staged_sha256: str | None = None
+    staged_tools: list[str] = []
+    runtime_roots: tuple[Path, ...] = ()
+    sid = None
+    sid_text = ""
     granted: list[Path] = []
     broker: NamedPipeBroker | None = None
-    metadata: dict[str, object] = {
-        "appcontainer_sid": sid_text,
-        "profile_created": created,
-        "network_capabilities": [],
-        "job_kill_on_close": True,
-        "acl_roots": [str(workspace), str(agent_dir), str(install_root)],
-    }
-    _write_metadata(args.metadata, metadata)
+    metadata: dict[str, object] = {}
     try:
-        granted = _grant_paths(sid_text, workspace, agent_dir, install_root)
+        command, staged_sha256 = _stage_pi_command(command, staged_runtime)
+        command, staged_environment, staged_tools = _stage_toolchain(
+            command,
+            staged_runtime,
+            include_agent_tools=staged_sha256 is not None,
+        )
+        runtime_roots = (staged_runtime,) if staged_runtime.is_dir() else _pi_runtime_roots(args.pi_command)
+        os.environ.update(staged_environment)
+        sid, created, sid_text = _create_profile(args.profile)
+        metadata.update(
+            {
+                "appcontainer_sid": sid_text,
+                "profile_created": created,
+                "network_capabilities": [],
+                "job_kill_on_close": True,
+                "acl_roots": [str(workspace), str(agent_dir), *(str(path) for path in runtime_roots)],
+                "staged_pi_bundle_sha256": staged_sha256,
+                "staged_tools": staged_tools,
+                "windows_shell_backend": "cmd.exe-file-capture" if staged_sha256 is not None else None,
+            }
+        )
+        _write_metadata(args.metadata, metadata)
+        granted = _grant_paths(sid_text, workspace, agent_dir, runtime_roots)
         owner_sid = _current_token_owner_sid()
         target = _target(args.url)
 
@@ -746,14 +988,29 @@ def run_container(args, command: list[str]) -> int:
             broker = NamedPipeBroker(pipe_path, owner_sid, sid_text, target)
             broker.start()
 
-        return _launch(sid, command, workspace, start_broker)
+        exit_code = _launch(
+            sid,
+            command,
+            workspace,
+            start_broker,
+            timeout_seconds=args.timeout,
+        )
+        metadata["child_timed_out"] = exit_code == 124
+        return exit_code
     finally:
         if broker is not None:
             broker.close()
             metadata["broker_events"] = list(broker.events)
-        metadata["acl_removed"] = _remove_paths(sid_text, granted)
-        _free_sid(sid)
-        metadata["profile_deleted"] = _delete_profile(args.profile)
+        if sid is not None:
+            metadata["acl_removed"] = _remove_paths(sid_text, granted)
+            _free_sid(sid)
+            metadata["profile_deleted"] = _delete_profile(args.profile)
+        if staged_runtime.is_dir():
+            try:
+                shutil.rmtree(staged_runtime)
+                metadata["staged_runtime_removed"] = True
+            except OSError:
+                metadata["staged_runtime_removed"] = False
         _write_metadata(args.metadata, metadata)
 
 
@@ -786,6 +1043,7 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--pipe-name", required=True)
     run.add_argument("--url", required=True)
     run.add_argument("--metadata", type=Path, required=True)
+    run.add_argument("--timeout", type=int)
     run.add_argument("command", nargs=argparse.REMAINDER)
     return parser
 

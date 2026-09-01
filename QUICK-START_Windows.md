@@ -22,7 +22,7 @@ py -3 benchmark.py run --profile smoke --models NOME_MODELLO --sandbox required
 
 `doctor` deve riportare `windows-appcontainer` con isolamento filesystem, processi e rete. In `required`, un probe fallito interrompe il run prima delle task. `auto` consente invece un fallback registrato e `audit` applica soltanto policy e rilevamento.
 
-Il launcher crea un profilo AppContainer senza capability di rete, concede ACL temporanee al SID esatto soltanto per workspace, configurazione Pi e lettura del runtime Pi, assegna il processo sospeso a un Job Object kill-on-close e poi lo avvia. Un named pipe nel namespace AppContainer raggiunge un broker host vincolato all'host e alla porta Ollama configurati.
+Il launcher crea un profilo AppContainer senza capability di rete, prepara una copia per-task dei runtime Pi/Node/Python, configura nella copia il tool shell di Pi su `cmd.exe`, concede ACL temporanee al SID esatto soltanto per workspace, configurazione Pi e runtime staged, assegna il processo sospeso a un Job Object kill-on-close e poi lo avvia. Un named pipe nel namespace AppContainer raggiunge un broker host vincolato all'host e alla porta Ollama configurati.
 
 ### Risoluzione problemi
 
@@ -54,7 +54,7 @@ py -3 benchmark.py run --profile smoke --models MODEL_NAME --sandbox required
 
 `doctor` must report `windows-appcontainer` with filesystem, process, and network isolation. In `required` mode, a failed probe stops before any task. `auto` permits a recorded fallback, while `audit` applies policy and detection only.
 
-The launcher creates an AppContainer profile without network capabilities, grants temporary ACLs to the exact SID only for the workspace, Pi configuration, and read-only Pi runtime, assigns the suspended process to a kill-on-close Job Object, and then starts it. A named pipe in the AppContainer namespace reaches a trusted host broker pinned to the configured Ollama host and port.
+The launcher creates an AppContainer profile without network capabilities, prepares per-task copies of the Pi/Node/Python runtimes, configures Pi's staged shell tool to use `cmd.exe`, grants temporary ACLs to the exact SID only for the workspace, Pi configuration, and staged runtime, assigns the suspended process to a kill-on-close Job Object, and then starts it. A named pipe in the AppContainer namespace reaches a trusted host broker pinned to the configured Ollama host and port.
 
 ### Troubleshooting
 

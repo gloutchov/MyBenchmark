@@ -138,7 +138,7 @@ Versione corrente / Current version: **0.3.0**
 - Test: unit e test negativi per selezione backend, ACL/capability, path assoluti, traversal, symlink/junction/reparse point, registry e rete; processi figli indiretti e sopravvissuti; porte loopback consentite e negate; probe reali Windows e Linux; smoke Pi/Ollama enforced su host Windows e Linux; regressione macOS; CI sui tre OS; verifica che gli stessi criteri di integrità e lo stesso schema report valgano per ogni backend.
 - Documentazione: README e manuali bilingui, quick start dedicati Windows/Linux, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e piano; prerequisiti, limiti residui e troubleshooting per ogni backend.
 - Release: milestone rilasciabile con GitHub release; artifact o pacchetto installabile e checksum SHA-256 se viene introdotta distribuzione fuori checkout.
-- Stato: **milestone integrata con fast-forward su `main` dopo l'approvazione esplicita del progettista del 2026-08-31. Linux usa `unshare` per un network namespace vuoto, bubblewrap per filesystem/processi e un broker Unix a destinazione Ollama fissa. Windows usa AppContainer senza capability di rete, ACL/DACL sul SID esatto, named pipe nel namespace della sessione e Job Object kill-on-close. Compileall e 50 test locali sono verdi; le CI del branch `33425751027` e `33430691610` e la CI post-merge su `main` `33430803855` sono verdi su macOS, Ubuntu e Windows. Gli smoke Pi/Ollama reali in `required` su host Windows e Linux restano follow-up obbligatori prima di tag e release; il branch non viene ancora eliminato.**
+- Stato: **milestone integrata con fast-forward su `main` dopo l'approvazione esplicita del progettista del 2026-08-31. Linux usa `unshare` per un network namespace vuoto, bubblewrap per filesystem/processi e un broker Unix a destinazione Ollama fissa. Windows usa AppContainer senza capability di rete, ACL/DACL sul SID esatto, named pipe nel namespace della sessione e Job Object kill-on-close. Lo smoke Windows reale in `required` è verde nel run `20260901-133810` dopo le correzioni emerse sul runtime Pi/Node/Python, sul broker e sul tool shell; compileall e 53 test locali sono verdi (5 probe non applicabili su Windows). Le CI del branch `33425751027` e `33430691610` e la CI post-merge su `main` `33430803855` restano verdi su macOS, Ubuntu e Windows. I run benchmark Pi/Ollama reali sono stati verificati soltanto su macOS e Windows; lo smoke Linux reale non è stato eseguito, è documentato nel README ed è accettato come limite noto per il tag `v0.3.0`. Le correzioni Windows e commit, merge, tag e push sono stati approvati dal progettista il 2026-09-01; la GitHub release resta separata e non autorizzata.**
 
 ### Checklist milestone 3
 
@@ -152,14 +152,17 @@ Versione corrente / Current version: **0.3.0**
 - [x] Test strutturali e negativi iniziali aggiunti
 - [x] Probe reali Linux e Windows verificati in CI (`33424327842`)
 - [x] Correzioni emerse dai probe multipiattaforma completate
-- [ ] Smoke Pi/Ollama enforced su Windows e Linux eseguiti
+- [x] Smoke Pi/Ollama enforced su Windows eseguito (`20260901-133810`: stato e integrità `ok`)
+- [ ] Smoke Pi/Ollama enforced su Linux eseguito (non disponibile; limite noto accettato e documentato nel README)
 - [x] Versione 0.3.0 sincronizzata
 - [x] README, quick start, manuali, SECURITY_MODEL, MAP e AGENTS aggiornati
-- [x] Compileall e 50 test rieseguiti dopo la documentazione (verdi; 7 probe OS non applicabili nel sandbox locale)
+- [x] Compileall e 53 test rieseguiti dopo le correzioni Windows (verdi; 5 probe OS non applicabili su Windows)
 - [x] CI finale del branch verificata dopo la documentazione (`33425552438`)
-- [x] Approvazione esplicita del progettista prima del merge (2026-08-31; smoke reali Windows/Linux mantenuti come follow-up pre-tag)
+- [x] Approvazione esplicita del progettista prima del merge originario (2026-08-31)
+- [x] Correzioni emerse dallo smoke Windows revisionate e approvate (2026-09-01)
 - [x] Commit finale, merge fast-forward verso `main` e CI su `main` (`33430803855`)
-- [ ] Tag `v0.3.0`, GitHub release e verifiche previste completati
+- [x] Commit, merge, tag `v0.3.0` e push della chiusura Windows autorizzati (2026-09-01)
+- [ ] GitHub release `v0.3.0` da autorizzare, pubblicare e verificare separatamente
 
 ## Milestone 4 – Casi personali estensibili
 

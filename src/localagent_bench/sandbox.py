@@ -384,6 +384,7 @@ def prepare_sandbox_launch(
     agent_dir: Path,
     ollama_url: str,
     pi_command: tuple[str, ...],
+    timeout_seconds: int | None = None,
 ) -> SandboxLaunch:
     metadata = selection.to_dict()
     if selection.backend == "audit-only":
@@ -484,6 +485,7 @@ def prepare_sandbox_launch(
                 ollama_url,
                 "--metadata",
                 str(runtime_metadata),
+                *(["--timeout", str(timeout_seconds)] if timeout_seconds is not None else []),
                 "--",
                 *command,
             ),
