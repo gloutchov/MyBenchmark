@@ -163,7 +163,7 @@ class RunnerGitTests(unittest.TestCase):
             self.assertEqual("passed", report["integrity"]["status"])
             manifest = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
             self.assertEqual(7, manifest["order_seed"])
-            self.assertEqual("0.4.0", manifest["benchmark_version"])
+            self.assertEqual("0.5.0", manifest["benchmark_version"])
             self.assertEqual(32768, manifest["configuration"]["context_window"])
             self.assertEqual(30, manifest["configuration"]["timeout_seconds"])
             self.assertEqual(AUDIT_VERSION, manifest["execution_policy"]["audit_version"])
@@ -215,6 +215,59 @@ class RunnerGitTests(unittest.TestCase):
             (case_root / "prompt.md").write_text("changed\n", encoding="utf-8")
             with self.assertRaises(InputIntegrityError):
                 require_clean_inputs(root, [case])
+
+    @patch("localagent_bench.runner._command_version", return_value="test")
+    @patch("localagent_bench.runner.require_clean_inputs")
+    @patch("localagent_bench.runner.unload")
+    @patch("localagent_bench.runner.version", return_value="test")
+    @patch("localagent_bench.runner.run_pi")
+    @patch("localagent_bench.runner.list_models")
+    def test_showcase_profile_runs_from_the_frozen_synthetic_dataset(
+        self,
+        list_models_mock,
+        run_pi_mock,
+        _version_mock,
+        _unload_mock,
+        _require_clean_inputs_mock,
+        _command_version_mock,
+    ):
+        model = OllamaModel("showcase:test", 1, "digest", "now", {})
+        list_models_mock.return_value = [model]
+        run_pi_mock.return_value = PiRun(
+            status="ok",
+            exit_code=0,
+            duration_seconds=0.5,
+            stdout="",
+            stderr="",
+            metrics={"usage": {"output": 1}, "tool_calls": 0, "tool_errors": 0},
+            final_response="synthetic test run",
+            command=["pi"],
+            sandbox={"backend": "audit-only", "enforced": False},
+            system_metrics={"process": {"available": False}, "energy": {"available": False}},
+        )
+        config = load_config(ROOT / "benchmark.json")
+        with tempfile.TemporaryDirectory() as directory:
+            run_dir = run_benchmark(
+                config,
+                profile="showcase",
+                requested_models=[model.name],
+                requested_cases=None,
+                repetitions=1,
+                timeout_seconds=30,
+                use_warmup=False,
+                output_dir=Path(directory) / "showcase-run",
+                order_seed=20260903,
+            )
+            result_path = next(run_dir.glob("models/*/cases/*/result.json"))
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            manifest = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+            workspace = result_path.parent / "workspace"
+            self.assertEqual("showcase", manifest["profile"])
+            self.assertEqual("results_dashboard", result["case_id"])
+            self.assertEqual(20, result["manual_rubric"]["max_score"])
+            self.assertLess(result["grade"]["score"], 60)
+            self.assertTrue((workspace / "dashboard-data.json").is_file())
+            self.assertEqual(1, json.loads((workspace / "dashboard-data.json").read_text())["schema_version"])
 
 
 if __name__ == "__main__":

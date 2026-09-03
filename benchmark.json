@@ -21,7 +21,8 @@
   "profiles": {
     "smoke": ["targeted_patch"],
     "standard": ["targeted_patch", "secure_workspace", "config_i18n"],
-    "full": ["targeted_patch", "secure_workspace", "config_i18n", "milestone_closure"]
+    "full": ["targeted_patch", "secure_workspace", "config_i18n", "milestone_closure"],
+    "showcase": ["results_dashboard"]
   },
   "cases": {
     "directory": "cases"

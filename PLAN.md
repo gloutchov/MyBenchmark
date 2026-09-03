@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.4.0**
+Versione corrente / Current version: **0.5.0**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -163,6 +163,7 @@ Versione corrente / Current version: **0.4.0**
 - [x] Correzioni emerse dallo smoke Windows revisionate e approvate (2026-09-01)
 - [x] Commit finale, merge fast-forward verso `main` e CI su `main` (`33430803855`)
 - [x] Commit, merge, tag `v0.3.0` e push della chiusura Windows autorizzati (2026-09-01)
+- [x] Vecchio branch `milestone/3-cross-platform-sandbox` eliminato localmente e dal remoto su richiesta esplicita del progettista (2026-09-03)
 - [ ] GitHub release `v0.3.0` da autorizzare, pubblicare e verificare separatamente
 
 ## Milestone 4 – Casi personali estensibili
@@ -210,4 +211,32 @@ Versione corrente / Current version: **0.4.0**
 - Criteri di accettazione: tutti i finalisti ricevono la stessa copia immutabile dei report reali selezionati e gli stessi limiti; il dataset aggregato distingue run e profili e non contiene percorsi assoluti, comandi, prompt, risposte integrali, log o altri dati non necessari; la dashboard funziona completamente offline, non modifica i dati sorgente e non contiene valori o nomi di modelli hardcoded; i dati visualizzati corrispondono ai report e nuovi report compatibili possono essere importati localmente; funnel, classifiche separate, filtri, ordinamento, dettagli, lingua e tema sono operativi; gli stati anomali sono leggibili; il grader automatico ha massimo 100 punti, mantiene la fixture iniziale sotto la soglia di completamento e verifica la generalità con un secondo dataset non fornito nel prompt; il punteggio tecnico resta distinto dalla valutazione visuale umana; workspace, patch e istruzioni di avvio restano disponibili per la revisione finale.
 - Test: calibrazione del grader; unit test per aggregazione, whitelist, provenienza e compatibilità schema; verifica che l'export non includa percorsi, prompt, comandi o log; test delle trasformazioni con un dataset alternativo per rilevare valori hardcoded; test di integrazione dell'app; test browser per importazione locale, funnel, filtri, ordinamento, responsive, accessibilità di base, persistenza e assenza di richieste remote; test negativi con JSON invalido, campi mancanti, timeout e token non disponibili; smoke multipiattaforma con un modello compatibile.
 - Documentazione: README, manuali bilingui, quick start della finalissima e del comando `dashboard-data`, schema del dataset aggregato, SECURITY_MODEL, MAP, AGENTS e piano; rubrica manuale documentata con criteri ripetibili.
-- Stato: pianificata; da eseguire soltanto sui finalisti dopo i profili `smoke`, `standard` e `full`.
+- Stato: **implementazione completata sul branch `milestone/5-results-dashboard-showcase` e verificata con dati sintetici, secondo l'indicazione del progettista del 2026-09-03 di rinviare i benchmark reali fino al completamento del sistema. Il comando `dashboard-data` applica una whitelist privacy-bounded a run/report schema 2–3, conserva provenienza hashata, costruisce il funnel senza interpretare `not_run_in_next` come fallimento e scrive atomicamente entro la root. Il nuovo caso `results_dashboard`, il profilo `showcase`, lo schema pubblico, la fixture sintetica, il dataset alternativo del grader e la rubrica visuale sono pronti. Compileall, 70 test locali e la validazione dei cinque casi sono verdi; 8 probe OS sono non applicabili nell'ambiente corrente. La baseline dashboard è calibrata a 20/100. Restano volutamente pendenti il run Pi/Ollama dei finalisti, la verifica browser delle dashboard candidate, l'approvazione pre-merge, CI remota, merge, tag e release.**
+
+### Checklist milestone 5
+
+- [x] Branch milestone creato (`milestone/5-results-dashboard-showcase`)
+- [x] Comando `dashboard-data` e modulo dedicato implementati senza dipendenze runtime
+- [x] Lettura limitata a `run.json`/`report.json` schema 2–3 e a 32 MiB per sorgente
+- [x] Whitelist verificata: nessun path assoluto, prompt, risposta, comando, log, evidenza di violazione o errore libero esportato
+- [x] Provenienza tramite schema sorgente, SHA-256 e commit conservata senza modificare i run
+- [x] Scrittura atomica confinata alla root, fuori dalle sorgenti e senza overwrite implicito
+- [x] Funnel `smoke` → `standard` → `full` con `continued_to_next`, `not_run_in_next` e nuovi partecipanti
+- [x] Schema pubblico `schemas/dashboard-data.schema.json` aggiunto
+- [x] Caso `results_dashboard` e profilo separato `showcase` aggiunti
+- [x] Fixture sintetica con profili, errori, metriche mancanti ed esclusione d'integrità aggiunta
+- [x] Grader automatico da 100 punti con API JS verificabile e secondo dataset non fornito nel prompt
+- [x] Rubrica visuale manuale da 20 punti mantenuta separata dallo score automatico
+- [x] Baseline iniziale calibrata a 20/100
+- [x] Test unitari per aggregazione, whitelist, provenienza, funnel, path, atomicità, CLI e schema aggiunti
+- [x] Compileall e 70 test locali verdi; 8 probe OS non applicabili nell'ambiente corrente
+- [x] Validazione esplicita dei cinque casi verde
+- [x] Versione 0.5.0 sincronizzata in `VERSION`, package, README e piano
+- [x] README, manuali, quick start finalissima, SECURITY_MODEL, MAP e AGENTS aggiornati
+- [ ] Dataset reale `smoke`/`standard`/`full` congelato dopo la selezione dei finalisti (rinviato dal progettista)
+- [ ] Smoke Pi/Ollama del profilo `showcase` sui finalisti (rinviato dal progettista)
+- [ ] Verifica browser responsive, tema, lingua, tastiera, import locale e assenza rete sui candidati reali
+- [ ] Commit finale e push del branch
+- [ ] CI del branch verificata su macOS, Windows e Ubuntu
+- [ ] Approvazione esplicita del progettista prima del merge
+- [ ] Merge verso `main`, tag `v0.5.0`, GitHub release e rimozione branch dopo tutte le verifiche

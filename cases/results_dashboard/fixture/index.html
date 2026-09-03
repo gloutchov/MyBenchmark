@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LocalAgent Benchmark Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#dashboard">Skip to results</a>
+    <header>
+      <p class="eyebrow">LocalAgent Benchmark</p>
+      <h1 data-i18n="title">Results dashboard</h1>
+      <div class="controls" aria-label="Dashboard preferences">
+        <label for="language">Language</label>
+        <select id="language" name="language">
+          <option value="auto">Auto</option>
+          <option value="it">Italiano</option>
+          <option value="en">English</option>
+        </select>
+        <label for="theme">Theme</label>
+        <select id="theme" name="theme">
+          <option value="auto">Auto</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+        <label for="dataset-files">Import datasets</label>
+        <input id="dataset-files" type="file" accept="application/json,.json" multiple>
+      </div>
+    </header>
+    <main id="dashboard" tabindex="-1">
+      <p id="status" role="status" aria-live="polite">Dashboard implementation pending.</p>
+      <section aria-labelledby="funnel-title">
+        <h2 id="funnel-title">Funnel</h2>
+        <div id="funnel"></div>
+      </section>
+      <section aria-labelledby="leaderboard-title">
+        <h2 id="leaderboard-title">Leaderboard</h2>
+        <div id="leaderboard"></div>
+      </section>
+      <section aria-labelledby="tasks-title">
+        <h2 id="tasks-title">Task details</h2>
+        <div id="tasks"></div>
+      </section>
+    </main>
+    <noscript>This dashboard requires JavaScript.</noscript>
+    <script src="app.js"></script>
+  </body>
+</html>

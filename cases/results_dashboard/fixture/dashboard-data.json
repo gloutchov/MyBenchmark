@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "profile_order": ["smoke", "standard", "full"],
+  "runs": [
+    {
+      "id": "synthetic-smoke-001",
+      "profile": "smoke",
+      "benchmark_version": "0.5.0-test",
+      "started_at": "2026-09-01T08:00:00+00:00",
+      "finished_at": "2026-09-01T08:05:00+00:00",
+      "provenance": {
+        "run_schema_version": 3,
+        "report_schema_version": 3,
+        "run_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "report_sha256": "2111111111111111111111111111111111111111111111111111111111111111",
+        "repository_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "sandbox": {
+        "backend": "macos-seatbelt",
+        "enforced": true,
+        "filesystem_isolation": true,
+        "process_isolation": true,
+        "network_isolation": true
+      },
+      "integrity": {"status": "passed", "disqualified_models": []},
+      "participants": ["atlas-local", "ember-local"],
+      "leaderboard": [
+        {
+          "rank": 1,
+          "model": "atlas-local",
+          "overall_score": 92.4,
+          "quality_score": 94,
+          "completion_rate": 100,
+          "speed_score": 82,
+          "token_efficiency_score": 88,
+          "median_duration_seconds": 81.4,
+          "median_output_tokens": 2100,
+          "median_cpu_seconds": 24.2,
+          "median_energy_joules": null,
+          "score_stddev": 0,
+          "successful_tasks": 1,
+          "total_tasks": 1,
+          "case_scores": {"targeted_patch": 94}
+        },
+        {
+          "rank": 2,
+          "model": "ember-local",
+          "overall_score": 44.8,
+          "quality_score": 50,
+          "completion_rate": 0,
+          "speed_score": 0,
+          "token_efficiency_score": 0,
+          "median_duration_seconds": 1200,
+          "median_output_tokens": null,
+          "median_cpu_seconds": null,
+          "median_energy_joules": null,
+          "score_stddev": 0,
+          "successful_tasks": 0,
+          "total_tasks": 1,
+          "case_scores": {"targeted_patch": 50}
+        }
+      ],
+      "tasks": [
+        {
+          "model": "atlas-local",
+          "case_id": "targeted_patch",
+          "case_title": "Patch mirata",
+          "case_title_en": "Targeted patch",
+          "category": "implementation",
+          "repetition": 1,
+          "status": "ok",
+          "state": "passed",
+          "score": 94,
+          "max_score": 100,
+          "duration_seconds": 81.4,
+          "output_tokens": 2100,
+          "tool_calls": 8,
+          "tool_errors": 0,
+          "cpu_seconds": 24.2,
+          "energy_joules": null,
+          "integrity_valid": true
+        },
+        {
+          "model": "ember-local",
+          "case_id": "targeted_patch",
+          "case_title": "Patch mirata",
+          "case_title_en": "Targeted patch",
+          "category": "implementation",
+          "repetition": 1,
+          "status": "timeout",
+          "state": "timeout",
+          "score": 50,
+          "max_score": 100,
+          "duration_seconds": 1200,
+          "output_tokens": null,
+          "tool_calls": 15,
+          "tool_errors": 1,
+          "cpu_seconds": null,
+          "energy_joules": null,
+          "integrity_valid": true
+        }
+      ]
+    },
+    {
+      "id": "synthetic-standard-001",
+      "profile": "standard",
+      "benchmark_version": "0.5.0-test",
+      "started_at": "2026-09-01T09:00:00+00:00",
+      "finished_at": "2026-09-01T09:25:00+00:00",
+      "provenance": {
+        "run_schema_version": 3,
+        "report_schema_version": 3,
+        "run_sha256": "3111111111111111111111111111111111111111111111111111111111111111",
+        "report_sha256": "4111111111111111111111111111111111111111111111111111111111111111",
+        "repository_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "sandbox": {
+        "backend": "macos-seatbelt",
+        "enforced": true,
+        "filesystem_isolation": true,
+        "process_isolation": true,
+        "network_isolation": true
+      },
+      "integrity": {"status": "passed", "disqualified_models": []},
+      "participants": ["atlas-local"],
+      "leaderboard": [
+        {
+          "rank": 1,
+          "model": "atlas-local",
+          "overall_score": 89.2,
+          "quality_score": 91,
+          "completion_rate": 100,
+          "speed_score": 76,
+          "token_efficiency_score": 83,
+          "median_duration_seconds": 146.5,
+          "median_output_tokens": 3400,
+          "median_cpu_seconds": 42.8,
+          "median_energy_joules": null,
+          "score_stddev": 3.2,
+          "successful_tasks": 3,
+          "total_tasks": 3,
+          "case_scores": {"targeted_patch": 96, "secure_workspace": 90, "config_i18n": 87}
+        }
+      ],
+      "tasks": [
+        {
+          "model": "atlas-local",
+          "case_id": "secure_workspace",
+          "case_title": "Workspace sicura",
+          "case_title_en": "Secure workspace",
+          "category": "security",
+          "repetition": 1,
+          "status": "ok",
+          "state": "below_threshold",
+          "score": 55,
+          "max_score": 100,
+          "duration_seconds": 154.2,
+          "output_tokens": 3600,
+          "tool_calls": 12,
+          "tool_errors": 0,
+          "cpu_seconds": 45.1,
+          "energy_joules": null,
+          "integrity_valid": true
+        }
+      ]
+    },
+    {
+      "id": "synthetic-full-001",
+      "profile": "full",
+      "benchmark_version": "0.5.0-test",
+      "started_at": "2026-09-01T10:00:00+00:00",
+      "finished_at": "2026-09-01T10:40:00+00:00",
+      "provenance": {
+        "run_schema_version": 3,
+        "report_schema_version": 3,
+        "run_sha256": "5111111111111111111111111111111111111111111111111111111111111111",
+        "report_sha256": "6111111111111111111111111111111111111111111111111111111111111111",
+        "repository_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "sandbox": {
+        "backend": "macos-seatbelt",
+        "enforced": true,
+        "filesystem_isolation": true,
+        "process_isolation": true,
+        "network_isolation": true
+      },
+      "integrity": {"status": "violations_detected", "disqualified_models": ["atlas-local"]},
+      "participants": ["atlas-local"],
+      "leaderboard": [],
+      "tasks": [
+        {
+          "model": "atlas-local",
+          "case_id": "milestone_closure",
+          "case_title": "Chiusura milestone",
+          "case_title_en": "Milestone closure",
+          "category": "workflow",
+          "repetition": 1,
+          "status": "ok",
+          "state": "integrity_excluded",
+          "score": 100,
+          "max_score": 100,
+          "duration_seconds": 204.8,
+          "output_tokens": 4100,
+          "tool_calls": 17,
+          "tool_errors": 0,
+          "cpu_seconds": 60.5,
+          "energy_joules": null,
+          "integrity_valid": false
+        }
+      ]
+    }
+  ],
+  "funnel": [
+    {
+      "profile": "smoke",
+      "run_ids": ["synthetic-smoke-001"],
+      "participants": ["atlas-local", "ember-local"],
+      "new_participants": ["atlas-local", "ember-local"],
+      "next_profile": "standard",
+      "continued_to_next": ["atlas-local"],
+      "not_run_in_next": ["ember-local"]
+    },
+    {
+      "profile": "standard",
+      "run_ids": ["synthetic-standard-001"],
+      "participants": ["atlas-local"],
+      "new_participants": [],
+      "next_profile": "full",
+      "continued_to_next": ["atlas-local"],
+      "not_run_in_next": []
+    },
+    {
+      "profile": "full",
+      "run_ids": ["synthetic-full-001"],
+      "participants": ["atlas-local"],
+      "new_participants": [],
+      "next_profile": null,
+      "continued_to_next": [],
+      "not_run_in_next": []
+    }
+  ]
+}

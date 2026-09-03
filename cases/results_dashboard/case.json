@@ -1,0 +1,20 @@
+{
+  "$schema": "../../schemas/case.schema.json",
+  "schema_version": 1,
+  "id": "results_dashboard",
+  "title": {
+    "it": "Finalissima dashboard interattiva dei risultati",
+    "en": "Interactive results dashboard final"
+  },
+  "category": "showcase",
+  "weight": 1.0,
+  "paths": {
+    "prompt": "prompt.md",
+    "fixture": "fixture",
+    "grader": "grader.py"
+  },
+  "manual_rubric": {
+    "path": "manual-rubric.md",
+    "max_score": 20
+  }
+}

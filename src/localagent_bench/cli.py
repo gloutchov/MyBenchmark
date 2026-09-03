@@ -15,6 +15,7 @@ from .case_sdk import (
 )
 from .config import ConfigError, load_config
 from .comparison import ComparisonError, write_comparison
+from .dashboard_data import DashboardDataError, write_dashboard_data
 from .ollama import OllamaError
 from .report import write_report
 from .runner import BenchmarkError, doctor, run_benchmark
@@ -63,6 +64,18 @@ def _parser() -> argparse.ArgumentParser:
     compare = subparsers.add_parser("compare", help="Confronta statisticamente più run compatibili")
     compare.add_argument("run_dirs", type=Path, nargs="+")
     compare.add_argument("--output", type=Path, help="Directory del confronto")
+
+    dashboard = subparsers.add_parser(
+        "dashboard-data",
+        help="Esporta run in un dataset JSON ridotto per la dashboard offline",
+    )
+    dashboard.add_argument("run_dirs", type=Path, nargs="+")
+    dashboard.add_argument("--output", type=Path, help="File JSON di output")
+    dashboard.add_argument(
+        "--force",
+        action="store_true",
+        help="Sostituisce atomicamente un file di output esistente",
+    )
 
     case = subparsers.add_parser("case", help="Crea e valida casi estensibili")
     case_commands = case.add_subparsers(dest="case_command", required=True)
@@ -150,6 +163,17 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Confronto completato: {output.resolve()}")
             print(f"Modelli aggregati: {len(comparison['models'])}")
             return 0
+        if args.command == "dashboard-data":
+            output = args.output or config.root / "results" / f"dashboard-data-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
+            dataset = write_dashboard_data(
+                args.run_dirs,
+                output,
+                workspace_root=config.root,
+                overwrite=args.force,
+            )
+            print(f"Dataset dashboard creato: {output.resolve()}")
+            print(f"Run esportati: {len(dataset['runs'])}; profili: {', '.join(dataset['profile_order'])}")
+            return 0
         if args.command == "case":
             if args.case_command == "create":
                 created = create_case_template(
@@ -178,7 +202,15 @@ def main(argv: list[str] | None = None) -> int:
                 )
             print(f"Validazione completata: {len(reports)} casi validi")
             return 0
-    except (CaseValidationError, ConfigError, BenchmarkError, ComparisonError, OllamaError, OSError) as exc:
+    except (
+        CaseValidationError,
+        ConfigError,
+        BenchmarkError,
+        ComparisonError,
+        DashboardDataError,
+        OllamaError,
+        OSError,
+    ) as exc:
         print(f"Errore: {exc}", file=sys.stderr)
         return 2
     return 2

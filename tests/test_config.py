@@ -16,7 +16,7 @@ class ConfigTests(unittest.TestCase):
     def test_repository_config_discovers_case_manifests(self):
         config = load_config(ROOT / "benchmark.json")
         self.assertEqual("installed", config.models)
-        self.assertEqual(4, len(config.cases))
+        self.assertEqual(5, len(config.cases))
         self.assertEqual(("targeted_patch",), config.profiles["smoke"])
         self.assertEqual("audit", config.defaults.sandbox)
         self.assertEqual((ROOT / "cases").resolve(), config.cases_directory)
@@ -29,6 +29,8 @@ class ConfigTests(unittest.TestCase):
             config.cases["targeted_patch"].manifest_path,
         )
         self.assertEqual(20, config.cases["milestone_closure"].manual_rubric_max_score)
+        self.assertEqual(("results_dashboard",), config.profiles["showcase"])
+        self.assertEqual(20, config.cases["results_dashboard"].manual_rubric_max_score)
 
     def test_unknown_profile_case_is_rejected(self):
         raw = json.loads((ROOT / "benchmark.json").read_text(encoding="utf-8"))

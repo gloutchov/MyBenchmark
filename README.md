@@ -4,7 +4,7 @@ Benchmark personale, ripetibile e offline per confrontare modelli Ollama usati c
 
 Personal, repeatable, offline benchmark for comparing Ollama models used as coding agents through [Pi](https://pi.dev). Its scenarios derive from this repository's operating rules: small patches, modular architecture, tests, security, configuration, i18n, documentation, and Git discipline.
 
-Stato / Status: **0.4.0 – SDK per casi personali estensibili / extensible personal case SDK**
+Stato / Status: **0.5.0 – finalissima dashboard pronta per run sintetici; benchmark reali rinviati / dashboard showcase ready for synthetic verification; real benchmarks deferred**
 Piattaforme / Platforms: macOS, Windows, Linux
 Verifica reale / Real-world validation: **run benchmark Pi/Ollama reali verificati soltanto su macOS e Windows; Linux è coperto dalla CI, ma non è ancora stato validato con uno smoke Pi/Ollama reale. / Real Pi/Ollama benchmark runs have been verified only on macOS and Windows; Linux is covered by CI, but has not yet been validated with a real Pi/Ollama smoke run.**
 Licenza / License: Apache-2.0
@@ -19,9 +19,10 @@ Il benchmark valuta il risultato completo dell'agente, non una singola risposta 
 - configurazione validata, i18n e preferenze UI;
 - aggiornamento coordinato di versione, piano e documentazione;
 - casi personali descritti da manifesti validati, con pesi e rubriche manuali opzionali;
+- esportazione privacy-bounded dei run e finalissima dashboard offline con valutazione tecnica e visuale separate;
 - stato di uscita, timeout, errori tool, token e tempo end-to-end.
 
-The benchmark evaluates the complete agent outcome rather than a single text response: functional quality, scope discipline, security, configuration/i18n, documentation, Git workflow, failures, tokens, and end-to-end time.
+The benchmark evaluates the complete agent outcome rather than a single text response: functional quality, scope discipline, security, configuration/i18n, documentation, Git workflow, failures, tokens, and end-to-end time. It also provides a privacy-bounded run export and a separate offline dashboard showcase with technical and visual assessment.
 
 Il punteggio composito pesa **qualità 80%**, **completamento 10%**, **velocità relativa 5%** ed **efficienza token relativa 5%**. Qualità e tempi restano visibili separatamente; un modello veloce che non completa il task non viene favorito in modo sostanziale.
 
@@ -48,6 +49,13 @@ python3 benchmark.py doctor
 python3 benchmark.py list
 python3 benchmark.py case validate
 python3 benchmark.py run --profile smoke --models qwen3.5:9b-Q4_K_M
+```
+
+Per verificare la finalissima senza eseguire modelli reali:
+
+```bash
+python3 -m unittest tests.test_dashboard_data -v
+python3 benchmark.py case validate results_dashboard
 ```
 
 Per richiedere isolamento OS senza accettare fallback:
@@ -93,6 +101,7 @@ Un run completo con molti modelli può richiedere ore. Conviene prima eseguire `
 | `smoke` | 1 | Verifica rapida di integrazione Pi/Ollama e tool calling |
 | `standard` | 3 | Confronto principale su implementazione, sicurezza e architettura |
 | `full` | 4 | Aggiunge versioning, documentazione e disciplina Git |
+| `showcase` | 1 | Fa costruire ai finalisti una dashboard offline dallo stesso dataset congelato |
 
 È possibile selezionare modelli e casi esplicitamente:
 
@@ -143,6 +152,24 @@ Il comando produce `comparison.json` e `COMPARISON.md` con media, mediana, devia
 
 The command writes `comparison.json` and `COMPARISON.md` with mean, median, standard deviation, and an approximate 95% interval bounded to each metric's natural domain. It rejects duplicate directories and runs with different versions/parameters, profiles, inputs, model digests, sandbox backends, platforms, or recorded hardware; integrity-disqualified models do not contribute samples.
 
+## Finalissima dashboard / Dashboard showcase
+
+Dopo i run `smoke`, `standard` e `full`, creare un unico dataset ridotto per i finalisti:
+
+```bash
+python3 benchmark.py dashboard-data \
+  results/SMOKE-RUN results/STANDARD-RUN results/FULL-RUN \
+  --output results/finalists-dashboard-data.json
+```
+
+`dashboard-data` accetta report schema 2 e 3, conserva provenienza tramite hash SHA-256 e copia soltanto campi necessari a funnel, classifiche e dettaglio task. Non esporta path assoluti, prompt, risposte, comandi, log, evidenze d'integrità o errori liberi. Gli input e l'output devono restare nella root del progetto, le sorgenti non vengono modificate e un output esistente richiede `--force`. Il file pubblico segue [`schemas/dashboard-data.schema.json`](schemas/dashboard-data.schema.json).
+
+The `dashboard-data` command accepts schema 2 and 3 reports, retains provenance through SHA-256 hashes, and copies only fields needed for the funnel, leaderboards, and task details. It excludes absolute paths, prompts, responses, commands, logs, integrity evidence, and free-form errors. Inputs and output must remain under the project root, source runs are never modified, and replacing an output requires `--force`. The public format is defined by [`schemas/dashboard-data.schema.json`](schemas/dashboard-data.schema.json).
+
+Dopo revisione, congelare lo stesso JSON in `cases/results_dashboard/fixture/dashboard-data.json`, validare e committare il caso, quindi eseguire soltanto i finalisti con `--profile showcase`. Il grader automatico usa anche un dataset alternativo nascosto e resta separato dalla rubrica visuale da 20 punti. Il funnel distingue esplicitamente `not_run_in_next` da un fallimento. Procedura completa: [QUICK-START_Showcase.md](QUICK-START_Showcase.md).
+
+After review, freeze the same JSON as `cases/results_dashboard/fixture/dashboard-data.json`, validate and commit the case, then run only the finalists with `--profile showcase`. The automatic grader also uses a hidden alternate dataset and remains separate from the 20-point visual rubric. The funnel explicitly distinguishes `not_run_in_next` from failure. See [QUICK-START_Showcase.md](QUICK-START_Showcase.md).
+
 ## Configurazione / Configuration
 
 [`benchmark.json`](benchmark.json) centralizza URL Ollama, comando Pi, timeout, thinking, contesto, token massimi, warmup, sandbox, profili e directory di discovery dei casi. Ogni `cases/<id>/case.json`, verificabile contro [`schemas/case.schema.json`](schemas/case.schema.json), contiene ID, titoli bilingui, categoria, peso e path relativi; i manifesti pre-0.4 inline restano leggibili per compatibilità. `"models": "installed"` rileva tutti i modelli da `/api/tags`; una lista esplicita rende il set stabile. `defaults.sandbox` accetta `audit`, `auto` o `required`; il default conservativo e retrocompatibile è `audit`.
@@ -160,6 +187,10 @@ For each task, the runner creates a fresh Git repository from the shared snapsho
 `--sandbox audit` preserves the 0.1.x behavior: policy and detection without OS enforcement. `auto` uses a native backend only after a successful probe and records an explicit fallback otherwise; `required` stops before tasks when enforcement is unavailable. On macOS, Seatbelt blocks external user-file access and restricts networking to Ollama's loopback port, but `sandbox-exec` is deprecated. On Linux, `unshare` creates an empty network namespace and bubblewrap limits filesystems and processes; a host broker reachable only through a Unix socket forwards to the single configured Ollama endpoint. On Windows, AppContainer runs without network capabilities, with temporary ACLs on only the required paths, a kill-on-close Job Object, and a named pipe authorized for the container's exact SID to the same fixed-destination broker.
 
 An enforced backend narrows risk but does not make untrusted real data safe by itself. Required runtime paths remain readable, graders and brokers run as trusted host processes, result artifacts may contain sensitive content, and `audit`/`auto` fallback remain detection rather than containment. Read [SECURITY_MODEL.md](SECURITY_MODEL.md).
+
+Anche il dataset dashboard ridotto resta potenzialmente sensibile: contiene nomi locali dei modelli, titoli dei casi, punteggi, tempi e hash collegabili alle sorgenti conservate. La dashboard candidata deve restare offline e ogni pubblicazione richiede revisione manuale.
+
+The reduced dashboard dataset also remains potentially sensitive: it includes local model names, case titles, scores, timings, and hashes linkable to retained sources. Candidate dashboards must stay offline, and publication always requires manual review.
 
 ## Sviluppo / Development
 
@@ -190,6 +221,7 @@ Il progetto viene eseguito direttamente dal checkout. I tag sorgente non includo
 - [Avvio rapido Linux / Linux quick start](QUICK-START_Linux.md)
 - [Avvio rapido Windows / Windows quick start](QUICK-START_Windows.md)
 - [Guida autore casi / Case author quick start](QUICK-START_Case-Author.md)
+- [Finalissima dashboard / Dashboard showcase](QUICK-START_Showcase.md)
 - [Modello di sicurezza bilingue](SECURITY_MODEL.md)
 - [Piano di sviluppo](PLAN.md)
 - [Mappa del repository](MAP.md)

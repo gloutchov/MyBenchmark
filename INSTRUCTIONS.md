@@ -47,6 +47,7 @@ python3 benchmark.py run --profile standard
 - `smoke` checks Pi/Ollama integration and basic tool calling.
 - `standard` covers a targeted patch, security hardening, and validated configuration/i18n.
 - `full` adds milestone closure, versioning, documentation, and Git discipline.
+- `showcase` is a separate final that asks shortlisted models to build a static dashboard from the same frozen dataset; do not mix it into earlier profiles.
 
 Use `--models` for exact Ollama model names, `--cases` for explicit case IDs, `--timeout` for a per-task limit in seconds, and `--output` for a new or empty destination. Tasks are randomized; pass `--seed NUMBER` to reproduce the exact order recorded in `run.json`. `--sandbox` accepts `audit`, `auto`, or `required`; use `required` when the run must not continue without OS enforcement. Run the full profile three times on shortlisted models when making a final choice.
 
@@ -57,6 +58,37 @@ python3 benchmark.py compare results/RUN-1 results/RUN-2 results/RUN-3
 ```
 
 The command accepts only distinct directories and runs with matching versions/parameters, profiles, cases, input fingerprints, model digests, sandbox backend, platform, and recorded hardware. It writes `comparison.json` and `COMPARISON.md` with mean, median, standard deviation, and an approximate 95% interval bounded to each metric's natural domain. Missing or integrity-disqualified models receive no sample for that run.
+
+### Dashboard dataset and showcase
+
+Verify the system without a real Pi/Ollama benchmark:
+
+```bash
+python3 -m unittest tests.test_dashboard_data -v
+python3 benchmark.py case validate results_dashboard
+```
+
+After the real runs, aggregate different profiles with the dedicated command, not with `compare`:
+
+```bash
+python3 benchmark.py dashboard-data \
+  results/SMOKE-RUN results/STANDARD-RUN results/FULL-RUN \
+  --output results/finalists-dashboard-data.json
+```
+
+The command accepts schema 2 or 3 `run.json` and `report.json` files, capped at 32 MiB each. It emits dashboard schema 1, records hashes and commit provenance, and uses a strict whitelist: only the profile, sandbox, summarized integrity, participants, leaderboards, and task metrics are retained. Paths, prompts, responses, commands, logs, violation evidence, and free-form errors are excluded. Inputs and output must remain under the project root, and output cannot be written inside a source run. Add `--force` only to atomically replace a reviewed output.
+
+Review the JSON, then freeze it in the fixture:
+
+```bash
+python3 benchmark.py dashboard-data \
+  results/SMOKE-RUN results/STANDARD-RUN results/FULL-RUN \
+  --output cases/results_dashboard/fixture/dashboard-data.json \
+  --force
+python3 benchmark.py case validate results_dashboard
+```
+
+Commit the input before running `python3 benchmark.py run --profile showcase --models MODEL-A MODEL-B --sandbox required`. Every finalist receives the same snapshot. The 100-point technical grader uses an additional hidden dataset; the 20-point visual rubric remains separate and manual. See [QUICK-START_Showcase.md](QUICK-START_Showcase.md) for local startup, multi-file import, and browser review.
 
 ## 5. Configuration
 
@@ -118,6 +150,7 @@ Use the same configuration, profile, repetitions, seed, hardware, and similar sy
 - `Input benchmark modificati`: restore or intentionally commit the listed benchmark inputs before rerunning.
 - `Manifesto mancante` or `paths.*`: complete `case.json`, use only POSIX-style relative paths inside the case, remove symlinks from declared paths, and rerun `case validate`.
 - `max_score`, `points`, `earned`, or baseline errors: repair the grader contract; checks must total 100 and the starting fixture must remain below 60.
+- `dashboard-data` error: verify schema 2/3, consistent profiles, distinct directories, and paths inside the project root; use `--force` only after reviewing the file being replaced.
 - `violations_detected`: read **Detected violations**, then inspect `report.json`, `run.json`, and the corresponding `pi-events.jsonl`; do not manually restore the disqualified model to the leaderboard. Regenerating a report applies the current audit to older events without changing their original `result.json` files.
 - `snapshot_compromised`: preserve the diagnostic artifacts, fix the cause, and start a new run.
 - `Sandbox OS richiesta ma non disponibile`: install or enable the backend reported by `doctor`, deliberately use `--sandbox auto` to permit fallback, or choose `--sandbox audit` for the historical behavior.
@@ -128,7 +161,7 @@ The runner exits with code `1` when one or more tasks end in an error or timeout
 
 ## 9. Security and privacy
 
-Do not add private data, real repositories, or credentials to cases. Manifests and templates do not grant trust: an imported grader remains untrusted until reviewed because validation and grading execute it on the host. `audit` and the `auto` fallback are not sandboxes. The macOS backend restricts external user files and networking except Ollama loopback and relies on the deprecated `sandbox-exec` interface. On Linux, Pi runs in an empty network namespace and reaches only the Ollama broker through a Unix socket inside the workspace. On Windows, AppContainer receives no network capabilities and uses a named pipe dedicated to its SID; temporary ACLs grant only required paths, and a Job Object terminates descendants. Brokers and graders remain trusted host processes outside the sandbox. Read `SECURITY_MODEL.md` before extending the benchmark.
+Do not add private data, real repositories, or credentials to cases. Manifests and templates do not grant trust: an imported grader remains untrusted until reviewed because validation and grading execute it on the host. `audit` and the `auto` fallback are not sandboxes. The macOS backend restricts external user files and networking except Ollama loopback and relies on the deprecated `sandbox-exec` interface. On Linux, Pi runs in an empty network namespace and reaches only the Ollama broker through a Unix socket inside the workspace. On Windows, AppContainer receives no network capabilities and uses a named pipe dedicated to its SID; temporary ACLs grant only required paths, and a Job Object terminates descendants. Brokers and graders remain trusted host processes outside the sandbox. The dashboard export omits raw content but retains model names, titles, metrics, and hashes; it remains potentially sensitive local data and must not be published automatically. Read `SECURITY_MODEL.md` before extending the benchmark.
 
 ## 10. Known limitations
 
@@ -143,3 +176,4 @@ Do not add private data, real repositories, or credentials to cases. Manifests a
 - Dynamic or obfuscated commands may still evade the audit when no enforced backend is active.
 - `sandbox-exec` is deprecated and may disappear from future macOS versions; `required` prevents silent fallback.
 - POSIX child metrics may not fully include every descendant; RAPL is host-wide and may be unreadable without additional privileges.
+- The dashboard grader checks transformations and observable requirements, but responsive behavior, visual rendering, keyboard use, and absence of remote requests still require a real-browser review and the manual rubric on each candidate workspace.

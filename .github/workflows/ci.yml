@@ -39,7 +39,8 @@ jobs:
           required = [
               "README.md", "ISTRUZIONI.md", "INSTRUCTIONS.md", "SECURITY_MODEL.md",
               "PLAN.md", "MAP.md", "AGENTS.md", "LICENSE", "VERSION",
-              "QUICK-START_Case-Author.md", "schemas/case.schema.json",
+              "QUICK-START_Case-Author.md", "QUICK-START_Showcase.md",
+              "schemas/case.schema.json", "schemas/dashboard-data.schema.json",
           ]
           missing = [name for name in required if not Path(name).is_file()]
           if missing:

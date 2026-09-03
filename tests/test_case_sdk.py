@@ -69,7 +69,7 @@ class CaseSdkTests(unittest.TestCase):
         self.assertEqual(1, schema["properties"]["schema_version"]["const"])
         cases = discover_case_manifests(ROOT / "cases")
         self.assertEqual(
-            {"targeted_patch", "secure_workspace", "config_i18n", "milestone_closure"},
+            {"targeted_patch", "secure_workspace", "config_i18n", "milestone_closure", "results_dashboard"},
             set(cases),
         )
 
