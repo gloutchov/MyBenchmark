@@ -129,6 +129,13 @@ def _terminate(process: subprocess.Popen[str]) -> None:
                 process.kill()
 
 
+def _refine_status_from_events(status: str, metrics: dict[str, Any]) -> str:
+    """Treat a terminal agent/provider failure as operational even when Pi exits zero."""
+    if status == "ok" and metrics.get("terminal_agent_error") is True:
+        return "pi_error"
+    return status
+
+
 def run_pi(
     pi_command: tuple[str, ...],
     model: str,
@@ -216,6 +223,7 @@ def run_pi(
     duration = time.monotonic() - started
     system_metrics = collector.finish()
     metrics, final_response = parse_json_events(stdout)
+    status = _refine_status_from_events(status, metrics)
     sandbox_metadata = dict(launch.metadata)
     runtime_path = sandbox_metadata.get("runtime_metadata_path")
     if isinstance(runtime_path, str):
@@ -574,6 +582,7 @@ def parse_json_events(stdout: str) -> tuple[dict[str, Any], str]:
     streamed_thinking_chars = 0
     final_response = ""
     stop_reasons: list[str] = []
+    terminal_agent_error = False
     for line in stdout.splitlines():
         try:
             event = json.loads(line)
@@ -584,6 +593,8 @@ def parse_json_events(stdout: str) -> tuple[dict[str, Any], str]:
         if not isinstance(event, dict):
             continue
         event_type = event.get("type")
+        if event_type == "auto_retry_end" and isinstance(event.get("success"), bool):
+            terminal_agent_error = not event["success"]
         if event_type == "message_update":
             update = event.get("assistantMessageEvent", {})
             if isinstance(update, dict) and isinstance(update.get("delta"), str):
@@ -606,8 +617,10 @@ def parse_json_events(stdout: str) -> tuple[dict[str, Any], str]:
                     value = message_usage.get(key, 0)
                     if isinstance(value, (int, float)):
                         usage[key] += int(value)
-            if isinstance(message.get("stopReason"), str):
-                stop_reasons.append(message["stopReason"])
+            stop_reason = message.get("stopReason")
+            if isinstance(stop_reason, str):
+                stop_reasons.append(stop_reason)
+                terminal_agent_error = stop_reason == "error"
             text = _content_text(message.get("content"))
             if text:
                 final_response = text
@@ -620,5 +633,6 @@ def parse_json_events(stdout: str) -> tuple[dict[str, Any], str]:
         "streamed_text_chars": streamed_text_chars,
         "streamed_thinking_chars": streamed_thinking_chars,
         "stop_reasons": stop_reasons,
+        "terminal_agent_error": terminal_agent_error,
     }
     return metrics, final_response

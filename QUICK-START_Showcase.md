@@ -91,6 +91,10 @@ Il punteggio automatico è tecnico. La rubrica visuale da 20 punti viene copiata
 
 The automatic score is technical. The 20-point visual rubric is copied next to each workspace but remains outside the automatic leaderboard.
 
+Un run integro resta valido anche quando nessun candidato supera 60/100. Conservare timeout, errori, punteggi sotto soglia e baseline non modificate come esiti negativi del test; non modificare il dataset o il grader per far passare un candidato.
+
+An integrity-valid run remains valid even when no candidate exceeds 60/100. Preserve timeouts, errors, below-threshold scores, and unchanged baselines as negative test outcomes; do not modify the dataset or grader to make a candidate pass.
+
 ## 5. Revisionare la dashboard / Review the dashboard
 
 Per ogni finalista, entrare nella relativa `workspace/` e avviare un server locale:
@@ -105,6 +109,10 @@ Aprire `http://127.0.0.1:8000/` e verificare almeno:
 
 Open `http://127.0.0.1:8000/` and verify at least:
 
+La dashboard dovrebbe caricare automaticamente il `dashboard-data.json` presente nella propria `workspace/`. Se richiede “Scegli file” / “Choose file”, selezionare quel file nella stessa cartella di `index.html`; non selezionare `run.json`, `report.json` o gli artefatti raw. Se il pulsante non produce alcun effetto e la pagina mostra ancora `Dashboard implementation pending`, la baseline non è stata implementata: registrare l'esito senza tentare di correggere la workspace.
+
+The dashboard should automatically load the `dashboard-data.json` in its own `workspace/`. If it asks to “Choose file”, select that file beside `index.html`; do not select `run.json`, `report.json`, or raw artifacts. If the button has no effect and the page still shows `Dashboard implementation pending`, the baseline was not implemented: record the outcome without attempting to repair the workspace.
+
 - desktop ampio e stretto / wide and narrow desktop;
 - italiano, inglese e modalità automatica / Italian, English, and automatic language;
 - tema chiaro, scuro e automatico / light, dark, and automatic theme;
@@ -113,9 +121,9 @@ Open `http://127.0.0.1:8000/` and verify at least:
 - import multiplo, collisioni, JSON invalido e metriche mancanti / multi-file import, collisions, invalid JSON, and missing metrics;
 - pannello Network senza richieste remote / no remote requests in the Network panel.
 
-Annotare il giudizio in un file separato. Non modificare `grade.json`, `result.json` o il dataset congelato.
+Annotare il giudizio in un file separato. Una dashboard non funzionante può ricevere `0/20` o “non applicabile”; resta comunque un esito valido del benchmark e non modifica i 100 punti automatici. Non modificare `grade.json`, `result.json` o il dataset congelato.
 
-Record the assessment in a separate file. Do not edit `grade.json`, `result.json`, or the frozen dataset.
+Record the assessment in a separate file. A non-functional dashboard may receive `0/20` or “not applicable”; it remains a valid benchmark outcome and does not change the 100 automatic points. Do not edit `grade.json`, `result.json`, or the frozen dataset.
 
 ## Privacy e limiti / Privacy and limitations
 

@@ -4,7 +4,7 @@ Benchmark personale, ripetibile e offline per confrontare modelli Ollama usati c
 
 Personal, repeatable, offline benchmark for comparing Ollama models used as coding agents through [Pi](https://pi.dev). Its scenarios derive from this repository's operating rules: small patches, modular architecture, tests, security, configuration, i18n, documentation, and Git discipline.
 
-Stato / Status: **0.5.0 – finalissima dashboard pronta per run sintetici; benchmark reali rinviati / dashboard showcase ready for synthetic verification; real benchmarks deferred**
+Stato / Status: **0.5.0 – finalissima verificata con dataset reale; chiusura milestone in corso / dashboard showcase verified with a real dataset; milestone closure in progress**
 Piattaforme / Platforms: macOS, Windows, Linux
 Verifica reale / Real-world validation: **run benchmark Pi/Ollama reali verificati soltanto su macOS e Windows; Linux è coperto dalla CI, ma non è ancora stato validato con uno smoke Pi/Ollama reale. / Real Pi/Ollama benchmark runs have been verified only on macOS and Windows; Linux is covered by CI, but has not yet been validated with a real Pi/Ollama smoke run.**
 Licenza / License: Apache-2.0
@@ -128,7 +128,9 @@ All'avvio il runner rifiuta `AGENTS.md`, `.gitignore`, manifesti, prompt, fixtur
 
 At startup the runner rejects selected instructions, manifests, prompts, fixtures, graders, or manual rubrics that differ from Git, creates one frozen snapshot containing tracked files and the execution policy (excluding ignored caches and outputs), and records input hashes and baseline Git trees. Each task gets an internal Git-ignored `.benchmark-scratch/` directory used by `TMPDIR`, `TMP`, and `TEMP`. Shell paths resolved outside the workspace, explicit network attempts, repository/snapshot mutation, or a divergent baseline disqualify the affected model. Snapshot mutation also aborts the remaining matrix. Integrity status and violation details are shown before the leaderboard.
 
-Il comando termina con exit code `1` se almeno una task va in timeout o Pi restituisce un errore, pur completando il resto della matrice e generando il report. Un punteggio sotto 60 senza errore operativo non cambia l'exit code: è un risultato del modello, non un guasto del runner.
+Il comando termina con exit code `1` se almeno una task va in timeout, Pi restituisce un errore o gli eventi JSONL terminano con un errore agente/provider anche quando il processo Pi esce con codice zero; completa comunque il resto della matrice e genera il report. Un punteggio sotto 60 con stato `ok` e integrità valida non cambia l'exit code: è un risultato negativo valido del modello, non un guasto del runner.
+
+The command exits with code `1` when any task times out, Pi fails, or the JSONL event stream ends with an agent/provider error even if the Pi process exits zero; it still completes the remaining matrix and writes the report. A score below 60 with status `ok` and valid integrity does not change the exit code: it is a valid negative model outcome, not a runner failure.
 
 Esamina sempre `grade.json`, `diff.patch` e il workspace dei due o tre modelli migliori. I grader misurano requisiti osservabili, ma non sostituiscono il giudizio su leggibilità, chiarezza delle spiegazioni o buon gusto architetturale.
 
@@ -169,6 +171,8 @@ The `dashboard-data` command accepts schema 2 and 3 reports, retains provenance 
 Dopo revisione, congelare lo stesso JSON in `cases/results_dashboard/fixture/dashboard-data.json`, validare e committare il caso, quindi eseguire soltanto i finalisti con `--profile showcase`. Il grader automatico usa anche un dataset alternativo nascosto e resta separato dalla rubrica visuale da 20 punti. Il funnel distingue esplicitamente `not_run_in_next` da un fallimento. Procedura completa: [QUICK-START_Showcase.md](QUICK-START_Showcase.md).
 
 After review, freeze the same JSON as `cases/results_dashboard/fixture/dashboard-data.json`, validate and commit the case, then run only the finalists with `--profile showcase`. The automatic grader also uses a hidden alternate dataset and remains separate from the 20-point visual rubric. The funnel explicitly distinguishes `not_run_in_next` from failure. See [QUICK-START_Showcase.md](QUICK-START_Showcase.md).
+
+Il profilo `showcase` resta un test anche quando nessun candidato supera 60/100: timeout, errori o baseline non modificata sono esiti da conservare e revisionare, senza ritoccare dataset o grader. / The `showcase` profile remains a valid test when no candidate exceeds 60/100: timeouts, errors, or an unchanged baseline are outcomes to retain and review without changing the dataset or grader.
 
 ## Configurazione / Configuration
 

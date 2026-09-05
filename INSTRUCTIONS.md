@@ -104,6 +104,8 @@ Before committing, `git diff --cached --name-only` must list only `cases/results
 
 Then run only the finalists with `python3 benchmark.py run --profile showcase --models MODEL-A MODEL-B --sandbox required`. Every finalist receives the same snapshot. The 100-point technical grader uses an additional hidden dataset; the 20-point visual rubric remains separate and manual. See [QUICK-START_Showcase.md](QUICK-START_Showcase.md) for local startup, multi-file import, and browser review.
 
+The showcase remains a valid test even when no model exceeds 60/100. Preserve timeouts, errors, below-threshold scores, and unchanged baselines as negative outcomes; do not alter the dataset or grader to obtain a completed dashboard. Manual review may assign `0/20` or record “not applicable” when no functional interface exists, without changing the automatic score.
+
 ## 5. Configuration
 
 `benchmark.json` is the central configuration file. It defines the Ollama URL, Pi command, model selection, timeout, repetitions, thinking level, warmup, context and output limits, temperature, sandbox mode, profiles, and the in-repository case discovery directory. Each `cases/<id>/case.json` holds bilingual titles, category, weight, and relative input paths.
@@ -159,6 +161,7 @@ Use the same configuration, profile, repetitions, seed, hardware, and similar sy
 - `pi: command not found`: install Pi or update `pi.command`.
 - Missing model: use the exact name shown by `doctor`.
 - Timeout: increase `--timeout` and inspect `stderr.log`.
+- `pi_error`: inspect `pi-events.jsonl` and `stderr.log`; a terminal agent/provider failure is operational even when the Pi process exits with code zero. Free-form error text remains in local artifacts and is not exported by `dashboard-data`.
 - Low score with a successful exit: inspect `grade.json`; the model may have answered without editing or missed a constraint.
 - Zero usage tokens: some model/provider combinations omit usage; quality remains valid, while token efficiency receives no credit.
 - `Input benchmark modificati`: restore or intentionally commit the listed benchmark inputs before rerunning.
@@ -171,7 +174,7 @@ Use the same configuration, profile, repetitions, seed, hardware, and similar sy
 - `linux-bubblewrap` unavailable: check `bwrap`, `unshare`, and the user-namespace policy using the Linux quick start; do not run the benchmark as root to bypass the probe.
 - `windows-appcontainer` unavailable: run `doctor` as a standard user and check ACL, AppContainer profile, and named-pipe diagnostics using the Windows quick start.
 
-The runner exits with code `1` when one or more tasks end in an error or timeout or when integrity is not valid, while still writing the available report. A low grade with status `ok` and integrity `ok` is a valid model result and does not fail the command.
+The runner exits with code `1` when one or more tasks end in an error or timeout, the event stream ends with an agent/provider error, or integrity is not valid, while still writing the available report. A low grade with status `ok` and integrity `ok` is a valid negative model result and does not fail the command.
 
 ## 9. Security and privacy
 

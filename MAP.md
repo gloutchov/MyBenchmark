@@ -13,7 +13,7 @@
 │   ├── case_sdk.py                 # discovery, manifesti, validatore e template atomico dei casi
 │   ├── integrity.py                # preflight Git, snapshot, SHA-256 e drift repository
 │   ├── ollama.py                   # client locale tags/version/warmup/unload
-│   ├── pi_adapter.py               # Pi, parsing JSONL, scratch e audit path/rete versionato
+│   ├── pi_adapter.py               # Pi, parsing JSONL/errori terminali, scratch e audit path/rete
 │   ├── runner.py                   # ordine seeded, policy, workspace, controlli e artefatti
 │   ├── grading.py                  # esecuzione isolata e timeout dei grader
 │   ├── sandbox.py                  # selezione, probe e launch Seatbelt/bubblewrap/AppContainer/audit
@@ -42,7 +42,7 @@
 ├── tests/
 │   ├── test_case_sdk.py            # schema, path corrotti, template, CLI e calibrazione
 │   ├── test_dashboard_data.py      # whitelist, privacy, funnel, path, atomicità e CLI
-│   └── ...                         # runner, parser, sandbox, metriche, confronti e grader
+│   └── ...                         # runner, parser/status provider, sandbox, metriche, confronti e grader
 ├── results/                        # output, snapshot input, hash e workspace; ignorato da Git
 ├── .github/workflows/ci.yml        # Actions Node 24: compile, test e documenti su tre OS
 ├── AGENTS.md                       # modus operandi copiato in ogni fixture

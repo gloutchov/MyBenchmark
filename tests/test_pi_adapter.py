@@ -9,7 +9,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from localagent_bench.pi_adapter import AUDIT_VERSION, audit_workspace_accesses, parse_json_events, write_models_config
+from localagent_bench.pi_adapter import (
+    AUDIT_VERSION,
+    _refine_status_from_events,
+    audit_workspace_accesses,
+    parse_json_events,
+    write_models_config,
+)
 
 
 class PiAdapterTests(unittest.TestCase):
@@ -37,6 +43,60 @@ class PiAdapterTests(unittest.TestCase):
         self.assertEqual(4, metrics["usage"]["output"])
         self.assertEqual(0, metrics["streamed_thinking_chars"])
         self.assertEqual(["stop"], metrics["stop_reasons"])
+        self.assertFalse(metrics["terminal_agent_error"])
+
+    def test_terminal_provider_failure_overrides_zero_exit_status_without_copying_error_text(self):
+        events = [
+            {
+                "type": "message_end",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "thinking", "thinking": "unfinished"}],
+                    "stopReason": "error",
+                    "usage": {},
+                    "errorMessage": "PRIVATE provider diagnostic",
+                },
+            },
+            {
+                "type": "auto_retry_end",
+                "success": False,
+                "attempt": 3,
+                "finalError": "PRIVATE provider diagnostic",
+            },
+        ]
+
+        metrics, response = parse_json_events("\n".join(json.dumps(event) for event in events))
+
+        self.assertEqual("", response)
+        self.assertTrue(metrics["terminal_agent_error"])
+        self.assertNotIn("PRIVATE", json.dumps(metrics))
+        self.assertEqual("pi_error", _refine_status_from_events("ok", metrics))
+        self.assertEqual("timeout", _refine_status_from_events("timeout", metrics))
+
+    def test_successful_later_turn_clears_a_transient_provider_error(self):
+        events = [
+            {
+                "type": "message_end",
+                "message": {"role": "assistant", "content": [], "stopReason": "error", "usage": {}},
+            },
+            {"type": "auto_retry_end", "success": False},
+            {
+                "type": "message_end",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "recovered"}],
+                    "stopReason": "stop",
+                    "usage": {},
+                },
+            },
+            {"type": "auto_retry_end", "success": True},
+        ]
+
+        metrics, response = parse_json_events("\n".join(json.dumps(event) for event in events))
+
+        self.assertEqual("recovered", response)
+        self.assertFalse(metrics["terminal_agent_error"])
+        self.assertEqual("ok", _refine_status_from_events("ok", metrics))
 
     def test_writes_isolated_ollama_configuration(self):
         with tempfile.TemporaryDirectory() as directory:

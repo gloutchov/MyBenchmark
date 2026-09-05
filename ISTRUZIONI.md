@@ -115,6 +115,8 @@ Prima del commit, `git diff --cached --name-only` deve elencare soltanto `cases/
 
 Eseguire quindi soltanto i finalisti con `python3 benchmark.py run --profile showcase --models MODEL-A MODEL-B --sandbox required`. Il runner consegna la stessa fotografia a tutti. Il grader tecnico vale 100 punti e usa anche un dataset nascosto; la rubrica visuale da 20 punti resta manuale e separata. Per avvio locale, import multiplo e checklist browser seguire [QUICK-START_Showcase.md](QUICK-START_Showcase.md).
 
+La finalissima resta un test valido anche quando nessun modello supera 60/100. Conservare timeout, errori, punteggi sotto soglia e baseline non modificate come risultati negativi; non cambiare dataset o grader per ottenere una dashboard completata. La revisione manuale può assegnare `0/20` oppure indicare “non applicabile” quando non esiste un'interfaccia funzionante, senza modificare lo score automatico.
+
 ## 5. Configurazione
 
 `benchmark.json` contiene tutti i parametri modificabili:
@@ -179,6 +181,7 @@ All'avvio `AGENTS.md`, `.gitignore`, manifesti, prompt, fixture, grader e rubric
 - `pi: comando non trovato`: installare Pi o modificare `pi.command` con il percorso corretto.
 - `Modelli non installati`: usare il nome esatto restituito da `doctor` oppure eseguire `ollama pull` separatamente.
 - `timeout`: aumentare `--timeout`; controllare anche memoria e log `stderr.log`.
+- `pi_error`: controllare `pi-events.jsonl` e `stderr.log`; un errore terminale agente/provider viene classificato come operativo anche quando il processo Pi termina con codice zero. Il testo libero dell'errore resta negli artefatti locali e non viene esportato da `dashboard-data`.
 - score basso con uscita corretta: leggere `grade.json`; il modello può aver risposto senza modificare i file o aver interpretato male un vincolo.
 - token a zero: alcune combinazioni provider/modello non riportano usage; la qualità resta valida, mentre l'efficienza token non viene premiata.
 - `Input benchmark modificati`: ripristinare o committare intenzionalmente `AGENTS.md`, `.gitignore` e i file dei casi prima di riprovare; non usare una fixture già completata.
@@ -191,7 +194,7 @@ All'avvio `AGENTS.md`, `.gitignore`, manifesti, prompt, fixture, grader e rubric
 - `linux-bubblewrap` non disponibile: verificare `bwrap`, `unshare` e la policy di user namespace seguendo il quick start Linux; non eseguire il benchmark come root per aggirare il probe.
 - `windows-appcontainer` non disponibile: eseguire `doctor` come utente standard e verificare ACL, profilo AppContainer e named pipe seguendo il quick start Windows.
 
-Il runner restituisce exit code `1` se una o più task terminano con errore o timeout oppure se l'integrità non è valida, ma scrive comunque il report disponibile. Uno score basso con stato `ok` e integrità `ok` è invece un risultato valido e non rende fallito il comando.
+Il runner restituisce exit code `1` se una o più task terminano con errore o timeout, gli eventi terminano con un errore agente/provider oppure l'integrità non è valida, ma scrive comunque il report disponibile. Uno score basso con stato `ok` e integrità `ok` è invece un risultato negativo valido e non rende fallito il comando.
 
 ## 9. Sicurezza e privacy
 
