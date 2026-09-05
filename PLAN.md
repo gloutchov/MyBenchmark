@@ -246,3 +246,39 @@ Versione corrente / Current version: **0.5.0**
 - [x] Tag annotato `v0.5.0` pubblicato e verificato sul commit `462c235`
 - [x] GitHub release stabile `v0.5.0` pubblicata e verificata senza artifact binari
 - [x] Branch milestone locale e remoto eliminato dopo le verifiche di chiusura
+
+## Milestone 6 – Dashboard ufficiale dei risultati
+
+- Obiettivo: fornire nel repository una dashboard ufficiale, mantenuta dal progetto e distinta dalle dashboard candidate della finalissima, che renda i risultati del benchmark comprensibili anche a chi non vuole leggere direttamente i file JSON o usare comandi di analisi.
+- Branch previsto: `milestone/6-official-results-dashboard`
+- Incremento versione: `+0.1.0` (`v0.6.0`)
+- Attività: creare un'applicazione statica ufficiale sotto `dashboard/`, composta da HTML, CSS e JavaScript modulari e priva di dipendenze runtime, CDN, telemetria e asset remoti; includere uno snapshot pubblico, revisionato e privacy-bounded dei risultati congelati nella milestone 5, caricato tramite uno script dati locale così che `dashboard/index.html` sia utilizzabile anche con doppio clic e protocollo `file://`; aggiungere `dashboard.py`, basato soltanto sulla libreria standard, che individua o riceve directory di run compatibili, riusa l'aggregatore `dashboard-data`, espone esclusivamente il dataset consentito tramite un server temporaneo su loopback e apre la dashboard nel browser; supportare opzioni documentate per indicare run espliciti, non aprire automaticamente il browser e selezionare la porta senza sovrascrivere file sorgente; mantenere l'importazione manuale di `dashboard-data.json` tramite file chooser. La UI deve offrire una sintesi immediata, classifiche per profilo, funnel `smoke` → `standard` → `full`, confronto tra modelli, dettaglio task, score, tempi, token, stato, integrità ed eventuali metriche disponibili; deve distinguere chiaramente dato mancante, modello non eseguito, timeout, errore ed esclusione per integrità. Prevedere filtri e ordinamento, terminologia comprensibile, lingua italiana/inglese, tema chiaro/scuro, preferenze persistenti, layout responsive, navigazione da tastiera, stati di caricamento/vuoto/errore e indicazione visibile della provenienza e dell'aggiornamento del dataset.
+- Criteri di accettazione: con un checkout pulito, il doppio clic su `dashboard/index.html` mostra immediatamente lo snapshot incluso senza server, richieste di rete o selezione preliminare di file; `python3 dashboard.py` avvia su `127.0.0.1` la stessa dashboard con i risultati locali compatibili, apre il browser e termina in modo pulito con `Ctrl+C`; i path espliciti sono risolti entro la root del progetto e gli input incompatibili o corrotti producono messaggi chiari senza esporre contenuti sensibili; browser e file statici ricevono soltanto i campi ammessi da `dashboard-data`, mai prompt, risposte integrali, comandi, log, errori liberi, evidenze di violazione o path assoluti; nessun dato sorgente viene modificato e nessun export locale viene committato implicitamente; i valori mostrati corrispondono al dataset, `not_run_in_next` non viene trasformato in fallimento e i modelli esclusi dall'integrità non rientrano nelle classifiche; la dashboard funziona offline sulle versioni supportate di macOS, Windows e Linux e resta leggibile su desktop e mobile; il codice ufficiale non dipende dalla fixture incompleta o dagli artefatti generati dai finalisti, salvo il dataset pubblico revisionato usato come snapshot iniziale.
+- Test: unit test Python per selezione run, validazione path, aggregazione, modalità senza apertura browser, binding loopback, arresto e assenza di scritture nelle sorgenti; test JavaScript delle trasformazioni, classifiche, funnel, filtri, ordinamento, formattazione dei dati mancanti e gestione di dataset schema 2–3; verifica che lo snapshot incluso sia riproducibile dal dataset congelato e contenga soltanto la whitelist pubblica; test negativi con JSON invalido, schema non supportato, directory fuori root, porte occupate e dataset vuoti; test browser sia da `file://` sia tramite server Python per caricamento iniziale, importazione file, cambio lingua/tema, persistenza, tastiera, responsive e assenza di richieste remote; smoke manuale con doppio clic su `index.html` e con `python3 dashboard.py`; compileall, suite unittest, validazione casi e CI su macOS, Ubuntu e Windows.
+- Documentazione: aggiornare README, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, aggiungere un quick start bilingue o due quick start coordinati per dashboard e launcher, aggiornare `SECURITY_MODEL.md` per server loopback, lettura dei risultati e dati esposti al browser, aggiornare `MAP.md`, `AGENTS.md` e questo piano; documentare esattamente la differenza fra snapshot incluso, risultati locali e importazione manuale, oltre a troubleshooting per browser che limitano `file://`, porta occupata e assenza di run compatibili.
+- Release: milestone rilasciabile come `v0.6.0`; tag e GitHub release soltanto dopo verifica manuale, CI verde, approvazione esplicita del progettista e merge. Nessun artifact binario è richiesto se la distribuzione resta dal checkout sorgente; eventuali pacchetti introdotti devono avere checksum SHA-256 e limiti di firma documentati.
+- Stato: **milestone pianificata il 2026-09-05; branch dedicato creato, implementazione non ancora avviata**.
+
+### Checklist milestone 6
+
+- [x] Branch milestone creato (`milestone/6-official-results-dashboard`)
+- [x] Obiettivo, flussi di apertura e confini rispetto alla finalissima definiti nel piano
+- [ ] Architettura di `dashboard/` e contratto dati ufficiale definiti senza duplicare la logica del core
+- [ ] Snapshot iniziale pubblico, riproducibile e privacy-bounded generato e revisionato
+- [ ] Apertura diretta di `dashboard/index.html` verificata offline tramite `file://`
+- [ ] Launcher `dashboard.py` implementato con sola libreria standard, binding `127.0.0.1` e arresto pulito
+- [ ] Selezione automatica ed esplicita dei run compatibili implementata con path confinati alla root
+- [ ] Panoramica, classifiche, funnel, confronti, dettaglio task, filtri e ordinamento implementati
+- [ ] Stati `not_run_in_next`, timeout, errore, dati mancanti ed esclusione d'integrità rappresentati correttamente
+- [ ] Lingua italiana/inglese, tema chiaro/scuro, persistenza, responsive e accessibilità da tastiera verificati
+- [ ] Importazione manuale di `dashboard-data.json` mantenuta e documentata
+- [ ] Test Python, JavaScript, negativi e browser aggiunti e verdi
+- [ ] Smoke manuale con doppio clic e con `python3 dashboard.py` eseguito su piattaforme applicabili
+- [ ] Assenza di rete remota, telemetria, dati sensibili e modifiche ai risultati sorgente verificata
+- [ ] Versione `0.6.0` sincronizzata nei punti canonici
+- [ ] README, manuali, quick start, SECURITY_MODEL, MAP, AGENTS e PLAN aggiornati
+- [ ] CI macOS, Ubuntu e Windows verde sul branch e sulla PR
+- [ ] Approvazione esplicita del progettista prima del merge
+- [ ] Merge verso `main` e CI post-merge verificata
+- [ ] Tag annotato `v0.6.0` e GitHub release pubblicati e verificati se autorizzati
+- [ ] Branch milestone locale e remoto eliminato soltanto dopo tutte le verifiche di chiusura
