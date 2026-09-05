@@ -55,9 +55,27 @@ python3 benchmark.py dashboard-data \
 python3 benchmark.py case validate results_dashboard
 ```
 
-Committare il dataset insieme all'eventuale aggiornamento del piano. Il preflight richiede che manifesto, prompt, fixture, grader e rubrica siano puliti: così tutti i finalisti ricevono la stessa copia e lo stesso hash.
+Dopo una validazione riuscita, controllare e committare intenzionalmente la sola fixture congelata:
 
-Commit the dataset together with any plan update. Preflight requires the manifest, prompt, fixture, grader, and rubric to be clean, ensuring that every finalist receives the same copy and hash.
+After successful validation, inspect and intentionally commit only the frozen fixture:
+
+```bash
+git status --short
+git diff -- cases/results_dashboard/fixture/dashboard-data.json
+git add -- cases/results_dashboard/fixture/dashboard-data.json
+git diff --cached --name-only
+git diff --cached --check
+git commit -m "test: freeze showcase finalist dataset"
+git status --short
+```
+
+L'elenco di `git diff --cached --name-only` deve contenere soltanto `cases/results_dashboard/fixture/dashboard-data.json`, salvo altri aggiornamenti intenzionali già revisionati. Non usare `git add .`: manifesti, prompt, grader, rubriche o modifiche estranee non devono entrare accidentalmente nel commit. L'ultimo `git status --short` non deve mostrare input protetti modificati; revisionare e committare separatamente eventuali aggiornamenti intenzionali del piano o della documentazione prima del run. Il push non è necessario per un run locale; quando serve condividere il commit o attivare la CI, eseguire `git push` sul branch corrente.
+
+The `git diff --cached --name-only` output must contain only `cases/results_dashboard/fixture/dashboard-data.json`, unless other intentional changes have already been reviewed. Do not use `git add .`: manifests, prompts, graders, rubrics, or unrelated changes must not enter the commit accidentally. The final `git status --short` must not show modified protected inputs; review and commit any intentional plan or documentation updates separately before the run. A push is not required for a local run; when the commit must be shared or CI triggered, run `git push` on the current branch.
+
+Il preflight richiede che `AGENTS.md`, `.gitignore`, manifesto, prompt, fixture, grader e rubrica selezionati siano puliti: così tutti i finalisti ricevono la stessa copia e lo stesso hash.
+
+Preflight requires `AGENTS.md`, `.gitignore`, and the selected manifest, prompt, fixture, grader, and rubric to be clean, ensuring that every finalist receives the same copy and hash.
 
 ## 4. Eseguire i finalisti / Run finalists
 

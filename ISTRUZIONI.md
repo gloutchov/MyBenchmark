@@ -99,7 +99,21 @@ python3 benchmark.py dashboard-data \
 python3 benchmark.py case validate results_dashboard
 ```
 
-Committare l'input prima del run, poi eseguire soltanto i finalisti con `python3 benchmark.py run --profile showcase --models MODEL-A MODEL-B --sandbox required`. Il runner consegna la stessa fotografia a tutti. Il grader tecnico vale 100 punti e usa anche un dataset nascosto; la rubrica visuale da 20 punti resta manuale e separata. Per avvio locale, import multiplo e checklist browser seguire [QUICK-START_Showcase.md](QUICK-START_Showcase.md).
+Dopo una validazione riuscita, controllare e committare soltanto la fixture congelata:
+
+```bash
+git status --short
+git diff -- cases/results_dashboard/fixture/dashboard-data.json
+git add -- cases/results_dashboard/fixture/dashboard-data.json
+git diff --cached --name-only
+git diff --cached --check
+git commit -m "test: freeze showcase finalist dataset"
+git status --short
+```
+
+Prima del commit, `git diff --cached --name-only` deve elencare soltanto `cases/results_dashboard/fixture/dashboard-data.json`, salvo altri aggiornamenti intenzionali già revisionati. Non usare `git add .`. L'ultimo controllo non deve mostrare modifiche residue ad `AGENTS.md`, `.gitignore` o agli input del caso; gli eventuali aggiornamenti intenzionali del piano o della documentazione vanno revisionati e committati separatamente. Il push non è necessario per il run locale; usare `git push` sul branch corrente soltanto quando occorre condividere il commit o attivare la CI.
+
+Eseguire quindi soltanto i finalisti con `python3 benchmark.py run --profile showcase --models MODEL-A MODEL-B --sandbox required`. Il runner consegna la stessa fotografia a tutti. Il grader tecnico vale 100 punti e usa anche un dataset nascosto; la rubrica visuale da 20 punti resta manuale e separata. Per avvio locale, import multiplo e checklist browser seguire [QUICK-START_Showcase.md](QUICK-START_Showcase.md).
 
 ## 5. Configurazione
 

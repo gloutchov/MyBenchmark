@@ -88,7 +88,21 @@ python3 benchmark.py dashboard-data \
 python3 benchmark.py case validate results_dashboard
 ```
 
-Commit the input before running `python3 benchmark.py run --profile showcase --models MODEL-A MODEL-B --sandbox required`. Every finalist receives the same snapshot. The 100-point technical grader uses an additional hidden dataset; the 20-point visual rubric remains separate and manual. See [QUICK-START_Showcase.md](QUICK-START_Showcase.md) for local startup, multi-file import, and browser review.
+After successful validation, inspect and commit only the frozen fixture:
+
+```bash
+git status --short
+git diff -- cases/results_dashboard/fixture/dashboard-data.json
+git add -- cases/results_dashboard/fixture/dashboard-data.json
+git diff --cached --name-only
+git diff --cached --check
+git commit -m "test: freeze showcase finalist dataset"
+git status --short
+```
+
+Before committing, `git diff --cached --name-only` must list only `cases/results_dashboard/fixture/dashboard-data.json`, unless other intentional changes have already been reviewed. Do not use `git add .`. The final check must show no remaining modifications to `AGENTS.md`, `.gitignore`, or the case inputs; review and commit any intentional plan or documentation changes separately. A push is not required for a local run; use `git push` on the current branch only when the commit must be shared or CI triggered.
+
+Then run only the finalists with `python3 benchmark.py run --profile showcase --models MODEL-A MODEL-B --sandbox required`. Every finalist receives the same snapshot. The 100-point technical grader uses an additional hidden dataset; the 20-point visual rubric remains separate and manual. See [QUICK-START_Showcase.md](QUICK-START_Showcase.md) for local startup, multi-file import, and browser review.
 
 ## 5. Configuration
 
