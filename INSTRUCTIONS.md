@@ -106,9 +106,44 @@ Then run only the finalists with `python3 benchmark.py run --profile showcase --
 
 The showcase remains a valid test even when no model exceeds 60/100. Preserve timeouts, errors, below-threshold scores, and unchanged baselines as negative outcomes; do not alter the dataset or grader to obtain a completed dashboard. Manual review may assign `0/20` or record “not applicable” when no functional interface exists, without changing the automatic score.
 
+### Official results dashboard
+
+The official dashboard under `dashboard/` is the stable viewer maintained by the project; it is separate from dashboards produced by models during the showcase. Double-click `dashboard/index.html` for an immediate view of the reviewed Milestone 5 public snapshot. It works over `file://` without a server.
+
+To view all compatible runs directly below `results/`, run:
+
+```bash
+python3 dashboard.py
+```
+
+The command aggregates valid runs in memory, starts a server on `127.0.0.1` using an available port, opens the browser, and prints the URL. It never serves raw result files or modifies source runs. Stop it with `Ctrl+C`. If no compatible run exists, it falls back to the bundled snapshot.
+
+Select sources and launcher behavior explicitly when needed:
+
+```bash
+python3 dashboard.py results/SMOKE-RUN results/STANDARD-RUN results/FULL-RUN
+python3 dashboard.py --dataset results/finalists-dashboard-data.json
+python3 dashboard.py --no-open --port 8765
+```
+
+- positional paths must identify distinct run directories inside the project root;
+- `--dataset` accepts one already-sanitized `dashboard-data` export and cannot be combined with run directories;
+- `--no-open` leaves browser startup to you; open the printed URL;
+- port `0`, the default, selects an available port; an occupied fixed port returns a clear error.
+
+The page's **Choose files** control accepts only one or more compatible `dashboard-data.json` files. Do not choose `run.json`, `report.json`, a directory, `REPORT.md`, `result.json`, logs, or other raw artifacts. Create a compatible file with:
+
+```bash
+python3 benchmark.py dashboard-data \
+  results/SMOKE-RUN results/STANDARD-RUN results/FULL-RUN \
+  --output results/finalists-dashboard-data.json
+```
+
+Import stays in the browser tab's memory: no file is uploaded, the bundled snapshot is not overwritten, and nothing is committed. Reloading returns to the initial source. Language and theme are the only preferences stored in browser `localStorage`. See [QUICK-START_Dashboard.md](QUICK-START_Dashboard.md) for the complete short workflow.
+
 ## 5. Configuration
 
-`benchmark.json` is the central configuration file. It defines the Ollama URL, Pi command, model selection, timeout, repetitions, thinking level, warmup, context and output limits, temperature, sandbox mode, profiles, and the in-repository case discovery directory. Each `cases/<id>/case.json` holds bilingual titles, category, weight, and relative input paths.
+`benchmark.json` is the central configuration file. It defines the Ollama URL, Pi command, model selection, timeout, repetitions, thinking level, warmup, context and output limits, temperature, sandbox mode, profiles, the in-repository case discovery directory, and official dashboard paths, loopback host, port, and browser behavior. Each `cases/<id>/case.json` holds bilingual titles, category, weight, and relative input paths.
 
 Configuration is validated at startup. It must not contain secrets. The generated Ollama provider uses the literal dummy key `ollama`, which the local server ignores.
 
@@ -168,6 +203,11 @@ Use the same configuration, profile, repetitions, seed, hardware, and similar sy
 - `Manifesto mancante` or `paths.*`: complete `case.json`, use only POSIX-style relative paths inside the case, remove symlinks from declared paths, and rerun `case validate`.
 - `max_score`, `points`, `earned`, or baseline errors: repair the grader contract; checks must total 100 and the starting fixture must remain below 60.
 - `dashboard-data` error: verify schema 2/3, consistent profiles, distinct directories, and paths inside the project root; use `--force` only after reviewing the file being replaced.
+- Dashboard shows older data: direct `index.html` intentionally shows the bundled snapshot; run `python3 dashboard.py` for current local runs.
+- No local dashboard runs: each immediate directory under `results/` must contain compatible `run.json` and `report.json`, or pass explicit run directories.
+- Dashboard port is occupied: omit `--port`, use `--port 0`, or select another number.
+- Browser does not open: run `python3 dashboard.py --no-open` and open the printed URL manually.
+- **Choose files** rejects the file: generate and select `dashboard-data.json`, not `run.json` or `report.json`; each file is capped at 32 MiB.
 - `violations_detected`: read **Detected violations**, then inspect `report.json`, `run.json`, and the corresponding `pi-events.jsonl`; do not manually restore the disqualified model to the leaderboard. Regenerating a report applies the current audit to older events without changing their original `result.json` files.
 - `snapshot_compromised`: preserve the diagnostic artifacts, fix the cause, and start a new run.
 - `Sandbox OS richiesta ma non disponibile`: install or enable the backend reported by `doctor`, deliberately use `--sandbox auto` to permit fallback, or choose `--sandbox audit` for the historical behavior.
@@ -178,7 +218,7 @@ The runner exits with code `1` when one or more tasks end in an error or timeout
 
 ## 9. Security and privacy
 
-Do not add private data, real repositories, or credentials to cases. Manifests and templates do not grant trust: an imported grader remains untrusted until reviewed because validation and grading execute it on the host. `audit` and the `auto` fallback are not sandboxes. The macOS backend restricts external user files and networking except Ollama loopback and relies on the deprecated `sandbox-exec` interface. On Linux, Pi runs in an empty network namespace and reaches only the Ollama broker through a Unix socket inside the workspace. On Windows, AppContainer receives no network capabilities and uses a named pipe dedicated to its SID; temporary ACLs grant only required paths, and a Job Object terminates descendants. Brokers and graders remain trusted host processes outside the sandbox. The dashboard export omits raw content but retains model names, titles, metrics, and hashes; it remains potentially sensitive local data and must not be published automatically. Read `SECURITY_MODEL.md` before extending the benchmark.
+Do not add private data, real repositories, or credentials to cases. Manifests and templates do not grant trust: an imported grader remains untrusted until reviewed because validation and grading execute it on the host. `audit` and the `auto` fallback are not sandboxes. The macOS backend restricts external user files and networking except Ollama loopback and relies on the deprecated `sandbox-exec` interface. On Linux, Pi runs in an empty network namespace and reaches only the Ollama broker through a Unix socket inside the workspace. On Windows, AppContainer receives no network capabilities and uses a named pipe dedicated to its SID; temporary ACLs grant only required paths, and a Job Object terminates descendants. Brokers and graders remain trusted host processes outside the sandbox. The dashboard export omits raw content but retains model names, titles, metrics, and hashes; it remains potentially sensitive local data and must not be published automatically. The official server is bound to `127.0.0.1` and serves only allowlisted assets plus the public in-memory dataset, but other local processes and browser extensions remain outside its trust boundary. Read `SECURITY_MODEL.md` before extending the benchmark.
 
 ## 10. Known limitations
 
@@ -194,3 +234,4 @@ Do not add private data, real repositories, or credentials to cases. Manifests a
 - `sandbox-exec` is deprecated and may disappear from future macOS versions; `required` prevents silent fallback.
 - POSIX child metrics may not fully include every descendant; RAPL is host-wide and may be unreadable without additional privileges.
 - The dashboard grader checks transformations and observable requirements, but responsive behavior, visual rendering, keyboard use, and absence of remote requests still require a real-browser review and the manual rubric on each candidate workspace.
+- The official dashboard does not anonymize or publish exports; review names, scores, and hashes before sharing a snapshot or `dashboard-data.json`.

@@ -215,6 +215,20 @@ class DashboardDataTests(unittest.TestCase):
         validate_dashboard_data(fixture)
         self.assertEqual(["smoke", "standard", "full"], fixture["profile_order"])
 
+    def test_public_validator_rejects_nested_non_whitelisted_fields(self):
+        fixture = json.loads(
+            (ROOT / "cases" / "results_dashboard" / "fixture" / "dashboard-data.json").read_text(encoding="utf-8")
+        )
+        fixture["runs"][0]["tasks"][0]["final_response"] = "PRIVATE-RESPONSE"
+        with self.assertRaisesRegex(DashboardDataError, "Campi non validi"):
+            validate_dashboard_data(fixture)
+        fixture = json.loads(
+            (ROOT / "cases" / "results_dashboard" / "fixture" / "dashboard-data.json").read_text(encoding="utf-8")
+        )
+        fixture["runs"][0]["tasks"][0]["state"] = "mystery"
+        with self.assertRaisesRegex(DashboardDataError, "Task non valida"):
+            validate_dashboard_data(fixture)
+
 
 if __name__ == "__main__":
     unittest.main()

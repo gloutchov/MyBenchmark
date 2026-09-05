@@ -36,6 +36,16 @@ class Defaults:
 
 
 @dataclass(frozen=True)
+class DashboardSettings:
+    assets_directory: Path
+    results_directory: Path
+    snapshot_source: Path
+    host: str
+    port: int
+    open_browser: bool
+
+
+@dataclass(frozen=True)
 class BenchmarkConfig:
     root: Path
     ollama_url: str
@@ -45,6 +55,7 @@ class BenchmarkConfig:
     profiles: dict[str, tuple[str, ...]]
     cases: dict[str, CaseSpec]
     cases_directory: Path
+    dashboard: DashboardSettings
 
 
 def _require(mapping: dict[str, Any], key: str, expected: type) -> Any:
@@ -52,6 +63,18 @@ def _require(mapping: dict[str, Any], key: str, expected: type) -> Any:
     if not isinstance(value, expected):
         raise ConfigError(f"'{key}' deve essere di tipo {expected.__name__}")
     return value
+
+
+def _repository_path(root: Path, value: Any, *, key: str) -> Path:
+    if not isinstance(value, str) or not value.strip():
+        raise ConfigError(f"'{key}' deve essere una stringa relativa non vuota")
+    candidate = Path(value)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise ConfigError(f"'{key}' deve essere un path relativo dentro il repository")
+    resolved = (root / candidate).resolve()
+    if resolved != root and root not in resolved.parents:
+        raise ConfigError(f"'{key}' deve restare dentro il repository")
+    return resolved
 
 
 def load_config(path: Path) -> BenchmarkConfig:
@@ -162,6 +185,45 @@ def load_config(path: Path) -> BenchmarkConfig:
     if "standard" not in profiles:
         raise ConfigError("È richiesto il profilo 'standard'")
 
+    dashboard_raw = raw.get("dashboard", {})
+    if not isinstance(dashboard_raw, dict):
+        raise ConfigError("'dashboard' deve essere di tipo dict")
+    unknown_dashboard = sorted(
+        set(dashboard_raw)
+        - {"assets_directory", "results_directory", "snapshot_source", "host", "port", "open_browser"}
+    )
+    if unknown_dashboard:
+        raise ConfigError(f"Campi sconosciuti in dashboard: {', '.join(unknown_dashboard)}")
+    dashboard_host = dashboard_raw.get("host", "127.0.0.1")
+    if dashboard_host != "127.0.0.1":
+        raise ConfigError("dashboard.host deve essere 127.0.0.1")
+    dashboard_port = dashboard_raw.get("port", 0)
+    if isinstance(dashboard_port, bool) or not isinstance(dashboard_port, int) or not 0 <= dashboard_port <= 65535:
+        raise ConfigError("dashboard.port deve essere un intero tra 0 e 65535")
+    dashboard_open_browser = dashboard_raw.get("open_browser", True)
+    if not isinstance(dashboard_open_browser, bool):
+        raise ConfigError("dashboard.open_browser deve essere booleano")
+    dashboard = DashboardSettings(
+        assets_directory=_repository_path(
+            root,
+            dashboard_raw.get("assets_directory", "dashboard"),
+            key="dashboard.assets_directory",
+        ),
+        results_directory=_repository_path(
+            root,
+            dashboard_raw.get("results_directory", "results"),
+            key="dashboard.results_directory",
+        ),
+        snapshot_source=_repository_path(
+            root,
+            dashboard_raw.get("snapshot_source", "cases/results_dashboard/fixture/dashboard-data.json"),
+            key="dashboard.snapshot_source",
+        ),
+        host=dashboard_host,
+        port=dashboard_port,
+        open_browser=dashboard_open_browser,
+    )
+
     return BenchmarkConfig(
         root=root,
         ollama_url=ollama_url,
@@ -171,4 +233,5 @@ def load_config(path: Path) -> BenchmarkConfig:
         profiles=profiles,
         cases=cases,
         cases_directory=cases_directory,
+        dashboard=dashboard,
     )

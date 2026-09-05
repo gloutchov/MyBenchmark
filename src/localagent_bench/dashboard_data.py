@@ -17,6 +17,79 @@ SUPPORTED_RUN_SCHEMA_VERSIONS = {2, 3}
 SUPPORTED_REPORT_SCHEMA_VERSIONS = {2, 3}
 MAX_SOURCE_BYTES = 32 * 1024 * 1024
 PROFILE_PIPELINE = ("smoke", "standard", "full", "showcase")
+RUN_FIELDS = {
+    "id",
+    "profile",
+    "benchmark_version",
+    "started_at",
+    "finished_at",
+    "provenance",
+    "sandbox",
+    "integrity",
+    "participants",
+    "leaderboard",
+    "tasks",
+}
+PROVENANCE_FIELDS = {
+    "run_schema_version",
+    "report_schema_version",
+    "run_sha256",
+    "report_sha256",
+    "repository_commit",
+}
+SANDBOX_FIELDS = {
+    "backend",
+    "enforced",
+    "filesystem_isolation",
+    "process_isolation",
+    "network_isolation",
+}
+INTEGRITY_FIELDS = {"status", "disqualified_models"}
+LEADERBOARD_FIELDS = {
+    "rank",
+    "model",
+    "overall_score",
+    "quality_score",
+    "completion_rate",
+    "speed_score",
+    "token_efficiency_score",
+    "median_duration_seconds",
+    "median_output_tokens",
+    "median_cpu_seconds",
+    "median_energy_joules",
+    "score_stddev",
+    "successful_tasks",
+    "total_tasks",
+    "case_scores",
+}
+TASK_FIELDS = {
+    "model",
+    "case_id",
+    "case_title",
+    "case_title_en",
+    "category",
+    "repetition",
+    "status",
+    "state",
+    "score",
+    "max_score",
+    "duration_seconds",
+    "output_tokens",
+    "tool_calls",
+    "tool_errors",
+    "cpu_seconds",
+    "energy_joules",
+    "integrity_valid",
+}
+FUNNEL_FIELDS = {
+    "profile",
+    "run_ids",
+    "participants",
+    "new_participants",
+    "next_profile",
+    "continued_to_next",
+    "not_run_in_next",
+}
 
 
 class DashboardDataError(ValueError):
@@ -81,6 +154,31 @@ def _string_list(value: Any) -> list[str]:
     if not isinstance(value, list):
         return []
     return list(dict.fromkeys(label for item in value if (label := _text(item))))
+
+
+def _require_exact_fields(value: Any, fields: set[str], *, label: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != fields:
+        raise DashboardDataError(f"Campi non validi in {label}")
+    return value
+
+
+def _validate_public_string_list(value: Any, *, label: str, maximum: int = 256) -> None:
+    if not isinstance(value, list) or any(_text(item, maximum=maximum) != item for item in value):
+        raise DashboardDataError(f"{label} deve contenere stringhe pubbliche valide")
+    if len(value) != len(set(value)):
+        raise DashboardDataError(f"{label} contiene duplicati")
+
+
+def _valid_public_text(value: Any, *, maximum: int = 256, nullable: bool = False) -> bool:
+    return (nullable and value is None) or _text(value, maximum=maximum) == value
+
+
+def _valid_nullable_number(value: Any) -> bool:
+    return value is None or _number(value, minimum=0) is not None
+
+
+def _valid_nullable_integer(value: Any) -> bool:
+    return value is None or _integer(value) is not None
 
 
 def _sanitize_case_scores(value: Any) -> dict[str, float | int]:
@@ -326,26 +424,112 @@ def validate_dashboard_data(dataset: Any) -> None:
     profiles = dataset.get("profile_order")
     runs = dataset.get("runs")
     funnel = dataset.get("funnel")
-    if not isinstance(profiles, list) or not profiles or not all(_text(item, maximum=64) for item in profiles):
+    if not isinstance(profiles, list) or not profiles:
         raise DashboardDataError("profile_order deve contenere profili validi")
-    if len(profiles) != len(set(profiles)):
-        raise DashboardDataError("profile_order contiene duplicati")
+    _validate_public_string_list(profiles, label="profile_order", maximum=64)
     if not isinstance(runs, list) or not runs:
         raise DashboardDataError("runs deve contenere almeno un run")
     ids: set[str] = set()
     for run in runs:
-        if not isinstance(run, dict) or not _text(run.get("id"), maximum=120):
+        run = _require_exact_fields(run, RUN_FIELDS, label="run dashboard")
+        if _text(run.get("id"), maximum=120) != run.get("id"):
             raise DashboardDataError("Run dashboard non valido")
         if run["id"] in ids:
             raise DashboardDataError(f"ID run duplicato: {run['id']}")
         ids.add(run["id"])
         if run.get("profile") not in profiles:
             raise DashboardDataError(f"Profilo run non dichiarato: {run.get('profile')!r}")
-        for key in ("participants", "leaderboard", "tasks"):
-            if not isinstance(run.get(key), list):
-                raise DashboardDataError(f"{key} deve essere una lista nel run {run['id']}")
+        for key, maximum in (("benchmark_version", 32), ("started_at", 64), ("finished_at", 64)):
+            if not _valid_public_text(run.get(key), maximum=maximum, nullable=key != "benchmark_version"):
+                raise DashboardDataError(f"{key} non valido nel run {run['id']}")
+        provenance = _require_exact_fields(
+            run.get("provenance"), PROVENANCE_FIELDS, label=f"provenance di {run['id']}"
+        )
+        if (
+            _integer(provenance["run_schema_version"], minimum=1) not in SUPPORTED_RUN_SCHEMA_VERSIONS
+            or _integer(provenance["report_schema_version"], minimum=1) not in SUPPORTED_REPORT_SCHEMA_VERSIONS
+        ):
+            raise DashboardDataError(f"Versione di provenienza non valida nel run {run['id']}")
+        for key in ("run_sha256", "report_sha256"):
+            value = provenance[key]
+            if not isinstance(value, str) or len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
+                raise DashboardDataError(f"Hash di provenienza non valido nel run {run['id']}")
+        if not _valid_public_text(provenance["repository_commit"], maximum=128, nullable=True):
+            raise DashboardDataError(f"Commit di provenienza non valido nel run {run['id']}")
+        sandbox = _require_exact_fields(run.get("sandbox"), SANDBOX_FIELDS, label=f"sandbox di {run['id']}")
+        if not _valid_public_text(sandbox["backend"], maximum=64) or any(
+            not isinstance(sandbox[key], bool)
+            for key in ("enforced", "filesystem_isolation", "process_isolation", "network_isolation")
+        ):
+            raise DashboardDataError(f"Sandbox non valida nel run {run['id']}")
+        integrity = _require_exact_fields(
+            run.get("integrity"), INTEGRITY_FIELDS, label=f"integrity di {run['id']}"
+        )
+        if not _valid_public_text(integrity["status"], maximum=64):
+            raise DashboardDataError(f"Integrità non valida nel run {run['id']}")
+        _validate_public_string_list(run.get("participants"), label=f"participants di {run['id']}")
+        _validate_public_string_list(
+            integrity.get("disqualified_models"), label=f"disqualified_models di {run['id']}"
+        )
+        if not isinstance(run.get("leaderboard"), list) or not isinstance(run.get("tasks"), list):
+            raise DashboardDataError(f"Leaderboard o task non valide nel run {run['id']}")
+        for row in run["leaderboard"]:
+            row = _require_exact_fields(row, LEADERBOARD_FIELDS, label=f"leaderboard di {run['id']}")
+            numeric_fields = LEADERBOARD_FIELDS - {
+                "rank",
+                "model",
+                "successful_tasks",
+                "total_tasks",
+                "case_scores",
+            }
+            if (
+                _integer(row["rank"], minimum=1) is None
+                or not _valid_public_text(row["model"])
+                or any(not _valid_nullable_number(row[key]) for key in numeric_fields)
+                or not _valid_nullable_integer(row["successful_tasks"])
+                or not _valid_nullable_integer(row["total_tasks"])
+                or not isinstance(row.get("case_scores"), dict)
+                or any(
+                    not _valid_public_text(case_id, maximum=64) or _number(score, minimum=0) is None
+                    for case_id, score in row["case_scores"].items()
+                )
+            ):
+                raise DashboardDataError(f"case_scores non valido nel run {run['id']}")
+        for task in run["tasks"]:
+            task = _require_exact_fields(task, TASK_FIELDS, label=f"task di {run['id']}")
+            if (
+                any(
+                    not _valid_public_text(task[key], maximum=maximum)
+                    for key, maximum in (
+                        ("model", 256),
+                        ("case_id", 64),
+                        ("case_title", 200),
+                        ("case_title_en", 200),
+                        ("category", 64),
+                        ("status", 32),
+                    )
+                )
+                or task["state"]
+                not in {"passed", "below_threshold", "timeout", "error", "missing_score", "integrity_excluded"}
+                or _integer(task["repetition"], minimum=1) is None
+                or any(
+                    not _valid_nullable_number(task[key])
+                    for key in ("score", "max_score", "duration_seconds", "cpu_seconds", "energy_joules")
+                )
+                or any(
+                    not _valid_nullable_integer(task[key]) for key in ("output_tokens", "tool_calls", "tool_errors")
+                )
+                or (task["integrity_valid"] is not None and not isinstance(task["integrity_valid"], bool))
+            ):
+                raise DashboardDataError(f"Task non valida nel run {run['id']}")
     if not isinstance(funnel, list) or [item.get("profile") for item in funnel if isinstance(item, dict)] != profiles:
         raise DashboardDataError("Funnel non coerente con profile_order")
+    for stage in funnel:
+        stage = _require_exact_fields(stage, FUNNEL_FIELDS, label="funnel")
+        if stage["profile"] not in profiles or (stage["next_profile"] is not None and stage["next_profile"] not in profiles):
+            raise DashboardDataError("Profili non validi nel funnel")
+        for key in ("run_ids", "participants", "new_participants", "continued_to_next", "not_run_in_next"):
+            _validate_public_string_list(stage.get(key), label=f"{key} del funnel", maximum=256)
 
 
 def write_dashboard_data(

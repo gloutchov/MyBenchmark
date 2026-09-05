@@ -117,6 +117,41 @@ Eseguire quindi soltanto i finalisti con `python3 benchmark.py run --profile sho
 
 La finalissima resta un test valido anche quando nessun modello supera 60/100. Conservare timeout, errori, punteggi sotto soglia e baseline non modificate come risultati negativi; non cambiare dataset o grader per ottenere una dashboard completata. La revisione manuale può assegnare `0/20` oppure indicare “non applicabile” quando non esiste un'interfaccia funzionante, senza modificare lo score automatico.
 
+### Dashboard ufficiale dei risultati
+
+La dashboard ufficiale sotto `dashboard/` è il lettore stabile mantenuto dal progetto; non va confusa con le dashboard prodotte dai modelli durante la finalissima. Per una vista immediata, fare doppio clic su `dashboard/index.html`: la pagina mostra lo snapshot pubblico revisionato della milestone 5, funziona tramite `file://` e non richiede un server.
+
+Per visualizzare invece tutti i run compatibili presenti direttamente sotto `results/`, eseguire:
+
+```bash
+python3 dashboard.py
+```
+
+Il comando aggrega i run validi soltanto in memoria, avvia un server su `127.0.0.1` con una porta libera, apre il browser e stampa l'URL. Non serve file raw e non modifica i risultati. Terminare con `Ctrl+C`. Se non esistono run compatibili, viene mostrato lo snapshot incluso.
+
+È possibile scegliere sorgenti e comportamento in modo esplicito:
+
+```bash
+python3 dashboard.py results/SMOKE-RUN results/STANDARD-RUN results/FULL-RUN
+python3 dashboard.py --dataset results/finalists-dashboard-data.json
+python3 dashboard.py --no-open --port 8765
+```
+
+- le directory passate come argomenti devono essere run distinti dentro la root del progetto;
+- `--dataset` accetta un singolo export già sanificato prodotto da `dashboard-data` e non si combina con directory di run;
+- `--no-open` evita l'apertura automatica del browser; copiare l'URL stampato;
+- `--port 0`, valore predefinito, sceglie una porta disponibile; una porta fissa occupata produce un errore chiaro.
+
+Il pulsante **Scegli file** dentro la pagina serve solo per aggiungere uno o più file `dashboard-data.json` compatibili. Non scegliere `run.json`, `report.json`, una directory, `REPORT.md`, `result.json`, log o altri artefatti raw. Per crearne uno:
+
+```bash
+python3 benchmark.py dashboard-data \
+  results/SMOKE-RUN results/STANDARD-RUN results/FULL-RUN \
+  --output results/finalists-dashboard-data.json
+```
+
+L'importazione resta nella memoria della scheda del browser: non invia dati in rete, non sovrascrive lo snapshot e non committa file. Ricaricando la pagina si torna alla sorgente iniziale. Lingua e tema sono le sole preferenze persistite nel `localStorage` del browser. La guida breve completa è [QUICK-START_Dashboard.md](QUICK-START_Dashboard.md).
+
 ## 5. Configurazione
 
 `benchmark.json` contiene tutti i parametri modificabili:
@@ -127,6 +162,7 @@ La finalissima resta un test valido anche quando nessun modello supera 60/100. C
 - `defaults`: timeout, ripetizioni, thinking, warmup, keep-alive, contesto, output massimo, temperatura e modalità sandbox;
 - `profiles`: gruppi di casi;
 - `cases.directory`: directory, interna al repository, da cui scoprire i manifesti `case.json`.
+- `dashboard`: directory degli asset, directory dei risultati, sorgente dello snapshot, host loopback, porta e apertura automatica del browser.
 
 La configurazione viene validata all'avvio. Non contiene e non deve contenere segreti. Il valore `apiKey` generato per il provider Ollama è il placeholder letterale `ollama`, ignorato dal server locale.
 
@@ -188,6 +224,11 @@ All'avvio `AGENTS.md`, `.gitignore`, manifesti, prompt, fixture, grader e rubric
 - `Manifesto mancante` o `paths.*`: completare `case.json`, usare soltanto path relativi POSIX interni al caso e rimuovere symlink sui path dichiarati; rieseguire `case validate`.
 - errore `max_score`, `points`, `earned` o baseline: correggere il contratto del grader; i check devono totalizzare 100 e la fixture iniziale deve restare sotto 60.
 - errore `dashboard-data`: verificare schema 2/3, coerenza del profilo, directory distinte e path interni alla root; usare `--force` soltanto dopo aver revisionato il file da sostituire.
+- dashboard con dati vecchi: il doppio clic mostra intenzionalmente lo snapshot incluso; usare `python3 dashboard.py` per i run locali correnti.
+- nessun run locale nella dashboard: verificare che ogni directory immediatamente sotto `results/` contenga `run.json` e `report.json` compatibili, oppure passare directory esplicite.
+- porta dashboard occupata: omettere `--port`, usare `--port 0` o scegliere un altro numero.
+- il browser non si apre: usare `python3 dashboard.py --no-open` e aprire manualmente l'URL stampato.
+- **Scegli file** rifiuta il file: generare e selezionare `dashboard-data.json`, non `run.json` o `report.json`; il limite è 32 MiB per file.
 - `violations_detected`: leggere prima la tabella **Violazioni rilevate**, poi aprire `report.json`, `run.json` e il relativo `pi-events.jsonl`; il modello indicato è escluso e non va reinserito manualmente in classifica. La rigenerazione del report applica l'audit corrente agli eventi più vecchi senza cambiare i `result.json` originali.
 - `snapshot_compromised`: il runner ha interrotto la matrice perché la fotografia condivisa non è più affidabile; conservare gli artefatti per diagnosi e avviare un nuovo run solo dopo aver risolto la causa.
 - `Sandbox OS richiesta ma non disponibile`: installare/abilitare il backend indicato da `doctor`, usare consapevolmente `--sandbox auto` per consentire fallback oppure `--sandbox audit` per il comportamento storico.
@@ -198,7 +239,7 @@ Il runner restituisce exit code `1` se una o più task terminano con errore o ti
 
 ## 9. Sicurezza e privacy
 
-Non inserire dati privati, repository reali o credenziali nelle fixture. Manifesti e template non concedono permessi: un grader importato resta codice non fidato finché non viene revisionato, perché validazione e grading lo eseguono sul processo host. `audit` e il fallback di `auto` non sono sandbox. Il backend macOS restringe file utente esterni e rete salvo Ollama loopback ed è basato sulla deprecata interfaccia `sandbox-exec`. Su Linux Pi opera in un network namespace vuoto e raggiunge soltanto il broker Ollama tramite un socket Unix interno alla workspace. Su Windows AppContainer non riceve capability di rete e usa un named pipe dedicato al suo SID; ACL temporanee concedono solo i path necessari e un Job Object termina i discendenti. Broker e grader restano processi fidati eseguiti fuori sandbox. Il dataset dashboard omette contenuti raw ma conserva nomi modello, titoli, metriche e hash: resta un file locale potenzialmente sensibile e non deve essere pubblicato automaticamente. Consultare `SECURITY_MODEL.md`.
+Non inserire dati privati, repository reali o credenziali nelle fixture. Manifesti e template non concedono permessi: un grader importato resta codice non fidato finché non viene revisionato, perché validazione e grading lo eseguono sul processo host. `audit` e il fallback di `auto` non sono sandbox. Il backend macOS restringe file utente esterni e rete salvo Ollama loopback ed è basato sulla deprecata interfaccia `sandbox-exec`. Su Linux Pi opera in un network namespace vuoto e raggiunge soltanto il broker Ollama tramite un socket Unix interno alla workspace. Su Windows AppContainer non riceve capability di rete e usa un named pipe dedicato al suo SID; ACL temporanee concedono solo i path necessari e un Job Object termina i discendenti. Broker e grader restano processi fidati eseguiti fuori sandbox. Il dataset dashboard omette contenuti raw ma conserva nomi modello, titoli, metriche e hash: resta un file locale potenzialmente sensibile e non deve essere pubblicato automaticamente. Il server ufficiale è confinato a `127.0.0.1`, serve soltanto asset autorizzati e il dataset pubblico in memoria, ma altri processi locali e le estensioni del browser restano fuori dal suo confine di fiducia. Consultare `SECURITY_MODEL.md`.
 
 ## 10. Limiti noti
 
@@ -214,3 +255,4 @@ Non inserire dati privati, repository reali o credenziali nelle fixture. Manifes
 - `sandbox-exec` è deprecato e può non essere disponibile in future versioni macOS; `required` evita fallback silenziosi.
 - Le metriche POSIX possono non includere integralmente tutti i discendenti; RAPL misura il sistema host e può non essere leggibile senza privilegi.
 - Il grader della dashboard verifica trasformazioni e requisiti osservabili, ma responsive, resa visuale, tastiera e assenza di richieste remote richiedono anche una prova in browser e la rubrica manuale sul workspace candidato.
+- La dashboard ufficiale non rende anonimo un export e non pubblica risultati: nomi, punteggi e hash vanno revisionati prima di condividere lo snapshot o un `dashboard-data.json`.

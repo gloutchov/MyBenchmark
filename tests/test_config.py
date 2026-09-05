@@ -31,6 +31,11 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(20, config.cases["milestone_closure"].manual_rubric_max_score)
         self.assertEqual(("results_dashboard",), config.profiles["showcase"])
         self.assertEqual(20, config.cases["results_dashboard"].manual_rubric_max_score)
+        self.assertEqual((ROOT / "dashboard").resolve(), config.dashboard.assets_directory)
+        self.assertEqual((ROOT / "results").resolve(), config.dashboard.results_directory)
+        self.assertEqual("127.0.0.1", config.dashboard.host)
+        self.assertEqual(0, config.dashboard.port)
+        self.assertTrue(config.dashboard.open_browser)
 
     def test_unknown_profile_case_is_rejected(self):
         raw = json.loads((ROOT / "benchmark.json").read_text(encoding="utf-8"))
@@ -78,6 +83,35 @@ class ConfigTests(unittest.TestCase):
             path = Path(directory) / "benchmark.json"
             path.write_text(json.dumps(raw), encoding="utf-8")
             with self.assertRaisesRegex(ConfigError, "dentro il repository"):
+                load_config(path)
+
+    def test_dashboard_configuration_is_confined_and_loopback_only(self):
+        raw = json.loads((ROOT / "benchmark.json").read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            path = Path(directory) / "benchmark.json"
+            fixture = path.parent / "cases" / "dashboard_config" / "fixture"
+            fixture.mkdir(parents=True)
+            (fixture.parent / "prompt.md").write_text("prompt\n", encoding="utf-8")
+            (fixture.parent / "grader.py").write_text("print('{}')\n", encoding="utf-8")
+            raw["cases"] = [
+                {"id": "dashboard_config", "title": "Dashboard config", "category": "test", "weight": 1}
+            ]
+            raw["profiles"] = {"standard": ["dashboard_config"]}
+            raw["dashboard"]["assets_directory"] = "../outside"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ConfigError, "path relativo"):
+                load_config(path)
+
+            raw["dashboard"]["assets_directory"] = "dashboard"
+            raw["dashboard"]["host"] = "0.0.0.0"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ConfigError, "127.0.0.1"):
+                load_config(path)
+
+            raw["dashboard"]["host"] = "127.0.0.1"
+            raw["dashboard"]["port"] = 70000
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ConfigError, "0 e 65535"):
                 load_config(path)
 
 

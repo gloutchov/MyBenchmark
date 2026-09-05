@@ -548,7 +548,7 @@ Prima di iniziare lo sviluppo effettivo:
 
 ## Note specifiche per LocalAgent Benchmark
 
-- Il comando di verifica locale è `python3 -m unittest discover -s tests -v`; eseguire anche `python3 -m compileall -q benchmark.py src cases tests` quando cambia codice Python.
+- Il comando di verifica locale è `python3 -m unittest discover -s tests -v`; eseguire anche `python3 -m compileall -q benchmark.py dashboard.py src cases tests` quando cambia codice Python.
 - Mantenere il runtime Python privo di dipendenze esterne finché non esiste una motivazione documentata.
 - Non modificare fixture o grader mentre un benchmark è in esecuzione.
 - Prima di un run, mantenere puliti rispetto a Git `AGENTS.md`, `.gitignore` e tutti i manifesti, prompt, fixture, grader e rubriche selezionati: il preflight deve fallire, non essere aggirato, se questi input divergono.
@@ -571,3 +571,6 @@ Prima di iniziare lo sviluppo effettivo:
 - `dashboard-data` deve leggere soltanto `run.json` e `report.json` supportati, applicare una whitelist esplicita e non esportare path assoluti, prompt, risposte, comandi, log, evidenze di violazione o errori liberi; input e output devono restare nella root del progetto e le sorgenti non vanno modificate.
 - Il dataset della finalissima deve essere revisionato, congelato nella fixture `results_dashboard`, committato e identico per tutti i finalisti. `not_run_in_next` indica soltanto assenza dal profilo successivo e non deve essere trasformato in un fallimento implicito.
 - La dashboard candidata deve restare statica e offline, senza dipendenze runtime, CDN, telemetria o asset remoti. Il punteggio tecnico del grader e la rubrica visuale manuale devono restare separati; eseguire la verifica browser prima di scegliere o pubblicare un candidato.
+- La dashboard ufficiale sotto `dashboard/` è distinta dalle dashboard candidate del caso `results_dashboard`: deve restare statica, offline e apribile direttamente da `dashboard/index.html`; lo snapshot incluso deriva soltanto dalla fixture pubblica revisionata e si rigenera esclusivamente con `python3 dashboard.py --refresh-snapshot --force` dopo aver controllato la sorgente.
+- `dashboard.py` deve servire soltanto asset esplicitamente autorizzati e il dataset già ridotto in memoria, usare esclusivamente `127.0.0.1`, non esporre directory o file raw di `results/` e non modificare i run sorgente. Lingua e tema possono essere persistiti nel browser, ma nessun risultato deve essere salvato implicitamente.
+- Ogni modifica alla dashboard ufficiale richiede test Python e JavaScript, verifica da `file://` e server locale, prova responsive/tastiera e controllo che non partano richieste remote; il file chooser accetta soltanto export compatibili prodotti da `dashboard-data`.

@@ -10,3 +10,5 @@ dist/
 build/
 *.egg-info/
 results/
+output/playwright/
+.playwright-cli/

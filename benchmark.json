@@ -18,6 +18,14 @@
     "temperature": 0,
     "sandbox": "audit"
   },
+  "dashboard": {
+    "assets_directory": "dashboard",
+    "results_directory": "results",
+    "snapshot_source": "cases/results_dashboard/fixture/dashboard-data.json",
+    "host": "127.0.0.1",
+    "port": 0,
+    "open_browser": true
+  },
   "profiles": {
     "smoke": ["targeted_patch"],
     "standard": ["targeted_patch", "secure_workspace", "config_i18n"],

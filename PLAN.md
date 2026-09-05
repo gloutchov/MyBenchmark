@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.5.0**
+Versione corrente / Current version: **0.6.0**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -257,26 +257,26 @@ Versione corrente / Current version: **0.5.0**
 - Test: unit test Python per selezione run, validazione path, aggregazione, modalità senza apertura browser, binding loopback, arresto e assenza di scritture nelle sorgenti; test JavaScript delle trasformazioni, classifiche, funnel, filtri, ordinamento, formattazione dei dati mancanti e gestione di dataset schema 2–3; verifica che lo snapshot incluso sia riproducibile dal dataset congelato e contenga soltanto la whitelist pubblica; test negativi con JSON invalido, schema non supportato, directory fuori root, porte occupate e dataset vuoti; test browser sia da `file://` sia tramite server Python per caricamento iniziale, importazione file, cambio lingua/tema, persistenza, tastiera, responsive e assenza di richieste remote; smoke manuale con doppio clic su `index.html` e con `python3 dashboard.py`; compileall, suite unittest, validazione casi e CI su macOS, Ubuntu e Windows.
 - Documentazione: aggiornare README, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, aggiungere un quick start bilingue o due quick start coordinati per dashboard e launcher, aggiornare `SECURITY_MODEL.md` per server loopback, lettura dei risultati e dati esposti al browser, aggiornare `MAP.md`, `AGENTS.md` e questo piano; documentare esattamente la differenza fra snapshot incluso, risultati locali e importazione manuale, oltre a troubleshooting per browser che limitano `file://`, porta occupata e assenza di run compatibili.
 - Release: milestone rilasciabile come `v0.6.0`; tag e GitHub release soltanto dopo verifica manuale, CI verde, approvazione esplicita del progettista e merge. Nessun artifact binario è richiesto se la distribuzione resta dal checkout sorgente; eventuali pacchetti introdotti devono avere checksum SHA-256 e limiti di firma documentati.
-- Stato: **milestone pianificata il 2026-09-05; branch dedicato creato, implementazione non ancora avviata**.
+- Stato: **implementazione e verifica locale completate sul branch dedicato; CI e approvazione pre-merge ancora da completare. La dashboard ufficiale statica include lo snapshot pubblico riproducibile della milestone 5 e il launcher standard-library aggrega in memoria i run compatibili, serve soltanto asset autorizzati su `127.0.0.1` e non modifica le sorgenti. I validatori Python e JavaScript applicano anche ai campi annidati la whitelist del dataset pubblico. L'apertura diretta `file://` è stata verificata con Chrome, mentre il flusso loopback è stato provato con cinque run reali: caricamento, filtri, dettaglio task, import valido e invalido, lingua/tema persistenti, tastiera, layout mobile senza overflow e sole otto richieste agli asset locali; nessun errore o warning console. Compileall, 83 test unittest e 7 test Node sono verdi; 10 probe OS/loopback risultano non applicabili nel sandbox della suite, ma gli 8 test dedicati al launcher passano senza skip quando il loopback è consentito. I cinque casi sono validi.**
 
 ### Checklist milestone 6
 
 - [x] Branch milestone creato (`milestone/6-official-results-dashboard`)
 - [x] Obiettivo, flussi di apertura e confini rispetto alla finalissima definiti nel piano
-- [ ] Architettura di `dashboard/` e contratto dati ufficiale definiti senza duplicare la logica del core
-- [ ] Snapshot iniziale pubblico, riproducibile e privacy-bounded generato e revisionato
-- [ ] Apertura diretta di `dashboard/index.html` verificata offline tramite `file://`
-- [ ] Launcher `dashboard.py` implementato con sola libreria standard, binding `127.0.0.1` e arresto pulito
-- [ ] Selezione automatica ed esplicita dei run compatibili implementata con path confinati alla root
-- [ ] Panoramica, classifiche, funnel, confronti, dettaglio task, filtri e ordinamento implementati
-- [ ] Stati `not_run_in_next`, timeout, errore, dati mancanti ed esclusione d'integrità rappresentati correttamente
-- [ ] Lingua italiana/inglese, tema chiaro/scuro, persistenza, responsive e accessibilità da tastiera verificati
-- [ ] Importazione manuale di `dashboard-data.json` mantenuta e documentata
-- [ ] Test Python, JavaScript, negativi e browser aggiunti e verdi
-- [ ] Smoke manuale con doppio clic e con `python3 dashboard.py` eseguito su piattaforme applicabili
-- [ ] Assenza di rete remota, telemetria, dati sensibili e modifiche ai risultati sorgente verificata
-- [ ] Versione `0.6.0` sincronizzata nei punti canonici
-- [ ] README, manuali, quick start, SECURITY_MODEL, MAP, AGENTS e PLAN aggiornati
+- [x] Architettura di `dashboard/` e contratto dati ufficiale definiti senza duplicare la logica del core
+- [x] Snapshot iniziale pubblico, riproducibile e privacy-bounded generato e revisionato
+- [x] Apertura diretta di `dashboard/index.html` verificata offline tramite `file://`
+- [x] Launcher `dashboard.py` implementato con sola libreria standard, binding `127.0.0.1` e arresto pulito
+- [x] Selezione automatica ed esplicita dei run compatibili implementata con path confinati alla root
+- [x] Panoramica, classifiche, funnel, confronti, dettaglio task, filtri e ordinamento implementati
+- [x] Stati `not_run_in_next`, timeout, errore, dati mancanti ed esclusione d'integrità rappresentati correttamente
+- [x] Lingua italiana/inglese, tema chiaro/scuro, persistenza, responsive e accessibilità da tastiera verificati
+- [x] Importazione manuale di `dashboard-data.json` mantenuta e documentata
+- [x] Test Python, JavaScript, negativi e browser aggiunti e verdi
+- [x] Smoke manuale con doppio clic e con `python3 dashboard.py` eseguito su piattaforme applicabili
+- [x] Assenza di rete remota, telemetria, dati sensibili e modifiche ai risultati sorgente verificata
+- [x] Versione `0.6.0` sincronizzata nei punti canonici
+- [x] README, manuali, quick start, SECURITY_MODEL, MAP, AGENTS e PLAN aggiornati
 - [ ] CI macOS, Ubuntu e Windows verde sul branch e sulla PR
 - [ ] Approvazione esplicita del progettista prima del merge
 - [ ] Merge verso `main` e CI post-merge verificata

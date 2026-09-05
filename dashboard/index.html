@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Official offline results dashboard for LocalAgent Benchmark">
+    <meta name="color-scheme" content="light dark">
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    >
+    <title>LocalAgent Benchmark · Results</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+    <script src="data/snapshot.js" defer></script>
+    <script src="js/core.js" defer></script>
+    <script src="js/i18n.js" defer></script>
+    <script src="js/ui.js" defer></script>
+    <script src="js/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#results" data-i18n="skip">Skip to results</a>
+
+    <header class="topbar">
+      <div class="brand-block">
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div>
+          <p class="eyebrow" data-i18n="eyebrow">LocalAgent Benchmark · official dashboard</p>
+          <h1 data-i18n="title">Benchmark results, made readable.</h1>
+          <p class="intro" data-i18n="intro">Compare model quality, reliability, and operating cost without opening JSON reports.</p>
+        </div>
+      </div>
+
+      <div class="top-actions" aria-label="Dashboard preferences">
+        <label class="compact-control" for="language">
+          <span data-i18n="language">Language</span>
+          <select id="language" name="language">
+            <option value="auto" data-i18n="auto">Automatic</option>
+            <option value="it" data-i18n="italian">Italiano</option>
+            <option value="en" data-i18n="english">English</option>
+          </select>
+        </label>
+        <label class="compact-control" for="theme">
+          <span data-i18n="theme">Theme</span>
+          <select id="theme" name="theme">
+            <option value="auto" data-i18n="auto">Automatic</option>
+            <option value="light" data-i18n="light">Light</option>
+            <option value="dark" data-i18n="dark">Dark</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <main id="results" tabindex="-1">
+      <section class="source-strip" aria-labelledby="source-heading">
+        <div class="source-copy">
+          <span class="source-dot" aria-hidden="true"></span>
+          <div>
+            <p id="source-heading" class="source-label" data-i18n="source">Data source</p>
+            <p id="source-value" class="source-value">—</p>
+            <p id="source-meta" class="source-meta"></p>
+          </div>
+        </div>
+        <div class="import-control">
+          <label class="file-button">
+            <span data-i18n="import_label">Import dashboard-data.json</span>
+            <input id="dataset-files" type="file" accept="application/json,.json" multiple>
+          </label>
+          <p class="control-help" data-i18n="import_help">Choose only files created by “benchmark.py dashboard-data”; files stay in your browser.</p>
+        </div>
+      </section>
+
+      <p id="status" class="status-message" role="status" aria-live="polite"></p>
+
+      <section class="filter-panel" aria-labelledby="filter-heading">
+        <div class="section-heading compact-heading">
+          <div>
+            <p class="section-index">01</p>
+            <h2 id="filter-heading" data-i18n="filters">Result filters</h2>
+          </div>
+          <button id="reset-filters" class="text-button" type="button" data-i18n="reset_filters">Reset filters</button>
+        </div>
+        <div class="filter-grid">
+          <label for="profile-filter">
+            <span data-i18n="profile">Profile</span>
+            <select id="profile-filter"></select>
+          </label>
+          <label for="model-filter">
+            <span data-i18n="model">Model</span>
+            <select id="model-filter"></select>
+          </label>
+          <label for="task-search">
+            <span data-i18n="search">Search tasks</span>
+            <input id="task-search" type="search" data-i18n-placeholder="search_placeholder" placeholder="Case, category, or model">
+          </label>
+          <label for="sort-field">
+            <span data-i18n="sort">Sort leaderboard</span>
+            <select id="sort-field">
+              <option value="overall_score" data-i18n="sort_overall">Overall score</option>
+              <option value="quality_score" data-i18n="sort_quality">Quality</option>
+              <option value="completion_rate" data-i18n="sort_completion">Completion</option>
+              <option value="speed_score" data-i18n="sort_speed">Speed</option>
+              <option value="token_efficiency_score" data-i18n="sort_tokens">Token efficiency</option>
+              <option value="median_duration_seconds" data-i18n="sort_duration">Duration</option>
+              <option value="median_output_tokens" data-i18n="sort_output_tokens">Output tokens</option>
+            </select>
+          </label>
+          <button id="sort-direction" class="direction-button" type="button" aria-live="polite"></button>
+        </div>
+      </section>
+
+      <section aria-labelledby="overview-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-index">02</p>
+            <h2 id="overview-heading" data-i18n="overview">At a glance</h2>
+          </div>
+        </div>
+        <div id="kpis" class="kpi-grid"></div>
+        <div id="integrity-banner" class="integrity-banner" role="note"></div>
+      </section>
+
+      <div class="two-column-layout">
+        <section class="panel" aria-labelledby="leaderboard-heading">
+          <div class="section-heading">
+            <div>
+              <p class="section-index">03</p>
+              <h2 id="leaderboard-heading" data-i18n="leaderboard">Leaderboard</h2>
+              <p data-i18n="leaderboard_intro">Each row belongs to one run and profile. Integrity-excluded models are omitted.</p>
+            </div>
+          </div>
+          <div id="leaderboard"></div>
+        </section>
+
+        <section class="panel comparison-panel" aria-labelledby="comparison-heading">
+          <div class="section-heading">
+            <div>
+              <p class="section-index">04</p>
+              <h2 id="comparison-heading" data-i18n="comparison">Score factors</h2>
+              <p data-i18n="comparison_intro">The four score components for the leading rows in the current view.</p>
+            </div>
+          </div>
+          <div id="comparison"></div>
+        </section>
+      </div>
+
+      <section class="panel" aria-labelledby="funnel-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-index">05</p>
+            <h2 id="funnel-heading" data-i18n="funnel">Progress across profiles</h2>
+            <p data-i18n="funnel_intro">“Not run next” describes the next profile selection, not a failure.</p>
+          </div>
+        </div>
+        <div id="funnel"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="tasks-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-index">06</p>
+            <h2 id="tasks-heading" data-i18n="task_details">Task details</h2>
+            <p data-i18n="task_intro">Open a row to inspect metrics and state without reading raw artifacts.</p>
+          </div>
+        </div>
+        <div id="tasks"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="runs-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-index">07</p>
+            <h2 id="runs-heading" data-i18n="run_details">Runs and provenance</h2>
+          </div>
+        </div>
+        <div id="run-list" class="run-grid"></div>
+      </section>
+    </main>
+
+    <dialog id="task-dialog" aria-labelledby="dialog-title">
+      <div class="dialog-header">
+        <div>
+          <p class="section-index" data-i18n="dialog_title">Task details</p>
+          <h2 id="dialog-title"></h2>
+        </div>
+        <button id="dialog-close" class="close-button" type="button" data-i18n="close">Close</button>
+      </div>
+      <div id="dialog-content"></div>
+    </dialog>
+
+    <noscript>This dashboard requires JavaScript.</noscript>
+  </body>
+</html>
