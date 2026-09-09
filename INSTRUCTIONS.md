@@ -108,15 +108,13 @@ The showcase remains a valid test even when no model exceeds 60/100. Preserve ti
 
 ### Official results dashboard
 
-The official dashboard under `dashboard/` is the stable viewer maintained by the project; it is separate from dashboards produced by models during the showcase. Double-click `dashboard/index.html` for an immediate view of the reviewed Milestone 5 public snapshot. It works over `file://` without a server.
-
-To view all compatible runs directly below `results/`, run:
+The official dashboard under `dashboard/` is the stable viewer maintained by the project; it is separate from dashboards produced by models during the showcase. Start it from the repository root to view compatible runs directly below `results/`:
 
 ```bash
 python3 dashboard.py
 ```
 
-The command aggregates valid runs in memory, starts a server on `127.0.0.1` using an available port, opens the browser, and prints the URL. It never serves raw result files or modifies source runs. Stop it with `Ctrl+C`. If no compatible run exists, it falls back to the bundled snapshot.
+The command aggregates valid runs in memory, starts a server on `127.0.0.1` using an available port, opens the browser, and prints the URL. It never serves raw result files or modifies source runs. Stop it with `Ctrl+C`. If no compatible run exists, it serves the reviewed dashboard fixture in memory.
 
 Select sources and launcher behavior explicitly when needed:
 
@@ -139,7 +137,7 @@ python3 benchmark.py dashboard-data \
   --output results/finalists-dashboard-data.json
 ```
 
-Import stays in the browser tab's memory: no file is uploaded, the bundled snapshot is not overwritten, and nothing is committed. Reloading returns to the initial source. Language and theme are the only preferences stored in browser `localStorage`. See [QUICK-START_Dashboard.md](QUICK-START_Dashboard.md) for the complete short workflow.
+Import stays in the browser tab's memory: no file is uploaded or committed. Reloading returns to the initial source. Language and theme are the only preferences stored in browser `localStorage`. An optional `file://` snapshot can be generated with `python3 dashboard.py --refresh-snapshot --force`; it is ignored by Git and must never be committed. See [QUICK-START_Dashboard.md](QUICK-START_Dashboard.md) for the complete short workflow.
 
 ## 5. Configuration
 
@@ -203,7 +201,7 @@ Use the same configuration, profile, repetitions, seed, hardware, and similar sy
 - `Manifesto mancante` or `paths.*`: complete `case.json`, use only POSIX-style relative paths inside the case, remove symlinks from declared paths, and rerun `case validate`.
 - `max_score`, `points`, `earned`, or baseline errors: repair the grader contract; checks must total 100 and the starting fixture must remain below 60.
 - `dashboard-data` error: verify schema 2/3, consistent profiles, distinct directories, and paths inside the project root; use `--force` only after reviewing the file being replaced.
-- Dashboard shows older data: direct `index.html` intentionally shows the bundled snapshot; run `python3 dashboard.py` for current local runs.
+- Dashboard shows no data when opening `index.html` directly: run `python3 dashboard.py`, or explicitly generate the optional local snapshot first.
 - No local dashboard runs: each immediate directory under `results/` must contain compatible `run.json` and `report.json`, or pass explicit run directories.
 - Dashboard port is occupied: omit `--port`, use `--port 0`, or select another number.
 - Browser does not open: run `python3 dashboard.py --no-open` and open the printed URL manually.

@@ -2,6 +2,10 @@
 __pycache__/
 *.py[cod]
 .coverage
+*.log
+.env
+.env.*
+!.env.example
 .pytest_cache/
 .ruff_cache/
 .venv/
@@ -12,3 +16,4 @@ build/
 results/
 output/playwright/
 .playwright-cli/
+dashboard/data/snapshot.js

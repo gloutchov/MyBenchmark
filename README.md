@@ -4,7 +4,7 @@ Benchmark personale, ripetibile e offline per confrontare modelli Ollama usati c
 
 Personal, repeatable, offline benchmark for comparing Ollama models used as coding agents through [Pi](https://pi.dev). Its scenarios derive from this repository's operating rules: small patches, modular architecture, tests, security, configuration, i18n, documentation, and Git discipline.
 
-Stato / Status: **0.6.0 – dashboard ufficiale implementata e in verifica pre-merge / official results dashboard implemented and undergoing pre-merge verification**
+Stato / Status: **0.6.0 – release stabile pubblicata / stable release published**
 Piattaforme / Platforms: macOS, Windows, Linux
 Verifica reale / Real-world validation: **run benchmark Pi/Ollama reali verificati soltanto su macOS e Windows; Linux è coperto dalla CI, ma non è ancora stato validato con uno smoke Pi/Ollama reale. / Real Pi/Ollama benchmark runs have been verified only on macOS and Windows; Linux is covered by CI, but has not yet been validated with a real Pi/Ollama smoke run.**
 Licenza / License: Apache-2.0
@@ -42,13 +42,13 @@ Non servono pacchetti Python esterni. Pi 0.84.3 è la versione verificata durant
 
 No external Python packages are required. Pi 0.84.3 was the version verified during development; `doctor` helps detect future incompatibilities.
 
-Per vedere subito risultati comprensibili, aprire [`dashboard/index.html`](dashboard/index.html) con un doppio clic. Mostra lo snapshot revisionato incluso e non richiede server. Per usare automaticamente i run compatibili presenti in `results/`:
+Per vedere subito risultati comprensibili, avviare la dashboard locale; userà automaticamente i run compatibili presenti in `results/`:
 
 ```bash
 python3 dashboard.py
 ```
 
-To see understandable results immediately, double-click [`dashboard/index.html`](dashboard/index.html). It loads the reviewed bundled snapshot without a server. Run `python3 dashboard.py` to view compatible local runs from `results/` instead. See [QUICK-START_Dashboard.md](QUICK-START_Dashboard.md) for explicit runs, JSON import, and troubleshooting.
+To see understandable results immediately, start the local dashboard with `python3 dashboard.py`; it automatically loads compatible runs from `results/`. See [QUICK-START_Dashboard.md](QUICK-START_Dashboard.md) for explicit runs, JSON import, optional local snapshot generation, and troubleshooting.
 
 ## Avvio rapido / Quick start
 
@@ -197,9 +197,9 @@ python3 dashboard.py results/SMOKE-RUN results/STANDARD-RUN results/FULL-RUN
 python3 dashboard.py --dataset results/finalists-dashboard-data.json
 ```
 
-Il launcher usa soltanto la libreria standard, serve su `127.0.0.1`, sceglie una porta libera per default e apre il browser. Usare `--no-open` per copiare manualmente l'URL, `--port NUMERO` per una porta fissa e `Ctrl+C` per terminare. Se non trova run validi, mostra lo snapshot incluso. Non scrive né modifica i risultati sorgente.
+Il launcher usa soltanto la libreria standard, serve su `127.0.0.1`, sceglie una porta libera per default e apre il browser. Usare `--no-open` per copiare manualmente l'URL, `--port NUMERO` per una porta fissa e `Ctrl+C` per terminare. Se non trova run validi, usa in memoria la fixture dashboard revisionata. Non scrive né modifica i risultati sorgente.
 
-The official dashboard is maintained by the project and is not an output of the `showcase` test. Its standard-library launcher serves only allowlisted assets and an in-memory public dataset on `127.0.0.1`; it never exposes raw result files. Pass explicit run directories, `--dataset` for an existing sanitized export, `--no-open`, or `--port NUMBER` as needed. If no compatible run is found, the bundled snapshot is used.
+The official dashboard is maintained by the project and is not an output of the `showcase` test. Its standard-library launcher serves only allowlisted assets and an in-memory public dataset on `127.0.0.1`; it never exposes raw result files. Pass explicit run directories, `--dataset` for an existing sanitized export, `--no-open`, or `--port NUMBER` as needed. If no compatible run is found, the reviewed dashboard fixture is served in memory.
 
 Nel selettore **Scegli file / Choose files**, aprire esclusivamente uno o più file `dashboard-data.json` creati con `python3 benchmark.py dashboard-data ...`: non selezionare `run.json`, `report.json`, directory di run o artefatti raw. L'importazione avviene localmente nel browser, non carica file in rete e non li salva nel repository.
 
@@ -207,7 +207,7 @@ In **Choose files**, select only one or more `dashboard-data.json` exports creat
 
 ## Configurazione / Configuration
 
-[`benchmark.json`](benchmark.json) centralizza URL Ollama, comando Pi, timeout, thinking, contesto, token massimi, warmup, sandbox, profili, directory di discovery dei casi e opzioni locali della dashboard. La sezione `dashboard` mantiene asset, risultati e snapshot dentro il repository, impone l'host `127.0.0.1` e configura porta e apertura automatica. Ogni `cases/<id>/case.json`, verificabile contro [`schemas/case.schema.json`](schemas/case.schema.json), contiene ID, titoli bilingui, categoria, peso e path relativi; i manifesti pre-0.4 inline restano leggibili per compatibilità. `"models": "installed"` rileva tutti i modelli da `/api/tags`; una lista esplicita rende il set stabile. `defaults.sandbox` accetta `audit`, `auto` o `required`; il default conservativo e retrocompatibile è `audit`.
+[`benchmark.json`](benchmark.json) centralizza URL Ollama, comando Pi, timeout, thinking, contesto, token massimi, warmup, sandbox, profili, directory di discovery dei casi e opzioni locali della dashboard. La sezione `dashboard` mantiene asset e risultati dentro il repository, impone l'host `127.0.0.1` e configura sorgente dati, porta e apertura automatica. L'eventuale `dashboard/data/snapshot.js` è un output locale ignorato da Git. Ogni `cases/<id>/case.json`, verificabile contro [`schemas/case.schema.json`](schemas/case.schema.json), contiene ID, titoli bilingui, categoria, peso e path relativi; i manifesti pre-0.4 inline restano leggibili per compatibilità. `"models": "installed"` rileva tutti i modelli da `/api/tags`; una lista esplicita rende il set stabile. `defaults.sandbox` accetta `audit`, `auto` o `required`; il default conservativo e retrocompatibile è `audit`.
 
 La temperatura è zero per ridurre la varianza. Le ripetizioni restano necessarie: tool calling e generazione locale non sono perfettamente deterministici. L'ordine delle task viene randomizzato e registrato; `--seed` permette di riprodurlo. Per un confronto decisionale usare almeno tre ripetizioni e la stessa alimentazione/condizione termica.
 
@@ -259,6 +259,8 @@ Il progetto viene eseguito direttamente dal checkout. I tag sorgente non includo
 - [Finalissima dashboard / Dashboard showcase](QUICK-START_Showcase.md)
 - [Dashboard ufficiale / Official results dashboard](QUICK-START_Dashboard.md)
 - [Modello di sicurezza bilingue](SECURITY_MODEL.md)
+- [Segnalazione vulnerabilità](SECURITY.md)
+- [Guida ai contributi](CONTRIBUTING.md)
 - [Piano di sviluppo](PLAN.md)
 - [Mappa del repository](MAP.md)
 - [Regole per agenti e maintainer](AGENTS.md)

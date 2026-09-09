@@ -4,7 +4,6 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const vm = require("node:vm");
 
 const ROOT = path.resolve(__dirname, "../..");
 const Core = require(path.join(ROOT, "dashboard/js/core.js"));
@@ -125,12 +124,11 @@ test("keeps Italian and English dictionaries synchronized", () => {
   assert.match(I18n.translate("not_run_next"), /not run/i);
 });
 
-test("committed classic-script snapshot reproduces the reviewed fixture", () => {
-  const script = fs.readFileSync(path.join(ROOT, "dashboard/data/snapshot.js"), "utf8");
-  const context = { window: {} };
-  vm.runInNewContext(script, context, { filename: "snapshot.js" });
-  assert.deepEqual(JSON.parse(JSON.stringify(context.window.LOCALAGENT_DASHBOARD_DATA)), fixture);
-  assert.equal(context.window.LOCALAGENT_DASHBOARD_META.source, "snapshot");
+test("local snapshot output is loaded by the UI and ignored by Git", () => {
+  const html = fs.readFileSync(path.join(ROOT, "dashboard/index.html"), "utf8");
+  const gitignore = fs.readFileSync(path.join(ROOT, ".gitignore"), "utf8");
+  assert.match(html, /<script src="data\/snapshot\.js" defer><\/script>/);
+  assert.match(gitignore, /^dashboard\/data\/snapshot\.js$/m);
 });
 
 test("official assets are semantic and contain no remote runtime hooks", () => {

@@ -119,15 +119,13 @@ La finalissima resta un test valido anche quando nessun modello supera 60/100. C
 
 ### Dashboard ufficiale dei risultati
 
-La dashboard ufficiale sotto `dashboard/` è il lettore stabile mantenuto dal progetto; non va confusa con le dashboard prodotte dai modelli durante la finalissima. Per una vista immediata, fare doppio clic su `dashboard/index.html`: la pagina mostra lo snapshot pubblico revisionato della milestone 5, funziona tramite `file://` e non richiede un server.
-
-Per visualizzare invece tutti i run compatibili presenti direttamente sotto `results/`, eseguire:
+La dashboard ufficiale sotto `dashboard/` è il lettore stabile mantenuto dal progetto; non va confusa con le dashboard prodotte dai modelli durante la finalissima. Per visualizzare tutti i run compatibili presenti direttamente sotto `results/`, eseguire dalla root del repository:
 
 ```bash
 python3 dashboard.py
 ```
 
-Il comando aggrega i run validi soltanto in memoria, avvia un server su `127.0.0.1` con una porta libera, apre il browser e stampa l'URL. Non serve file raw e non modifica i risultati. Terminare con `Ctrl+C`. Se non esistono run compatibili, viene mostrato lo snapshot incluso.
+Il comando aggrega i run validi soltanto in memoria, avvia un server su `127.0.0.1` con una porta libera, apre il browser e stampa l'URL. Non serve file raw e non modifica i risultati. Terminare con `Ctrl+C`. Se non esistono run compatibili, serve in memoria la fixture dashboard revisionata.
 
 È possibile scegliere sorgenti e comportamento in modo esplicito:
 
@@ -150,7 +148,7 @@ python3 benchmark.py dashboard-data \
   --output results/finalists-dashboard-data.json
 ```
 
-L'importazione resta nella memoria della scheda del browser: non invia dati in rete, non sovrascrive lo snapshot e non committa file. Ricaricando la pagina si torna alla sorgente iniziale. Lingua e tema sono le sole preferenze persistite nel `localStorage` del browser. La guida breve completa è [QUICK-START_Dashboard.md](QUICK-START_Dashboard.md).
+L'importazione resta nella memoria della scheda del browser: non invia dati in rete e non committa file. Ricaricando la pagina si torna alla sorgente iniziale. Lingua e tema sono le sole preferenze persistite nel `localStorage` del browser. Uno snapshot opzionale per `file://` può essere generato con `python3 dashboard.py --refresh-snapshot --force`: è ignorato da Git e non deve mai essere committato. La guida breve completa è [QUICK-START_Dashboard.md](QUICK-START_Dashboard.md).
 
 ## 5. Configurazione
 
@@ -224,7 +222,7 @@ All'avvio `AGENTS.md`, `.gitignore`, manifesti, prompt, fixture, grader e rubric
 - `Manifesto mancante` o `paths.*`: completare `case.json`, usare soltanto path relativi POSIX interni al caso e rimuovere symlink sui path dichiarati; rieseguire `case validate`.
 - errore `max_score`, `points`, `earned` o baseline: correggere il contratto del grader; i check devono totalizzare 100 e la fixture iniziale deve restare sotto 60.
 - errore `dashboard-data`: verificare schema 2/3, coerenza del profilo, directory distinte e path interni alla root; usare `--force` soltanto dopo aver revisionato il file da sostituire.
-- dashboard con dati vecchi: il doppio clic mostra intenzionalmente lo snapshot incluso; usare `python3 dashboard.py` per i run locali correnti.
+- dashboard senza dati aprendo direttamente `index.html`: usare `python3 dashboard.py` oppure generare prima lo snapshot locale opzionale.
 - nessun run locale nella dashboard: verificare che ogni directory immediatamente sotto `results/` contenga `run.json` e `report.json` compatibili, oppure passare directory esplicite.
 - porta dashboard occupata: omettere `--port`, usare `--port 0` o scegliere un altro numero.
 - il browser non si apre: usare `python3 dashboard.py --no-open` e aprire manualmente l'URL stampato.

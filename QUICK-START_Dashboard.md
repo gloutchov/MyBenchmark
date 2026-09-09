@@ -6,13 +6,9 @@ This guide covers the project-maintained dashboard in `dashboard/`. The candidat
 
 ## Apertura immediata / Open immediately
 
-Fare doppio clic su `dashboard/index.html`, oppure aprirlo dal browser. La pagina funziona senza server e mostra lo snapshot pubblico revisionato incluso nel repository.
+Dalla root del repository eseguire `python3 dashboard.py`. Il launcher cerca i risultati locali compatibili, serve la dashboard soltanto su loopback e apre il browser.
 
-Double-click `dashboard/index.html`, or open it from the browser. The page works without a server and displays the reviewed public snapshot bundled with the repository.
-
-Questa modalità non cerca automaticamente i run più recenti. Per quelli usare il launcher Python.
-
-This mode does not discover newer runs automatically. Use the Python launcher for those.
+From the repository root, run `python3 dashboard.py`. The launcher discovers compatible local results, serves the dashboard on loopback only, and opens the browser.
 
 ## Risultati locali correnti / Current local results
 
@@ -34,9 +30,9 @@ Il launcher:
 
 The launcher discovers compatible directories directly below `results/`, builds the sanitized dataset in memory, serves only allowlisted assets and public data on `127.0.0.1`, selects an available port, and opens the browser. It neither modifies runs nor creates exports or serves raw files.
 
-Terminare con `Ctrl+C`. Se non viene trovato alcun run compatibile, la dashboard usa lo snapshot incluso.
+Terminare con `Ctrl+C`. Se non viene trovato alcun run compatibile, la dashboard usa in memoria la fixture revisionata del caso `results_dashboard`.
 
-Stop it with `Ctrl+C`. If no compatible run is found, the dashboard uses the bundled snapshot.
+Stop it with `Ctrl+C`. If no compatible run is found, the dashboard uses the reviewed `results_dashboard` fixture in memory.
 
 ## Sorgenti esplicite / Explicit sources
 
@@ -102,25 +98,24 @@ L'importazione resta nella memoria della scheda del browser. Non invia dati, non
 
 Imports remain in the browser tab's memory. No data is uploaded and no file is written; reload the page to discard imported data. Only language and theme are retained as local preferences.
 
-## Aggiornare lo snapshot incluso / Refresh the bundled snapshot
+## Generare uno snapshot locale opzionale / Generate an optional local snapshot
 
-Questa operazione è destinata ai maintainer e non serve per leggere nuovi run. Prima aggiornare e revisionare `cases/results_dashboard/fixture/dashboard-data.json`, poi eseguire:
+Questa operazione serve soltanto per aprire `dashboard/index.html` direttamente tramite `file://`; il flusso normale usa il launcher. Prima revisionare `cases/results_dashboard/fixture/dashboard-data.json`, poi eseguire:
 
-This maintainer operation is not needed to view new runs. First update and review `cases/results_dashboard/fixture/dashboard-data.json`, then run:
+This operation is only needed to open `dashboard/index.html` directly through `file://`; normal use goes through the launcher. First review `cases/results_dashboard/fixture/dashboard-data.json`, then run:
 
 ```bash
 python3 dashboard.py --refresh-snapshot --force
 node --test dashboard/tests/dashboard.test.js
-git diff -- dashboard/data/snapshot.js
 ```
 
-Committare lo snapshot soltanto se riproduce esattamente la fixture pubblica revisionata. Il launcher normale non esegue mai questa scrittura.
+`dashboard/data/snapshot.js` è generato localmente ed è ignorato da Git: non aggiungerlo o committarlo. Il launcher normale non esegue questa scrittura.
 
-Commit the snapshot only when it exactly reproduces the reviewed public fixture. Normal launcher operation never performs this write.
+`dashboard/data/snapshot.js` is generated locally and ignored by Git: do not add or commit it. Normal launcher operation never performs this write.
 
 ## Risoluzione problemi / Troubleshooting
 
-- **Vedo lo snapshot invece dei run nuovi / I see the snapshot instead of new runs**: `index.html` aperto direttamente usa intenzionalmente lo snapshot; avviare `python3 dashboard.py`.
+- **`index.html` non mostra dati tramite `file://` / `index.html` shows no data through `file://`**: avviare `python3 dashboard.py` oppure generare prima lo snapshot locale opzionale.
 - **Il browser non si apre / The browser does not open**: usare `python3 dashboard.py --no-open` e aprire l'URL stampato.
 - **Porta occupata / Port already in use**: omettere `--port`, usare `--port 0` o scegliere un altro numero.
 - **Run ignorato / Run skipped**: verificare che la directory immediatamente sotto `results/` contenga `run.json` e `report.json` schema 2 o 3 compatibili. Passarla esplicitamente per ottenere un errore dettagliato.
