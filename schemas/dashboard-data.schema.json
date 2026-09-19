@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "profile_order", "runs", "funnel"],
   "properties": {
-    "schema_version": {"const": 1},
+    "schema_version": {"enum": [1, 2]},
     "profile_order": {
       "type": "array",
       "minItems": 1,
@@ -36,8 +36,8 @@
       "additionalProperties": false,
       "required": ["run_schema_version", "report_schema_version", "run_sha256", "report_sha256", "repository_commit"],
       "properties": {
-        "run_schema_version": {"enum": [2, 3]},
-        "report_schema_version": {"enum": [2, 3]},
+        "run_schema_version": {"enum": [2, 3, 4]},
+        "report_schema_version": {"enum": [2, 3, 4]},
         "run_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
         "report_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
         "repository_commit": {"type": ["string", "null"], "maxLength": 128}
@@ -62,6 +62,18 @@
       "properties": {
         "status": {"type": "string", "minLength": 1, "maxLength": 64},
         "disqualified_models": {"$ref": "#/$defs/stringList"}
+      }
+    },
+    "thinkingControl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "status", "requested", "reasoning_effort", "source"],
+      "properties": {
+        "version": {"type": "integer", "minimum": 0},
+        "status": {"type": "string", "minLength": 1, "maxLength": 64},
+        "requested": {"type": "string", "minLength": 1, "maxLength": 32},
+        "reasoning_effort": {"type": ["string", "null"], "maxLength": 32},
+        "source": {"type": "string", "minLength": 1, "maxLength": 64}
       }
     },
     "leaderboardRow": {
@@ -126,6 +138,7 @@
         "provenance": {"$ref": "#/$defs/provenance"},
         "sandbox": {"$ref": "#/$defs/sandbox"},
         "integrity": {"$ref": "#/$defs/integrity"},
+        "thinking_control": {"$ref": "#/$defs/thinkingControl"},
         "participants": {"$ref": "#/$defs/stringList"},
         "leaderboard": {"type": "array", "items": {"$ref": "#/$defs/leaderboardRow"}},
         "tasks": {"type": "array", "items": {"$ref": "#/$defs/task"}}
@@ -145,5 +158,17 @@
         "not_run_in_next": {"$ref": "#/$defs/stringList"}
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"schema_version": {"const": 2}}, "required": ["schema_version"]},
+      "then": {
+        "properties": {
+          "runs": {
+            "items": {"required": ["thinking_control"]}
+          }
+        }
+      }
+    }
+  ]
 }

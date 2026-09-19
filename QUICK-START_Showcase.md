@@ -21,9 +21,9 @@ python3 -m unittest tests.test_dashboard_data -v
 
 ## 2. Generare il dataset ridotto / Generate the bounded dataset
 
-Indicare una o più directory di run schema 2 o 3:
+Indicare una o più directory di run schema 2, 3 o 4:
 
-Pass one or more schema 2 or 3 run directories:
+Pass one or more schema 2, 3, or 4 run directories:
 
 ```bash
 python3 benchmark.py dashboard-data \
@@ -33,9 +33,9 @@ python3 benchmark.py dashboard-data \
   --output results/finalists-dashboard-data.json
 ```
 
-L'esportatore legge soltanto `run.json` e `report.json`, limita ogni sorgente a 32 MiB e produce schema 1 tramite whitelist. Mantiene ID run, profilo, hash SHA-256, commit, stato sandbox/integrità, partecipanti, classifiche e metriche task necessarie. Esclude path assoluti, prompt, risposte, comandi, log, evidenze di violazione e messaggi di errore liberi. Input e output devono restare nella root del progetto; l'output non può trovarsi dentro un run sorgente. Un file esistente viene sostituito solo con `--force`, atomicamente.
+L'esportatore legge soltanto `run.json` e `report.json`, limita ogni sorgente a 32 MiB e produce schema 2 tramite whitelist, continuando a leggere la fixture storica schema 1. Mantiene ID run, profilo, hash SHA-256, commit, stato sandbox/integrità, stato e livello thinking, partecipanti, classifiche e metriche task necessarie. I run legacy sono marcati `unverified`; preflight dettagliati e reasoning non vengono esportati. Esclude path assoluti, prompt, risposte, comandi, log, evidenze di violazione e messaggi di errore liberi. Input e output devono restare nella root del progetto; l'output non può trovarsi dentro un run sorgente. Un file esistente viene sostituito solo con `--force`, atomicamente.
 
-The exporter reads only `run.json` and `report.json`, caps each source at 32 MiB, and emits schema 1 through a whitelist. It retains run IDs, profiles, SHA-256 hashes, commits, sandbox/integrity status, participants, leaderboards, and required task metrics. It excludes absolute paths, prompts, responses, commands, logs, violation evidence, and free-form errors. Inputs and output must stay under the project root; output cannot live inside a source run. Existing files are replaced atomically only with `--force`.
+The exporter reads only `run.json` and `report.json`, caps each source at 32 MiB, and emits schema 2 through a whitelist while continuing to read the historical schema-1 fixture. It retains run IDs, profiles, SHA-256 hashes, commits, sandbox/integrity and thinking-control status, participants, leaderboards, and required task metrics. Legacy runs are marked `unverified`; detailed preflights and reasoning are excluded along with absolute paths, prompts, responses, commands, logs, violation evidence, and free-form errors. Inputs and output must stay under the project root; output cannot live inside a source run. Existing files are replaced atomically only with `--force`.
 
 Ispezionare il JSON prima di congelarlo. Il funnel usa `continued_to_next` e `not_run_in_next`: quest'ultimo significa soltanto che il modello non compare nel profilo seguente, non che abbia fallito.
 
@@ -83,9 +83,14 @@ Preflight requires `AGENTS.md`, `.gitignore`, and the selected manifest, prompt,
 python3 benchmark.py run \
   --profile showcase \
   --models MODEL-A MODEL-B \
+  --thinking off \
   --sandbox required \
   --seed 20260903
 ```
+
+La finalissima ufficiale resta una coorte `off` verificata: capability discovery e preflight vengono eseguiti prima di `results_dashboard`, e una violazione thinking/retry esclude il modello. Non rilanciare selettivamente con thinking i soli candidati falliti. Se si vuole un confronto sperimentale `off`/`medium`, eseguire **tutti** i finalisti anche in una seconda directory con `--thinking medium`, stesso dataset, seed, parametri e numero di tentativi; alternare l'ordine delle coorti tra ripetizioni. I punteggi restano separati e `compare` ne impedisce l'aggregazione.
+
+The official final remains a verified `off` cohort: capability discovery and preflight run before `results_dashboard`, and a thinking/retry violation disqualifies the model. Never rerun only failed candidates with thinking enabled. For an experimental `off`/`medium` comparison, run **every** finalist in a second directory with `--thinking medium`, the same dataset, seed, parameters, and attempt count; counterbalance cohort order across repetitions. Scores remain separate and `compare` prevents their aggregation.
 
 Il punteggio automatico è tecnico. La rubrica visuale da 20 punti viene copiata accanto a ogni workspace ma resta esclusa dalla classifica automatica.
 

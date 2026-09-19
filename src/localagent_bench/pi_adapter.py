@@ -15,10 +15,13 @@ from typing import Any, Iterable
 
 from .sandbox import SandboxSelection, prepare_sandbox_launch
 from .system_metrics import SystemMetricCollector
+from .ollama import OllamaModel
+from .thinking import PI_THINKING_LEVEL_MAP, ThinkingPolicy
 
 
 AUDIT_VERSION = 3
 SCRATCH_DIRECTORY = ".benchmark-scratch"
+SUPPORTED_PI_VERSIONS = ("0.85.1",)
 
 _SHELL_OPERATORS = {";", "&&", "||", "|", "&"}
 _SHELL_REDIRECTS = {"<", "<<", "<<<", ">", ">>"}
@@ -72,24 +75,37 @@ class PiRun:
 def write_models_config(
     agent_dir: Path,
     ollama_url: str,
-    models: Iterable[str],
+    models: Iterable[OllamaModel],
     context_window: int,
     max_tokens: int,
     temperature: float,
+    thinking: ThinkingPolicy,
+    *,
+    http_idle_timeout_ms: int,
+    agent_max_retries: int,
+    provider_max_retries: int,
 ) -> None:
     agent_dir.mkdir(parents=True, exist_ok=True)
     model_items = [
         {
-            "id": name,
-            "name": f"{name} (Ollama locale)",
-            "reasoning": False,
+            "id": model.name,
+            "name": f"{model.name} (Ollama locale)",
+            "reasoning": model.thinking_capable is True,
+            **(
+                {"thinkingLevelMap": PI_THINKING_LEVEL_MAP}
+                if model.thinking_capable is True
+                else {}
+            ),
             "input": ["text"],
             "contextWindow": context_window,
             "maxTokens": max_tokens,
-            "samplingParams": {"temperature": temperature},
+            "samplingParams": {
+                "temperature": temperature,
+                "reasoning_effort": thinking.reasoning_effort,
+            },
             "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0},
         }
-        for name in models
+        for model in models
     ]
     payload = {
         "providers": {
@@ -99,7 +115,8 @@ def write_models_config(
                 "apiKey": "ollama",
                 "compat": {
                     "supportsDeveloperRole": False,
-                    "supportsReasoningEffort": False,
+                    "supportsReasoningEffort": True,
+                    "maxTokensField": "max_tokens",
                 },
                 "models": model_items,
             }
@@ -107,7 +124,20 @@ def write_models_config(
     }
     (agent_dir / "models.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     (agent_dir / "settings.json").write_text(
-        json.dumps({"defaultProjectTrust": "always", "telemetry": False}, indent=2) + "\n",
+        json.dumps(
+            {
+                "defaultProjectTrust": "always",
+                "telemetry": False,
+                "httpIdleTimeoutMs": http_idle_timeout_ms,
+                "retry": {
+                    "enabled": agent_max_retries > 0,
+                    "maxRetries": agent_max_retries,
+                    "provider": {"maxRetries": provider_max_retries},
+                },
+            },
+            indent=2,
+        )
+        + "\n",
         encoding="utf-8",
     )
 
@@ -580,6 +610,7 @@ def parse_json_events(stdout: str) -> tuple[dict[str, Any], str]:
     parse_errors = 0
     streamed_text_chars = 0
     streamed_thinking_chars = 0
+    retry_events = 0
     final_response = ""
     stop_reasons: list[str] = []
     terminal_agent_error = False
@@ -593,6 +624,8 @@ def parse_json_events(stdout: str) -> tuple[dict[str, Any], str]:
         if not isinstance(event, dict):
             continue
         event_type = event.get("type")
+        if event_type == "auto_retry_start":
+            retry_events += 1
         if event_type == "auto_retry_end" and isinstance(event.get("success"), bool):
             terminal_agent_error = not event["success"]
         if event_type == "message_update":
@@ -632,6 +665,7 @@ def parse_json_events(stdout: str) -> tuple[dict[str, Any], str]:
         "json_parse_errors": parse_errors,
         "streamed_text_chars": streamed_text_chars,
         "streamed_thinking_chars": streamed_thinking_chars,
+        "retry_events": retry_events,
         "stop_reasons": stop_reasons,
         "terminal_agent_error": terminal_agent_error,
     }

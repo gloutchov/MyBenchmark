@@ -98,12 +98,19 @@
 
   function renderIntegrity(view) {
     const container = document.getElementById("integrity-banner");
-    const warning = view.summary.disqualifiedCount > 0;
+    const warning = view.summary.disqualifiedCount > 0 || view.summary.unverifiedThinkingCount > 0;
     container.className = `integrity-banner ${warning ? "integrity-warning" : "integrity-ok"}`;
     const copy = element("div", "integrity-copy");
+    const warningDetails = [];
+    if (view.summary.disqualifiedCount > 0) {
+      warningDetails.push(t("integrity_detail", { count: view.summary.disqualifiedCount }));
+    }
+    if (view.summary.unverifiedThinkingCount > 0) {
+      warningDetails.push(t("thinking_warning_detail", { count: view.summary.unverifiedThinkingCount }));
+    }
     copy.append(
       element("strong", "", t(warning ? "integrity_warning" : "integrity_ok")),
-      element("span", "", warning ? t("integrity_detail", { count: view.summary.disqualifiedCount }) : "")
+      element("span", "", warningDetails.join(" "))
     );
     const counts = element("div", "outcome-counts");
     counts.append(
@@ -299,10 +306,20 @@
         title.append(element("strong", "", run.id), badge(run.profile, "profile"));
         summary.append(title, element("span", "run-date", formatDate(run.finished_at)));
         const grid = element("dl", "metadata-grid");
+        const thinking = run.thinking_control || {
+          status: "unverified",
+          requested: "unknown",
+          reasoning_effort: null,
+        };
+        const thinkingStatus = thinking.status === "unverified" ? t("thinking_unverified") : thinking.status;
+        const thinkingValue = `${thinking.requested} · ${thinkingStatus}${
+          thinking.reasoning_effort ? ` · ${thinking.reasoning_effort}` : ""
+        }`;
         const entries = [
           ["benchmark_version", run.benchmark_version],
           ["sandbox", `${run.sandbox.backend} · ${t(run.sandbox.enforced ? "enforced" : "not_enforced")}`],
           ["integrity", run.integrity.status],
+          ["thinking_control", thinkingValue],
           ["models", run.participants.length],
           ["commit", run.provenance.repository_commit ? run.provenance.repository_commit.slice(0, 12) : t("unknown")],
         ];

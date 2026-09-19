@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.6.0**
+Versione corrente / Current version: **0.7.0**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -283,3 +283,103 @@ Versione corrente / Current version: **0.6.0**
 - [x] Tag annotato `v0.6.0` pubblicato e verificato sul commit `86f53a7`
 - [x] GitHub Release stabile `v0.6.0` autorizzata, pubblicata e verificata senza artifact binari di progetto
 - [x] Branch milestone locale e remoto eliminato dopo merge, CI e verifica del tag
+
+## Milestone 7 – Controllo verificabile della modalità thinking
+
+- Obiettivo: garantire che la modalità thinking dichiarata dal benchmark sia trasformata in un controllo Ollama esplicito, osservabile e riproducibile per ogni percorso di esecuzione, inclusi i profili `smoke`, `standard`, `full`, `showcase` e le selezioni esplicite con `--cases`; mantenere `off` come default ufficiale e impedire che risultati con controllo assente, incompatibile o inatteso entrino in classifica.
+- Branch previsto: `milestone/7-verifiable-thinking-control`
+- Incremento versione: `+0.1.0` (`v0.7.0`)
+- Attività principali: introdurre un modulo dedicato alla policy thinking e una canonicalizzazione pura dei livelli Pi verso Ollama (`off` → `none`, alias documentati e nessun downgrade silenzioso); interrogare `POST /api/show` per ogni modello selezionato e conservare soltanto capability e metadati in whitelist; eseguire prima delle task un preflight reale sullo stesso endpoint OpenAI-compatible usato da Pi e con lo stesso `reasoning_effort`; generare `models.json` per modello con `samplingParams.reasoning_effort` come controllo autorevole, `supportsReasoningEffort: true`, `maxTokensField: "max_tokens"`, `reasoning` e `thinkingLevelMap` coerenti con le capability osservate; aggiungere `--thinking` alla CLI e propagare il valore richiesto ed effettivo senza fallback; configurare esplicitamente in `settings.json` timeout HTTP idle e retry dell'agente/provider; rendere unload, preflight e warmup coerenti con la stessa modalità; contare reasoning osservabile, retry ed errori senza copiarne il testo libero nei metadata pubblici; escludere l'intero modello quando il controllo non è verificabile o una task `off` emette thinking; aggiornare report, confronto multi-run, export dashboard e dashboard ufficiale; introdurre schema run/report 4 mantenendo la lettura degli schemi 2–3 come legacy non verificati.
+- Regole del preflight: `/api/show` è una fonte di capability, non una prova sufficiente dei livelli supportati; il preflight deve verificare l'accettazione del valore effettivo e l'assenza/presenza osservabile di reasoning senza salvare la traccia; `off` fallisce chiuso se `none` viene rifiutato o compare reasoning; una modalità attiva richiede capability thinking e un segnale osservabile, altrimenti il modello viene marcato `thinking_control_unverified`; modelli che non consentono lo spegnimento completo non vengono riconosciuti tramite euristiche sul nome e non vengono degradati automaticamente a un livello minimo.
+- Semantica warmup: il preflight è obbligatorio e può caricare il modello; `--no-warmup` disabilita soltanto l'eventuale warmup aggiuntivo, mai la verifica del controllo. Preflight e warmup devono essere registrati separatamente e non contribuire a tempi, token o punteggi delle task.
+- Provenienza e privacy: `run.json` deve registrare versione del controllo, livello richiesto, valore canonicalizzato inviato, sorgente del controllo, capability, esito preflight, policy retry, timeout idle, versioni Pi/Ollama e digest modello; ogni risultato deve registrare soltanto conteggi di thinking/reasoning e retry. Nessuna catena di pensiero del preflight deve essere persistita; report e dataset dashboard non devono includere contenuti di reasoning. Gli eventi raw di Pi restano artefatti locali potenzialmente sensibili secondo `SECURITY_MODEL.md`.
+- Compatibilità: `compare` deve rifiutare run con versione del controllo, modalità richiesta o effettiva, policy retry, timeout idle, versione Pi/Ollama, digest o capability incompatibili. I run precedenti alla 0.7.0 restano consultabili come evidenza storica con `thinking_control: unverified`, non sono confrontabili statisticamente con run verificati e non devono essere presentati come baseline prestazionali ufficiali.
+- Test richiesti: unit test per mapping, capability e combinazioni incompatibili; test di `models.json` e `settings.json`; test CLI e configurazione; test del warmup nativo con `think: false` e livelli attivi; test runner per preflight, skip/esclusione modello, reasoning inatteso, retry e manifesto; test comparison e compatibilità legacy; test report/dashboard e whitelist privacy; server OpenAI-compatible locale fittizio che avvia realmente una versione Pi supportata e cattura il payload verificando `reasoning_effort`, `max_tokens` e assenza di retry; compileall, unittest, test Node della dashboard, validazione di tutti i casi e CI macOS/Ubuntu/Windows; smoke reale `off` e `medium` con un modello thinking-capable disponibile.
+- Criteri di accettazione: ogni richiesta task della coorte `off` contiene `reasoning_effort: "none"`; il payload effettivo è verificato con Pi reale, non soltanto dedotto dalla configurazione; nessuna task `off` classificabile contiene thinking osservabile; una combinazione incompatibile viene esclusa prima delle task senza impedire la verifica degli altri modelli; nessun fallback cambia il livello richiesto; Pi non applica retry automatici o il timeout idle predefinito e il timeout del runner resta autorevole; il warmup usa la stessa modalità; manifesti e risultati permettono di ricostruire la policy senza esporre reasoning; `smoke`, `standard`, `full`, `showcase` e `--cases` attraversano lo stesso controllo; run legacy e run con modalità diverse non vengono aggregati; documentazione e dashboard descrivono chiaramente stato verificato, non verificato e incompatibile; suite e CI sono verdi e gli smoke reali dimostrano `off` e `medium` come coorti distinte.
+- Documentazione: aggiornare README, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, quick start CLI/dashboard/showcase, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e questo piano; documentare versioni Pi supportate, significato limitato del preflight, riscaldamento implicito, dati conservati, gestione legacy e impossibilità di provare processi interni non esposti dal provider.
+- Release: milestone rilasciabile come `v0.7.0`; tag, GitHub Release, push, merge e rimozione branch richiedono approvazione esplicita del progettista. Il repository resta distribuito come sorgente salvo decisione separata sugli artifact.
+- Stato: **implementazione locale in corso sul branch `milestone/7-verifiable-thinking-control` dal 2026-09-19. Policy, capability discovery, preflight, configurazione Pi, schema 4, esclusione, confronto, dashboard e documentazione sono implementati; compileall, 104 test Python, 7 test Node e la validazione dei 5 casi sono verdi. I test loopback mirati sono verdi fuori dal sandbox ristretto: 2 contratti Pi 0.85.1 (`off`, `medium`, `max_tokens`, zero retry) e 8 test del launcher dashboard. La verifica visuale browser è pendente perché in questa sessione non è disponibile alcun browser controllabile. Restano gli smoke Pi/Ollama reali `off` e `medium`, la CI multipiattaforma e la chiusura con avallo. `THINKING_MODE_CORRECTIONS.md` resta un appoggio locale non tracciato finché le verifiche residue non sono concluse.**
+
+### Ordine di implementazione milestone 7
+
+1. Aggiungere test inizialmente rossi per payload Pi reale, mapping, configurazione isolata, timeout, retry, warmup e compatibilità.
+2. Implementare il modello di dominio della policy thinking e il parsing in whitelist di `/api/show`.
+3. Implementare preflight fail-closed e integrazione con unload/warmup senza contaminare le metriche task.
+4. Correggere `models.json` e `settings.json` isolati e verificare il payload con il server fittizio.
+5. Aggiungere `--thinking` e propagare livello richiesto ed effettivo a runner, manifesti e risultati.
+6. Applicare esclusione, reportistica, schema 4 e regole di compatibilità multi-run.
+7. Aggiornare export/dashboard, avvisi legacy e documentazione di sicurezza/privacy.
+8. Eseguire suite completa, validazione casi e CI multipiattaforma.
+9. Eseguire smoke reali separati `off` e `medium`, revisionare artefatti e assenza di fallback.
+10. Aggiornare documentazione e checklist finale, quindi richiedere avallo prima di merge, tag, release e rimozione branch.
+
+### Checklist milestone 7
+
+- [x] Branch milestone creato (`milestone/7-verifiable-thinking-control`)
+- [x] Piano iniziale M7 e follow-up M8 definiti
+- [x] Test di regressione per mapping, payload, runner, confronto e dashboard aggiunti
+- [x] Policy thinking e discovery capability implementate in moduli dedicati
+- [x] Preflight fail-closed implementato senza euristiche sul nome modello
+- [x] Payload Pi reale verificato tramite server OpenAI-compatible fittizio (Pi 0.85.1)
+- [x] Configurazione timeout, retry, token e warmup resa esplicita
+- [x] Override CLI e provenienza completa implementati
+- [x] Schema run/report 4 e compatibilità legacy implementati
+- [x] Esclusione per controllo non verificato, thinking o retry inatteso implementata
+- [x] Confronto multi-run aggiornato con chiave di compatibilità thinking
+- [x] Export dashboard e dashboard ufficiale aggiornati senza contenuto di reasoning
+- [x] Compileall, 104 test unittest, 7 test Node e validazione dei 5 casi eseguiti; test loopback mirati eseguiti senza skip
+- [ ] Smoke reale `off` eseguito e revisionato
+- [ ] Smoke reale `medium` eseguito e revisionato come coorte separata
+- [ ] CI macOS, Ubuntu e Windows verde sul branch/PR
+- [x] Versione `0.7.0` sincronizzata nei punti canonici
+- [x] README, ISTRUZIONI, INSTRUCTIONS, quick start, SECURITY_MODEL, MAP e AGENTS aggiornati
+- [x] PLAN aggiornato con implementazione locale e verifiche ancora pendenti
+- [ ] Approvazione esplicita del progettista ottenuta prima del merge
+- [ ] Commit finale e PR/merge verso `main` completati
+- [ ] CI verificata su `main`
+- [ ] Tag `v0.7.0` creato e pubblicato quando autorizzato
+- [ ] GitHub Release pubblicata e verificata quando autorizzata
+- [ ] Branch obsoleto eliminato solo dopo merge, CI, tag e release prevista
+
+## Milestone 8 – Caso di benchmark e coorti thinking
+
+- Obiettivo: aggiungere un caso sintetico, riproducibile e calibrato che misuri il valore pratico del thinking sul risultato osservabile, integrarlo nella progressione del benchmark e fornire confronti `off`/`medium` equi e separati anche per la finalissima `showcase`, senza chiedere o premiare l'esposizione della catena di pensiero.
+- Branch previsto: `milestone/8-thinking-benchmark-case`
+- Incremento versione: `+0.1.0` (`v0.8.0`)
+- Dipendenza: Milestone 7 completata, integrata e verificata con almeno una coorte reale `off` e una `medium`.
+- Attività principali: progettare il caso `thinking_challenge` come task multi-vincolo con fixture sintetica, soluzione verificabile e grader deterministico da 100 punti; crearlo tramite `python3 benchmark.py case create ...`, revisionare integralmente il grader prima della validazione e calibrare la baseline sotto 60; aggiungere un profilo indipendente `thinking` per gli esperimenti rapidi; includere il caso in `standard` e quindi in `full` dopo la calibrazione; lasciare il contenuto di `smoke` invariato per preservarne rapidità e significato, affidando al preflight M7 la verifica del controllo; mantenere `showcase` come caso specialistico distinto ma permettere una finalissima sperimentale a coorti accoppiate; aggiornare report/dashboard affinché la modalità thinking sia una dimensione/coorte e il profilo `thinking` non venga interpretato come fase successiva del funnel `smoke` → `standard` → `full`.
+- Integrazione profili: `smoke` continua a verificare Pi/Ollama, tool calling e controllo thinking tramite preflight; `standard` aggiunge `thinking_challenge`; `full` include lo stesso caso oltre a `milestone_closure`; `thinking` esegue soltanto il nuovo caso per confronti A/B; `showcase` conserva `results_dashboard` e riceve sempre il controllo M7, senza essere mescolato automaticamente con la leaderboard principale.
+- Protocollo `off`/`medium`: ogni confronto usa directory diverse, stesso digest modello, fixture, seed, temperatura, context window, token massimi, timeout, sandbox, policy retry, versione Pi/Ollama e ambiente; almeno tre ripetizioni per cella quando il risultato deve sostenere una decisione. Le modalità restano leaderboard separate e il comando normale `compare` continua a rifiutarne l'aggregazione; un riepilogo dedicato può affiancare qualità, completion rate, durata, token totali e reasoning token disponibili.
+- Finalissima `showcase`: il percorso ufficiale resta una coorte `off` verificata per coerenza con il benchmark principale. Quando si vuole misurare il beneficio del thinking, tutti i finalisti devono ricevere anche la stessa coorte `medium`, indipendentemente dall'esito `off`, con lo stesso dataset congelato e lo stesso numero di tentativi. L'ordine delle coorti deve essere alternato o controbilanciato tra ripetizioni per ridurre effetti termici e d'ordine. Non è ammesso il fallback condizionale “prima thinking, poi off soltanto se fallisce” o l'inverso: timeout ed errori restano risultati della relativa coorte e non concedono tentativi aggiuntivi selettivi. La dashboard deve mostrare le due coorti affiancate e non fondere punteggi o classifiche salvo una futura metrica combinata definita prima dei run.
+- Criteri di accettazione: manifesto conforme a `schemas/case.schema.json`; titoli italiano/inglese, prompt, fixture e grader autocontenuti; massimo e somma grader pari a 100; baseline iniziale sotto 60; nessuna credenziale, rete o path esterno; soluzione non dipendente da stringhe hardcoded o dall'esposizione del reasoning; profilo `thinking` selezionabile; `standard` e `full` includono il caso senza rompere la progressione; `smoke` e `showcase` mantengono il loro scopo; export e dashboard distinguono profilo, modalità e coorte senza alterare il funnel; esperimento reale `off`/`medium` completato su almeno un modello compatibile; se viene eseguita la finalissima doppia, tutti i finalisti ricevono entrambe le modalità con condizioni simmetriche e risultati separati.
+- Test richiesti: calibrazione diretta della fixture; unit e test negativi del grader; fixture alternativa nascosta se necessaria per impedire hardcoding; `case validate thinking_challenge` e validazione completa; test config/profili; test runner e manifesti per coorti; test comparison per separazione delle modalità; test dashboard/export per modalità, profilo indipendente e funnel invariato; compileall, unittest, test Node, CI multipiattaforma; smoke reale del nuovo profilo e confronto con almeno tre ripetizioni per cella; verifica manuale degli artefatti migliori e dei fallimenti.
+- Documentazione: README, manuali bilingui, quick start autore e showcase/dashboard, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e questo piano; documentare obiettivo del caso, protocollo A/B, limiti statistici, costo aggiuntivo, interpretazione dei reasoning token e divieto di fallback condizionali.
+- Release: milestone rilasciabile come `v0.8.0`; tag, GitHub Release, push, merge e rimozione branch richiedono approvazione esplicita del progettista.
+- Stato: **pianificata; nessun branch M8 creato e nessun caso, profilo o grader ancora implementato.**
+
+### Checklist milestone 8
+
+- [ ] Branch milestone creato (`milestone/8-thinking-benchmark-case`)
+- [ ] Brief funzionale e minacce alla validità del caso revisionati
+- [ ] Caso creato tramite Case SDK e manifesto validato
+- [ ] Fixture sintetica e grader deterministico completati
+- [ ] Baseline calibrata sotto 60 con massimo/somma pari a 100
+- [ ] Test negativi e anti-hardcoding aggiunti
+- [ ] Profilo indipendente `thinking` aggiunto
+- [ ] Caso integrato in `standard` e `full`; `smoke` mantenuto rapido
+- [ ] Controllo thinking verificato anche per `showcase`
+- [ ] Dashboard/export aggiornati per coorti indipendenti e funnel invariato
+- [ ] Protocollo simmetrico `off`/`medium` documentato senza fallback condizionale
+- [ ] Compileall, unittest, test Node e validazione completa casi eseguiti
+- [ ] Smoke reale del profilo `thinking` eseguito
+- [ ] Esperimento reale con almeno tre ripetizioni per cella eseguito e revisionato
+- [ ] Eventuale finalissima doppia eseguita con entrambi i modi per tutti i finalisti e ordine controbilanciato
+- [ ] CI macOS, Ubuntu e Windows verde sul branch/PR
+- [ ] Versione `0.8.0` sincronizzata nei punti canonici
+- [ ] README, ISTRUZIONI, INSTRUCTIONS, quick start, SECURITY_MODEL, MAP e AGENTS aggiornati
+- [ ] PLAN aggiornato con risultati, limiti e identificativi delle verifiche
+- [ ] Approvazione esplicita del progettista ottenuta prima del merge
+- [ ] Commit finale e PR/merge verso `main` completati
+- [ ] CI verificata su `main`
+- [ ] Tag `v0.8.0` e GitHub Release pubblicati quando autorizzati
+- [ ] Branch obsoleto eliminato solo dopo merge, CI, tag e release prevista

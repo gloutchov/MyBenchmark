@@ -23,10 +23,15 @@ class ComparisonTests(unittest.TestCase):
         sandbox_backend: str = "audit-only",
         digest: str = "digest-a",
         max_tokens: int = 8192,
+        thinking: str = "off",
+        verified_thinking: bool = False,
+        agent_retries: int = 0,
+        http_idle_timeout_ms: int = 0,
     ) -> Path:
         run_dir = root / name
         run_dir.mkdir()
         manifest = {
+            "schema_version": 4 if verified_thinking else 3,
             "profile": "full",
             "cases": ["case"],
             "inputs": {"cases": {"case": {"effective_input_sha256": fingerprint}}},
@@ -34,20 +39,53 @@ class ComparisonTests(unittest.TestCase):
             "configuration": {
                 "timeout_seconds": 30,
                 "repetitions": 1,
-                "thinking": "off",
+                "thinking": thinking,
                 "warmup": False,
                 "context_window": 32768,
                 "max_tokens": max_tokens,
                 "temperature": 0,
             },
-            "model_metadata": {"model:a": {"digest": digest}},
+            "model_metadata": {
+                "model:a": {
+                    "digest": digest,
+                    **(
+                        {"capabilities": ["completion", "thinking"], "thinking_capable": True}
+                        if verified_thinking
+                        else {}
+                    ),
+                }
+            },
             "environment": {
                 "platform": "test-os",
+                "pi": "0.85.1" if verified_thinking else None,
+                "ollama": "0.12.0" if verified_thinking else None,
                 "hardware": {"machine": "test-cpu", "logical_cpu_count": 8},
             },
         }
+        if verified_thinking:
+            effort = "none" if thinking == "off" else thinking
+            manifest["configuration"].update(
+                {
+                    "reasoning_effort": effort,
+                    "agent_max_retries": agent_retries,
+                    "provider_max_retries": 0,
+                    "http_idle_timeout_ms": http_idle_timeout_ms,
+                }
+            )
+            manifest["thinking_control"] = {
+                "version": 1,
+                "status": "passed",
+                "requested": thinking,
+                "reasoning_effort": effort,
+                "source": "explicit_sampling_parameter",
+                "retry_policy": {
+                    "agent_max_retries": agent_retries,
+                    "provider_max_retries": 0,
+                },
+                "http_idle_timeout_ms": http_idle_timeout_ms,
+            }
         report = {
-            "schema_version": 3,
+            "schema_version": 4 if verified_thinking else 3,
             "integrity": {"audit_version": 3, "disqualified_models": []},
             "leaderboard": [
                 {
@@ -113,6 +151,51 @@ class ComparisonTests(unittest.TestCase):
             configuration = self._write_run(root, "configuration", overall=80, max_tokens=4096)
             with self.assertRaisesRegex(ComparisonError, "max_tokens"):
                 write_comparison([first, configuration], root / "bad-configuration")
+
+    def test_thinking_control_is_part_of_the_compatibility_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            off = self._write_run(root, "off", overall=80, verified_thinking=True)
+            off_same = self._write_run(root, "off-same", overall=82, verified_thinking=True)
+            comparison = write_comparison([off, off_same], root / "compatible")
+            self.assertEqual(1, comparison["compatibility"]["thinking_control_version"])
+            self.assertEqual("none", comparison["compatibility"]["reasoning_effort"])
+
+            medium = self._write_run(
+                root,
+                "medium",
+                overall=80,
+                thinking="medium",
+                verified_thinking=True,
+            )
+            with self.assertRaisesRegex(ComparisonError, "reasoning_effort|thinking"):
+                write_comparison([off, medium], root / "mixed-modes")
+
+            retries = self._write_run(
+                root,
+                "retries",
+                overall=80,
+                verified_thinking=True,
+                agent_retries=1,
+            )
+            with self.assertRaisesRegex(ComparisonError, "agent_max_retries"):
+                write_comparison([off, retries], root / "mixed-retries")
+
+            idle = self._write_run(
+                root,
+                "idle",
+                overall=80,
+                verified_thinking=True,
+                http_idle_timeout_ms=300000,
+            )
+            with self.assertRaisesRegex(ComparisonError, "http_idle_timeout_ms"):
+                write_comparison([off, idle], root / "mixed-idle")
+
+            legacy = self._write_run(root, "legacy", overall=80)
+            with self.assertRaisesRegex(
+                ComparisonError, "thinking_control_version|run_schema_version"
+            ):
+                write_comparison([off, legacy], root / "mixed-legacy")
 
 
 if __name__ == "__main__":

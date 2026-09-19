@@ -9,7 +9,8 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const SCHEMA_VERSION = 1;
+  const SCHEMA_VERSION = 2;
+  const SUPPORTED_SCHEMA_VERSIONS = new Set([1, 2]);
   const PROFILE_PIPELINE = ["smoke", "standard", "full", "showcase"];
   const SORT_FIELDS = new Set([
     "rank",
@@ -161,7 +162,9 @@
   }
 
   function validateDashboardData(dataset) {
-    if (!isObject(dataset) || dataset.schema_version !== SCHEMA_VERSION) fail("Unsupported dashboard schema");
+    if (!isObject(dataset) || !SUPPORTED_SCHEMA_VERSIONS.has(dataset.schema_version)) {
+      fail("Unsupported dashboard schema");
+    }
     exactKeys(dataset, ["schema_version", "profile_order", "runs", "funnel"], "dashboard dataset");
     uniqueTextList(dataset.profile_order, "profile_order");
     if (dataset.profile_order.length === 0) fail("profile_order cannot be empty");
@@ -171,21 +174,23 @@
     const profiles = new Set(dataset.profile_order);
     const runIds = new Set();
     for (const run of dataset.runs) {
+      const runFields = [
+        "id",
+        "profile",
+        "benchmark_version",
+        "started_at",
+        "finished_at",
+        "provenance",
+        "sandbox",
+        "integrity",
+        "participants",
+        "leaderboard",
+        "tasks",
+      ];
+      if (dataset.schema_version >= 2) runFields.push("thinking_control");
       exactKeys(
         run,
-        [
-          "id",
-          "profile",
-          "benchmark_version",
-          "started_at",
-          "finished_at",
-          "provenance",
-          "sandbox",
-          "integrity",
-          "participants",
-          "leaderboard",
-          "tasks",
-        ],
+        runFields,
         "dashboard run"
       );
       if (!isObject(run) || !isText(run.id) || !profiles.has(run.profile)) fail("Invalid dashboard run");
@@ -203,6 +208,23 @@
       }
       exactKeys(run.integrity, ["status", "disqualified_models"], `integrity in ${run.id}`);
       uniqueTextList(run.integrity.disqualified_models, `disqualified_models in ${run.id}`);
+      if (dataset.schema_version >= 2) {
+        exactKeys(
+          run.thinking_control,
+          ["version", "status", "requested", "reasoning_effort", "source"],
+          `thinking control in ${run.id}`
+        );
+        if (
+          !Number.isInteger(run.thinking_control.version) ||
+          run.thinking_control.version < 0 ||
+          !isText(run.thinking_control.status) ||
+          !isText(run.thinking_control.requested) ||
+          !isNullableText(run.thinking_control.reasoning_effort) ||
+          !isText(run.thinking_control.source)
+        ) {
+          fail(`Invalid thinking control in ${run.id}`);
+        }
+      }
       exactKeys(
         run.provenance,
         ["run_schema_version", "report_schema_version", "run_sha256", "report_sha256", "repository_commit"],
@@ -214,8 +236,8 @@
         `sandbox in ${run.id}`
       );
       if (
-        ![2, 3].includes(run.provenance.run_schema_version) ||
-        ![2, 3].includes(run.provenance.report_schema_version) ||
+        ![2, 3, 4].includes(run.provenance.run_schema_version) ||
+        ![2, 3, 4].includes(run.provenance.report_schema_version) ||
         !/^[a-f0-9]{64}$/.test(run.provenance.run_sha256) ||
         !/^[a-f0-9]{64}$/.test(run.provenance.report_sha256) ||
         !isNullableText(run.provenance.repository_commit) ||
@@ -313,6 +335,20 @@
     });
   }
 
+  function normalizeRun(run, schemaVersion) {
+    const normalized = clone(run);
+    if (schemaVersion < 2) {
+      normalized.thinking_control = {
+        version: 0,
+        status: "unverified",
+        requested: "unknown",
+        reasoning_effort: null,
+        source: "legacy_unverified",
+      };
+    }
+    return normalized;
+  }
+
   function mergeDashboardData(datasets) {
     if (!Array.isArray(datasets) || datasets.length === 0) fail("Select at least one dashboard dataset");
     const runsById = new Map();
@@ -321,9 +357,10 @@
       validateDashboardData(dataset);
       dataset.profile_order.forEach((profile) => profiles.push(profile));
       for (const run of dataset.runs) {
+        const normalized = normalizeRun(run, dataset.schema_version);
         const existing = runsById.get(run.id);
-        if (existing && canonical(existing) !== canonical(run)) fail(`Run id collision: ${run.id}`);
-        if (!existing) runsById.set(run.id, clone(run));
+        if (existing && canonical(existing) !== canonical(normalized)) fail(`Run id collision: ${run.id}`);
+        if (!existing) runsById.set(run.id, normalized);
       }
     }
     const order = profileOrder(profiles);
@@ -417,6 +454,9 @@
       belowThresholdCount: tasks.filter((task) => task.state === "below_threshold").length,
       anomalousCount: tasks.filter((task) => ["timeout", "error", "missing_score", "integrity_excluded"].includes(task.state)).length,
       disqualifiedCount: disqualifiedModels.size,
+      unverifiedThinkingCount: runs.filter(
+        (run) => !run.thinking_control || run.thinking_control.status !== "passed"
+      ).length,
     };
 
     return {

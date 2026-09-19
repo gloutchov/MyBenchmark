@@ -8,7 +8,7 @@ LocalAgent Benchmark confronta modelli locali Ollama quando lavorano come coding
 
 - Python 3.10+ e Git nel `PATH`;
 - Ollama installato, avviato e raggiungibile su loopback;
-- Pi installato come comando `pi`;
+- Pi 0.85.1 installato come comando `pi` (altre versioni vengono rifiutate finché non superano il test contrattuale);
 - modelli Ollama già scaricati;
 - spazio libero sufficiente per una copia delle fixture per ogni esecuzione.
 
@@ -20,7 +20,7 @@ Verificare l'ambiente:
 python3 benchmark.py doctor
 ```
 
-Il comando mostra versioni, controlli falliti, modelli rilevati e stato di pulizia degli input senza eseguire task agentici.
+Il comando mostra versioni, controlli falliti, capability thinking e compatibilità preliminare dei modelli, oltre allo stato di pulizia degli input, senza eseguire task agentici. La compatibilità definitiva richiede comunque il preflight del run.
 
 ## 3. Primo avvio
 
@@ -33,7 +33,7 @@ python3 benchmark.py list
 Eseguire un solo caso su un modello piccolo per verificare il tool calling:
 
 ```bash
-python3 benchmark.py run --profile smoke --models qwen3.5:9b-Q4_K_M
+python3 benchmark.py run --profile smoke --models qwen3.5:9b-Q4_K_M --thinking off
 ```
 
 Se il modello termina e produce un report, passare al profilo standard:
@@ -60,7 +60,13 @@ Quando i finalisti sono definiti, usare il profilo separato `showcase`: il caso 
 
 ### Selezione manuale
 
-`--models` accetta uno o più nomi esatti mostrati da `ollama list`. `--cases` accetta gli ID elencati dal comando `list`. `--timeout` è espresso in secondi; `--output` sceglie una directory nuova o vuota. Il runner randomizza l'ordine delle task; `--seed NUMERO` permette di riprodurre esattamente lo stesso ordine, registrato anche in `run.json`. `--sandbox` accetta `audit`, `auto` o `required`: `required` è la scelta corretta quando il run non deve continuare senza isolamento OS.
+`--models` accetta uno o più nomi esatti mostrati da `ollama list`. `--cases` accetta gli ID elencati dal comando `list`. `--timeout` è espresso in secondi; `--output` sceglie una directory nuova o vuota. `--thinking` accetta `off`, `minimal`, `low`, `medium`, `high`, `xhigh` o `max` e prevale sul default senza fallback. Il runner randomizza l'ordine delle task; `--seed NUMERO` permette di riprodurre esattamente lo stesso ordine, registrato anche in `run.json`. `--sandbox` accetta `audit`, `auto` o `required`: `required` è la scelta corretta quando il run non deve continuare senza isolamento OS.
+
+### Controllo thinking
+
+Il benchmark ufficiale usa `--thinking off`. Prima di eseguire qualsiasi caso, per ogni modello il runner legge `/api/show` e invia una richiesta minima a `/v1/chat/completions` con `reasoning_effort: "none"`. La configurazione isolata di Pi contiene lo stesso parametro, `max_tokens`, timeout idle disabilitato e zero retry; il warmup nativo usa `think: false`. `--no-warmup` evita solo il warmup aggiuntivo, non il preflight obbligatorio.
+
+Un preflight rifiutato o non verificabile esclude il modello prima delle task senza fermare gli altri. In una coorte `off`, reasoning osservabile o retry inattesi durante una task escludono l'intero modello. Il preflight registra solo stato, durata e conteggi: non conserva la traccia di reasoning. Le modalità attive richiedono la capability `thinking` e un segnale osservabile; devono essere eseguite in directory e coorti separate. Non usare una seconda modalità solo per i modelli falliti: se si confrontano `off` e `medium`, tutti i modelli devono ricevere entrambe con condizioni simmetriche.
 
 ### Confronto statistico tra run
 
@@ -68,7 +74,7 @@ Quando i finalisti sono definiti, usare il profilo separato `showcase`: il caso 
 python3 benchmark.py compare results/RUN-1 results/RUN-2 results/RUN-3
 ```
 
-Il confronto accetta soltanto directory distinte e run con versione/parametri, profilo, casi, fingerprint input, digest modello, backend sandbox, piattaforma e hardware registrato compatibili. Genera `comparison.json` e `COMPARISON.md` con media, mediana, deviazione standard e intervallo al 95% approssimato, limitato al dominio naturale della metrica. I modelli assenti o esclusi per integrità non ricevono un campione per quel run.
+Il confronto accetta soltanto directory distinte e run con versione/parametri, profilo, casi, fingerprint input, digest/capability modello, controllo thinking, retry, timeout idle, versioni Pi/Ollama, backend sandbox, piattaforma e hardware registrato compatibili. I run legacy restano consultabili come `thinking_control: unverified`, ma non si aggregano ai run verificati. Il comando genera `comparison.json` e `COMPARISON.md` con media, mediana, deviazione standard e intervallo al 95% approssimato, limitato al dominio naturale della metrica. I modelli assenti o esclusi per integrità non ricevono un campione per quel run.
 
 ### Dataset e finalissima dashboard
 
@@ -87,7 +93,7 @@ python3 benchmark.py dashboard-data \
   --output results/finalists-dashboard-data.json
 ```
 
-Il comando accetta `run.json` e `report.json` schema 2 o 3, con massimo 32 MiB per file. Produce schema dashboard 1, registra hash e commit e usa una whitelist: mantiene soltanto profilo, sandbox, integrità sintetica, partecipanti, classifiche e metriche task. Non copia path, prompt, risposte, comandi, log, evidenze di violazione o messaggi di errore liberi. Input e output devono restare nella root del progetto; non è consentito scrivere dentro un run sorgente. Per sostituire atomicamente un output già esistente aggiungere `--force`.
+Il comando accetta `run.json` e `report.json` schema 2, 3 o 4, con massimo 32 MiB per file. Produce schema dashboard 2 e continua a leggere la fixture schema 1. Registra hash e commit e usa una whitelist: mantiene soltanto profilo, sandbox, integrità sintetica, stato/livello thinking, partecipanti, classifiche e metriche task. I run storici sono marcati `unverified`; preflight dettagliati e contenuto del reasoning non vengono esportati. Non copia path, prompt, risposte, comandi, log, evidenze di violazione o messaggi di errore liberi. Input e output devono restare nella root del progetto; non è consentito scrivere dentro un run sorgente. Per sostituire atomicamente un output già esistente aggiungere `--force`.
 
 Revisionare il JSON, quindi congelarlo nella fixture:
 
@@ -113,7 +119,7 @@ git status --short
 
 Prima del commit, `git diff --cached --name-only` deve elencare soltanto `cases/results_dashboard/fixture/dashboard-data.json`, salvo altri aggiornamenti intenzionali già revisionati. Non usare `git add .`. L'ultimo controllo non deve mostrare modifiche residue ad `AGENTS.md`, `.gitignore` o agli input del caso; gli eventuali aggiornamenti intenzionali del piano o della documentazione vanno revisionati e committati separatamente. Il push non è necessario per il run locale; usare `git push` sul branch corrente soltanto quando occorre condividere il commit o attivare la CI.
 
-Eseguire quindi soltanto i finalisti con `python3 benchmark.py run --profile showcase --models MODEL-A MODEL-B --sandbox required`. Il runner consegna la stessa fotografia a tutti. Il grader tecnico vale 100 punti e usa anche un dataset nascosto; la rubrica visuale da 20 punti resta manuale e separata. Per avvio locale, import multiplo e checklist browser seguire [QUICK-START_Showcase.md](QUICK-START_Showcase.md).
+Eseguire quindi soltanto i finalisti con `python3 benchmark.py run --profile showcase --models MODEL-A MODEL-B --thinking off --sandbox required`. Anche la finalissima attraversa capability discovery, preflight e controllo task della milestone 7. Il runner consegna la stessa fotografia a tutti. Il grader tecnico vale 100 punti e usa anche un dataset nascosto; la rubrica visuale da 20 punti resta manuale e separata. Per avvio locale, import multiplo e checklist browser seguire [QUICK-START_Showcase.md](QUICK-START_Showcase.md).
 
 La finalissima resta un test valido anche quando nessun modello supera 60/100. Conservare timeout, errori, punteggi sotto soglia e baseline non modificate come risultati negativi; non cambiare dataset o grader per ottenere una dashboard completata. La revisione manuale può assegnare `0/20` oppure indicare “non applicabile” quando non esiste un'interfaccia funzionante, senza modificare lo score automatico.
 
@@ -157,7 +163,7 @@ L'importazione resta nella memoria della scheda del browser: non invia dati in r
 - `ollama.url`: endpoint locale;
 - `pi.command`: comando e argomenti iniziali di Pi;
 - `models`: `installed` oppure lista stabile;
-- `defaults`: timeout, ripetizioni, thinking, warmup, keep-alive, contesto, output massimo, temperatura e modalità sandbox;
+- `defaults`: timeout task/preflight, ripetizioni, thinking, timeout idle HTTP, retry agente/provider, warmup, keep-alive, contesto, output massimo, temperatura e modalità sandbox;
 - `profiles`: gruppi di casi;
 - `cases.directory`: directory, interna al repository, da cui scoprire i manifesti `case.json`.
 - `dashboard`: directory degli asset, directory dei risultati, sorgente dello snapshot, host loopback, porta e apertura automatica del browser.
@@ -205,7 +211,7 @@ Il modello primo in classifica non è automaticamente il migliore per ogni uso. 
 
 ## 7. Riproducibilità
 
-Usare stessa configurazione, stesso profilo, stesso numero di ripetizioni, stesso seed e stesso computer. Chiudere carichi pesanti e mantenere condizioni termiche/alimentazione comparabili. Prima di ogni cambio modello il runner scarica il modello precedente, registra un nuovo warmup e poi avvia la task, così l'ordine randomizzato non mantiene più modelli residenti involontariamente.
+Usare stessa configurazione, stesso profilo, stessa modalità thinking, stesso numero di ripetizioni, stesso seed e stesso computer. Chiudere carichi pesanti e mantenere condizioni termiche/alimentazione comparabili. Il runner scarica il modello, esegue il preflight separato e lo scarica di nuovo; prima di ogni cambio modello può poi registrare un warmup aggiuntivo e avviare la task. Preflight e warmup non entrano nei tempi o token della task.
 
 All'avvio `AGENTS.md`, `.gitignore`, manifesti, prompt, fixture, grader e rubriche selezionati devono essere puliti rispetto a Git. Il runner copia una volta in `benchmark-context/` soltanto i file tracciati e la policy di esecuzione, escludendo cache e output ignorati, e tutte le workspace nascono da quella fotografia. Gli hash degli input includono anche manifesto e rubrica. Ogni workspace contiene `.benchmark-scratch/`, ignorata da Git e usata anche come `TMPDIR`, `TMP` e `TEMP`: i modelli devono usarla per smoke test e file temporanei senza ricorrere a `/tmp`. Non modificare né sorgenti né snapshot durante il run. La temperatura zero limita, ma non elimina, la variabilità. Conservare l'intera directory del run quando il risultato deve essere confrontato nel tempo.
 
@@ -221,7 +227,10 @@ All'avvio `AGENTS.md`, `.gitignore`, manifesti, prompt, fixture, grader e rubric
 - `Input benchmark modificati`: ripristinare o committare intenzionalmente `AGENTS.md`, `.gitignore` e i file dei casi prima di riprovare; non usare una fixture già completata.
 - `Manifesto mancante` o `paths.*`: completare `case.json`, usare soltanto path relativi POSIX interni al caso e rimuovere symlink sui path dichiarati; rieseguire `case validate`.
 - errore `max_score`, `points`, `earned` o baseline: correggere il contratto del grader; i check devono totalizzare 100 e la fixture iniziale deve restare sotto 60.
-- errore `dashboard-data`: verificare schema 2/3, coerenza del profilo, directory distinte e path interni alla root; usare `--force` soltanto dopo aver revisionato il file da sostituire.
+- errore `Versione Pi non verificata`: installare Pi 0.85.1 oppure verificare e aggiornare intenzionalmente test contrattuale, versione supportata e documentazione;
+- `thinking_control_unverified`: controllare capability, esito preflight, versione Ollama e supporto del livello richiesto; non forzare un fallback;
+- `unexpected_thinking` o `unexpected_retry`: conservare gli artefatti, escludere il modello e correggere il controllo prima di un nuovo run;
+- errore `dashboard-data`: verificare schema 2/3/4, coerenza del profilo, directory distinte e path interni alla root; usare `--force` soltanto dopo aver revisionato il file da sostituire.
 - dashboard senza dati aprendo direttamente `index.html`: usare `python3 dashboard.py` oppure generare prima lo snapshot locale opzionale.
 - nessun run locale nella dashboard: verificare che ogni directory immediatamente sotto `results/` contenga `run.json` e `report.json` compatibili, oppure passare directory esplicite.
 - porta dashboard occupata: omettere `--port`, usare `--port 0` o scegliere un altro numero.
@@ -254,3 +263,4 @@ Non inserire dati privati, repository reali o credenziali nelle fixture. Manifes
 - Le metriche POSIX possono non includere integralmente tutti i discendenti; RAPL misura il sistema host e può non essere leggibile senza privilegi.
 - Il grader della dashboard verifica trasformazioni e requisiti osservabili, ma responsive, resa visuale, tastiera e assenza di richieste remote richiedono anche una prova in browser e la rubrica manuale sul workspace candidato.
 - La dashboard ufficiale non rende anonimo un export e non pubblica risultati: nomi, punteggi e hash vanno revisionati prima di condividere lo snapshot o un `dashboard-data.json`.
+- Il preflight prova il comportamento osservabile dell'endpoint, non può dimostrare processi interni che Ollama o il modello non espongono. Un modello che non espone reasoning in modalità attiva viene escluso come non verificabile.

@@ -16,6 +16,8 @@ from localagent_bench.pi_adapter import (
     parse_json_events,
     write_models_config,
 )
+from localagent_bench.ollama import OllamaModel
+from localagent_bench.thinking import resolve_thinking_policy
 
 
 class PiAdapterTests(unittest.TestCase):
@@ -42,6 +44,7 @@ class PiAdapterTests(unittest.TestCase):
         self.assertEqual(1, metrics["tool_calls"])
         self.assertEqual(4, metrics["usage"]["output"])
         self.assertEqual(0, metrics["streamed_thinking_chars"])
+        self.assertEqual(0, metrics["retry_events"])
         self.assertEqual(["stop"], metrics["stop_reasons"])
         self.assertFalse(metrics["terminal_agent_error"])
 
@@ -101,12 +104,73 @@ class PiAdapterTests(unittest.TestCase):
     def test_writes_isolated_ollama_configuration(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory)
-            write_models_config(target, "http://127.0.0.1:11434", ["model:a"], 8192, 1024, 0)
+            thinking_model = OllamaModel(
+                "model:a", 1, "digest", "now", {}, ("thinking",), True, True
+            )
+            plain_model = OllamaModel(
+                "model:b", 1, "digest", "now", {}, ("completion",), True, False
+            )
+            write_models_config(
+                target,
+                "http://127.0.0.1:11434",
+                [thinking_model, plain_model],
+                8192,
+                1024,
+                0,
+                resolve_thinking_policy("off"),
+                http_idle_timeout_ms=0,
+                agent_max_retries=0,
+                provider_max_retries=0,
+            )
             payload = json.loads((target / "models.json").read_text(encoding="utf-8"))
             provider = payload["providers"]["ollama"]
             self.assertEqual("http://127.0.0.1:11434/v1", provider["baseUrl"])
             self.assertEqual("model:a", provider["models"][0]["id"])
             self.assertFalse(provider["compat"]["supportsDeveloperRole"])
+            self.assertTrue(provider["compat"]["supportsReasoningEffort"])
+            self.assertEqual("max_tokens", provider["compat"]["maxTokensField"])
+            self.assertTrue(provider["models"][0]["reasoning"])
+            self.assertEqual("none", provider["models"][0]["thinkingLevelMap"]["off"])
+            self.assertEqual("none", provider["models"][0]["samplingParams"]["reasoning_effort"])
+            self.assertFalse(provider["models"][1]["reasoning"])
+            self.assertNotIn("thinkingLevelMap", provider["models"][1])
+            settings = json.loads((target / "settings.json").read_text(encoding="utf-8"))
+            self.assertEqual(0, settings["httpIdleTimeoutMs"])
+            self.assertEqual(
+                {"enabled": False, "maxRetries": 0, "provider": {"maxRetries": 0}},
+                settings["retry"],
+            )
+
+    def test_active_policy_is_written_without_downgrade(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            model = OllamaModel(
+                "model:a", 1, "digest", "now", {}, ("thinking",), True, True
+            )
+            write_models_config(
+                target,
+                "http://127.0.0.1:11434",
+                [model],
+                8192,
+                1024,
+                0,
+                resolve_thinking_policy("medium"),
+                http_idle_timeout_ms=0,
+                agent_max_retries=0,
+                provider_max_retries=0,
+            )
+            payload = json.loads((target / "models.json").read_text(encoding="utf-8"))
+            model_payload = payload["providers"]["ollama"]["models"][0]
+            self.assertEqual("medium", model_payload["samplingParams"]["reasoning_effort"])
+
+    def test_counts_retries_without_copying_free_text(self):
+        events = [
+            {"type": "auto_retry_start", "attempt": 1, "error": "PRIVATE ERROR"},
+            {"type": "auto_retry_end", "success": False, "finalError": "PRIVATE ERROR"},
+        ]
+        metrics, _response = parse_json_events("\n".join(json.dumps(event) for event in events))
+        self.assertEqual(1, metrics["retry_events"])
+        self.assertNotIn("PRIVATE", json.dumps(metrics))
 
     def test_audits_structured_and_shell_access_outside_workspace(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -20,6 +20,7 @@ from .ollama import OllamaError
 from .report import write_report
 from .runner import BenchmarkError, doctor, run_benchmark
 from .sandbox import SANDBOX_MODES
+from .thinking import THINKING_LEVELS
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -47,6 +48,11 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--cases", nargs="+", help="Casi specifici, ignorando il profilo")
     run.add_argument("--repetitions", type=int, help="Ripetizioni per modello/caso")
     run.add_argument("--timeout", type=int, help="Timeout di ogni task in secondi")
+    run.add_argument(
+        "--thinking",
+        choices=THINKING_LEVELS,
+        help="Modalità thinking effettiva (default da benchmark.json)",
+    )
     run.add_argument("--seed", type=int, help="Seed intero per riprodurre l'ordine randomizzato delle task")
     run.add_argument(
         "--sandbox",
@@ -104,7 +110,13 @@ def _print_doctor(payload: dict) -> None:
         for model in payload["models"]:
             size = model.get("size")
             size_text = f"{size / (1024 ** 3):.1f} GiB" if size else "dimensione sconosciuta"
-            print(f"  - {model['name']} ({size_text})")
+            thinking = model.get("thinking_capable")
+            thinking_text = "sì" if thinking is True else "no" if thinking is False else "sconosciuto"
+            print(
+                f"  - {model['name']} ({size_text}; thinking: {thinking_text}; "
+                f"richiesto: {model.get('thinking_requested', 'n/d')}; "
+                f"compatibilità: {model.get('thinking_compatibility', 'n/d')})"
+            )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -135,6 +147,7 @@ def main(argv: list[str] | None = None) -> int:
                 requested_cases=args.cases,
                 repetitions=args.repetitions,
                 timeout_seconds=args.timeout,
+                thinking_level=args.thinking,
                 use_warmup=args.warmup,
                 output_dir=args.output,
                 order_seed=args.seed,

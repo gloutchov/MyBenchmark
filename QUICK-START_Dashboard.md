@@ -118,12 +118,13 @@ node --test dashboard/tests/dashboard.test.js
 - **`index.html` non mostra dati tramite `file://` / `index.html` shows no data through `file://`**: avviare `python3 dashboard.py` oppure generare prima lo snapshot locale opzionale.
 - **Il browser non si apre / The browser does not open**: usare `python3 dashboard.py --no-open` e aprire l'URL stampato.
 - **Porta occupata / Port already in use**: omettere `--port`, usare `--port 0` o scegliere un altro numero.
-- **Run ignorato / Run skipped**: verificare che la directory immediatamente sotto `results/` contenga `run.json` e `report.json` schema 2 o 3 compatibili. Passarla esplicitamente per ottenere un errore dettagliato.
-- **File rifiutato / File rejected**: verificare che sia un export schema dashboard 1 creato da `dashboard-data`, non un report raw, e che non superi 32 MiB.
+- **Run ignorato / Run skipped**: verificare che la directory immediatamente sotto `results/` contenga `run.json` e `report.json` schema 2, 3 o 4 compatibili. Passarla esplicitamente per ottenere un errore dettagliato.
+- **File rifiutato / File rejected**: verificare che sia un export dashboard schema 1 o 2 creato da `dashboard-data`, non un report raw, e che non superi 32 MiB.
+- **Thinking non verificato / Unverified thinking**: i run precedenti alla 0.7.0 restano consultabili, ma la dashboard li segnala come legacy e non vanno usati come baseline prestazionali per run verificati.
 - **Il browser limita `file://` / Browser restricts `file://`**: usare `python3 dashboard.py`; la UI resta identica e opera soltanto su loopback.
 
 ## Privacy
 
-La dashboard non usa CDN, telemetria, API o asset remoti. Lo snapshot e gli export omettono prompt, risposte, comandi, log, path assoluti, evidenze di violazione ed errori liberi. Conservano però nomi modello, titoli dei casi, punteggi, tempi, metriche e hash: revisionarli prima della condivisione.
+La dashboard non usa CDN, telemetria, API o asset remoti. Lo snapshot e gli export omettono prompt, risposte, reasoning, preflight dettagliati, comandi, log, path assoluti, evidenze di violazione ed errori liberi. Conservano però nomi modello, titoli dei casi, punteggi, tempi, stato/livello thinking, metriche e hash: revisionarli prima della condivisione.
 
-The dashboard uses no CDN, telemetry, API, or remote asset. The snapshot and exports omit prompts, responses, commands, logs, absolute paths, violation evidence, and free-form errors. They still retain model names, case titles, scores, timings, metrics, and hashes; review them before sharing.
+The dashboard uses no CDN, telemetry, API, or remote asset. The snapshot and exports omit prompts, responses, reasoning, detailed preflights, commands, logs, absolute paths, violation evidence, and free-form errors. They still retain model names, case titles, scores, timings, summarized thinking status/level, metrics, and hashes; review them before sharing.

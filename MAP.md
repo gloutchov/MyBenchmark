@@ -20,9 +20,10 @@
 │   ├── config.py                   # modello e validazione configurazione
 │   ├── case_sdk.py                 # discovery, manifesti, validatore e template atomico dei casi
 │   ├── integrity.py                # preflight Git, snapshot, SHA-256 e drift repository
-│   ├── ollama.py                   # client locale tags/version/warmup/unload
-│   ├── pi_adapter.py               # Pi, parsing JSONL/errori terminali, scratch e audit path/rete
-│   ├── runner.py                   # ordine seeded, policy, workspace, controlli e artefatti
+│   ├── thinking.py                 # mapping puro e policy thinking Pi/Ollama
+│   ├── ollama.py                   # tags/version, capability, preflight, warmup e unload
+│   ├── pi_adapter.py               # config/payload Pi, JSONL, retry, scratch e audit path/rete
+│   ├── runner.py                   # ordine seeded, preflight, workspace, controlli e artefatti
 │   ├── grading.py                  # esecuzione isolata e timeout dei grader
 │   ├── sandbox.py                  # selezione, probe e launch Seatbelt/bubblewrap/AppContainer/audit
 │   ├── sandbox_transport.py        # broker Ollama Unix e shim Node a destinazione fissa
@@ -53,9 +54,11 @@
 │   ├── test_dashboard_data.py      # whitelist, privacy, funnel, path, atomicità e CLI
 │   ├── test_dashboard_app.py       # discovery, snapshot, confinement, server e header sicurezza
 │   ├── test_dashboard_javascript.py # esecuzione della suite Node dalla suite unittest
+│   ├── test_ollama.py              # capability, mapping, preflight e warmup thinking
+│   ├── test_pi_thinking_contract.py # Pi reale contro server OpenAI-compatible fittizio
 │   └── ...                         # runner, parser/status provider, sandbox, metriche, confronti e grader
 ├── results/                        # output, snapshot input, hash e workspace; ignorato da Git
-├── .github/workflows/ci.yml        # Actions Node 24: compile, test e documenti su tre OS
+├── .github/workflows/ci.yml        # Pi 0.85.1, Node 24, compile, test e documenti su tre OS
 ├── .github/dependabot.yml          # aggiornamenti settimanali delle GitHub Actions
 ├── AGENTS.md                       # modus operandi copiato in ogni fixture
 ├── README.md                       # overview bilingue e quick start
@@ -75,4 +78,4 @@
 └── LICENSE                         # Apache License 2.0
 ```
 
-`results/` nasce al primo run. `benchmark-context/` contiene la fotografia condivisa e verificata di manifesti, prompt, fixture, grader, rubriche e `EXECUTION_POLICY.snapshot.md`; `run.json` registra commit/stato Git, seed, ordine task, SHA-256, versione audit, sandbox effettiva, hardware, warmup e violazioni. Ogni tentativo contiene una `workspace/` deliberatamente modificabile dal modello, una `.benchmark-scratch/` interna ignorata da Git (profilo Seatbelt o socket del broker Linux quando applicabili), una `.pi-agent/` per-task e artefatti fratelli (`result.json`, `grade.json`, `pi-events.jsonl`, `diff.patch` e l'eventuale `manual-rubric.md`), inclusi tree baseline, audit, backend e metriche di sistema. Su Windows, metadata di cleanup e sole fasi/conteggi byte del broker vengono registrati negli artefatti runtime; il named pipe vive nel namespace AppContainer della sessione. `comparison-*` contiene `comparison.json` e `COMPARISON.md` per run compatibili. `dashboard-data-*.json` contiene soltanto i campi in whitelist destinati alla finalissima o all'importazione manuale; il dataset definitivo va congelato nella fixture `results_dashboard` e committato prima del profilo `showcase`. La dashboard ufficiale usa quella fixture come fallback in memoria e, tramite `dashboard.py`, aggrega i run locali senza esporre i file raw. `dashboard/data/snapshot.js` viene creato soltanto su richiesta per l'apertura `file://` ed è ignorato da Git. `output/playwright/` e `.playwright-cli/` sono output locali ignorati. I file sorgente sotto `cases/` non devono essere modificati durante un'esecuzione; il preflight li richiede puliti e il confronto post-task rileva cambiamenti successivi.
+`results/` nasce al primo run. `benchmark-context/` contiene la fotografia condivisa e verificata di manifesti, prompt, fixture, grader, rubriche e `EXECUTION_POLICY.snapshot.md`; `run.json` schema 4 registra commit/stato Git, seed, ordine task, SHA-256, versione audit, sandbox, hardware, versioni Pi/Ollama, digest/capability modello, policy/preflight thinking, retry, timeout idle, warmup e violazioni. Ogni tentativo contiene una `workspace/` deliberatamente modificabile dal modello, una `.benchmark-scratch/` interna ignorata da Git (profilo Seatbelt o socket del broker Linux quando applicabili), una `.pi-agent/` per-task e artefatti fratelli (`result.json`, `grade.json`, `pi-events.jsonl`, `diff.patch` e l'eventuale `manual-rubric.md`), inclusi tree baseline, audit, stato thinking osservabile, backend e metriche di sistema. Gli eventi raw possono contenere reasoning; preflight, report ed export ne conservano soltanto conteggi/stato. Su Windows, metadata di cleanup e sole fasi/conteggi byte del broker vengono registrati negli artefatti runtime; il named pipe vive nel namespace AppContainer della sessione. `comparison-*` contiene `comparison.json` e `COMPARISON.md` per run compatibili anche rispetto al controllo thinking. `dashboard-data-*.json` schema 2 contiene soltanto i campi in whitelist destinati alla finalissima o all'importazione manuale; lo schema 1 congelato resta leggibile e i run legacy sono marcati non verificati. Il dataset definitivo va congelato nella fixture `results_dashboard` e committato prima del profilo `showcase`. La dashboard ufficiale usa quella fixture come fallback in memoria e, tramite `dashboard.py`, aggrega i run locali senza esporre i file raw. `dashboard/data/snapshot.js` viene creato soltanto su richiesta per l'apertura `file://` ed è ignorato da Git. `output/playwright/` e `.playwright-cli/` sono output locali ignorati. I file sorgente sotto `cases/` non devono essere modificati durante un'esecuzione; il preflight Git li richiede puliti e il confronto post-task rileva cambiamenti successivi.

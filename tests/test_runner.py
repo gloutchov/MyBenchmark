@@ -19,9 +19,10 @@ from localagent_bench.integrity import (
     snapshot_cases,
     verify_snapshot,
 )
-from localagent_bench.ollama import OllamaModel
+from localagent_bench.ollama import OllamaModel, ThinkingPreflight
 from localagent_bench.pi_adapter import AUDIT_VERSION, SCRATCH_DIRECTORY, PiRun
 from localagent_bench.runner import (
+    BenchmarkError,
     EXECUTION_POLICY,
     _build_task_order,
     _capture_git,
@@ -109,7 +110,28 @@ class RunnerGitTests(unittest.TestCase):
             {(item["model"], item["case_id"], item["repetition"]) for item in first},
         )
 
-    @patch("localagent_bench.runner._command_version", return_value="test")
+    def test_run_rejects_unverified_pi_version_before_contacting_ollama(self):
+        config = load_config(ROOT / "benchmark.json")
+        with (
+            patch("localagent_bench.runner.require_clean_inputs"),
+            patch("localagent_bench.runner._command_version", return_value="0.99.0"),
+            patch("localagent_bench.runner.list_models") as list_models_mock,
+        ):
+            with self.assertRaisesRegex(BenchmarkError, "Versione Pi non verificata"):
+                run_benchmark(
+                    config,
+                    profile="smoke",
+                    requested_models=None,
+                    requested_cases=None,
+                    repetitions=1,
+                    timeout_seconds=30,
+                    thinking_level="off",
+                    use_warmup=False,
+                    output_dir=None,
+                )
+        list_models_mock.assert_not_called()
+
+    @patch("localagent_bench.runner._command_version", return_value="0.85.1")
     @patch("localagent_bench.runner.require_clean_inputs")
     @patch("localagent_bench.runner.unload")
     @patch("localagent_bench.runner.version", return_value="test")
@@ -143,17 +165,23 @@ class RunnerGitTests(unittest.TestCase):
         )
         config = load_config(ROOT / "benchmark.json")
         with tempfile.TemporaryDirectory() as directory:
-            run_dir = run_benchmark(
-                config,
-                profile="smoke",
-                requested_models=["model:a"],
-                requested_cases=["milestone_closure"],
-                repetitions=1,
-                timeout_seconds=30,
-                use_warmup=False,
-                output_dir=Path(directory) / "run",
-                order_seed=7,
-            )
+            preflight = ThinkingPreflight("passed", "off", "none", None, False, 0, 0, 1)
+            with (
+                patch("localagent_bench.runner.inspect_model", return_value=model),
+                patch("localagent_bench.runner.preflight_thinking", return_value=preflight),
+            ):
+                run_dir = run_benchmark(
+                    config,
+                    profile="smoke",
+                    requested_models=["model:a"],
+                    requested_cases=["milestone_closure"],
+                    repetitions=1,
+                    timeout_seconds=30,
+                    thinking_level=None,
+                    use_warmup=False,
+                    output_dir=Path(directory) / "run",
+                    order_seed=7,
+                )
             result_path = next(run_dir.glob("models/*/cases/*/result.json"))
             result = json.loads(result_path.read_text(encoding="utf-8"))
             report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
@@ -163,13 +191,17 @@ class RunnerGitTests(unittest.TestCase):
             self.assertEqual("passed", report["integrity"]["status"])
             manifest = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
             self.assertEqual(7, manifest["order_seed"])
-            self.assertEqual("0.6.0", manifest["benchmark_version"])
+            self.assertEqual("0.7.0", manifest["benchmark_version"])
             self.assertEqual(32768, manifest["configuration"]["context_window"])
             self.assertEqual(30, manifest["configuration"]["timeout_seconds"])
             self.assertEqual(AUDIT_VERSION, manifest["execution_policy"]["audit_version"])
             self.assertEqual("audit-only", manifest["sandbox"]["backend"])
             self.assertFalse(manifest["sandbox"]["enforced"])
-            self.assertEqual(3, result["schema_version"])
+            self.assertEqual(4, result["schema_version"])
+            self.assertEqual(4, manifest["schema_version"])
+            self.assertEqual("none", manifest["thinking_control"]["reasoning_effort"])
+            self.assertEqual("passed", manifest["thinking_control"]["status"])
+            self.assertEqual("passed", result["thinking_control"]["preflight"])
             self.assertEqual(1, result["case_manifest_schema_version"])
             self.assertEqual("Milestone closure, versioning, and Git discipline", result["case_title_en"])
             self.assertFalse(result["manual_rubric"]["included_in_automatic_score"])
@@ -216,7 +248,7 @@ class RunnerGitTests(unittest.TestCase):
             with self.assertRaises(InputIntegrityError):
                 require_clean_inputs(root, [case])
 
-    @patch("localagent_bench.runner._command_version", return_value="test")
+    @patch("localagent_bench.runner._command_version", return_value="0.85.1")
     @patch("localagent_bench.runner.require_clean_inputs")
     @patch("localagent_bench.runner.unload")
     @patch("localagent_bench.runner.version", return_value="test")
@@ -247,17 +279,23 @@ class RunnerGitTests(unittest.TestCase):
         )
         config = load_config(ROOT / "benchmark.json")
         with tempfile.TemporaryDirectory() as directory:
-            run_dir = run_benchmark(
-                config,
-                profile="showcase",
-                requested_models=[model.name],
-                requested_cases=None,
-                repetitions=1,
-                timeout_seconds=30,
-                use_warmup=False,
-                output_dir=Path(directory) / "showcase-run",
-                order_seed=20260903,
-            )
+            preflight = ThinkingPreflight("passed", "off", "none", None, False, 0, 0, 1)
+            with (
+                patch("localagent_bench.runner.inspect_model", return_value=model),
+                patch("localagent_bench.runner.preflight_thinking", return_value=preflight),
+            ):
+                run_dir = run_benchmark(
+                    config,
+                    profile="showcase",
+                    requested_models=[model.name],
+                    requested_cases=None,
+                    repetitions=1,
+                    timeout_seconds=30,
+                    thinking_level=None,
+                    use_warmup=False,
+                    output_dir=Path(directory) / "showcase-run",
+                    order_seed=20260903,
+                )
             result_path = next(run_dir.glob("models/*/cases/*/result.json"))
             result = json.loads(result_path.read_text(encoding="utf-8"))
             manifest = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
@@ -268,6 +306,125 @@ class RunnerGitTests(unittest.TestCase):
             self.assertLess(result["grade"]["score"], 60)
             self.assertTrue((workspace / "dashboard-data.json").is_file())
             self.assertEqual(1, json.loads((workspace / "dashboard-data.json").read_text())["schema_version"])
+
+    @patch("localagent_bench.runner._command_version", return_value="0.85.1")
+    @patch("localagent_bench.runner.require_clean_inputs")
+    @patch("localagent_bench.runner.unload")
+    @patch("localagent_bench.runner.version", return_value="test")
+    @patch("localagent_bench.runner.run_pi")
+    @patch("localagent_bench.runner.list_models")
+    def test_failed_thinking_preflight_excludes_model_before_showcase_task(
+        self,
+        list_models_mock,
+        run_pi_mock,
+        _version_mock,
+        _unload_mock,
+        _require_clean_inputs_mock,
+        _command_version_mock,
+    ):
+        model = OllamaModel(
+            "showcase:test", 1, "digest", "now", {}, ("thinking",), True, True
+        )
+        list_models_mock.return_value = [model]
+        failed = ThinkingPreflight(
+            "unexpected_thinking", "off", "none", True, True, 12, 4, 2
+        )
+        config = load_config(ROOT / "benchmark.json")
+        with tempfile.TemporaryDirectory() as directory:
+            with (
+                patch("localagent_bench.runner.inspect_model", return_value=model),
+                patch("localagent_bench.runner.preflight_thinking", return_value=failed),
+            ):
+                run_dir = run_benchmark(
+                    config,
+                    profile="showcase",
+                    requested_models=[model.name],
+                    requested_cases=None,
+                    repetitions=1,
+                    timeout_seconds=30,
+                    thinking_level="off",
+                    use_warmup=False,
+                    output_dir=Path(directory) / "showcase-run",
+                    order_seed=7,
+                )
+            run_pi_mock.assert_not_called()
+            manifest = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+            report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
+            self.assertEqual("failed", manifest["thinking_control"]["status"])
+            self.assertEqual([model.name], manifest["thinking_control"]["disqualified_models"])
+            self.assertEqual([model.name], report["integrity"]["disqualified_models"])
+            self.assertEqual([], report["leaderboard"])
+
+    @patch("localagent_bench.runner._command_version", return_value="0.85.1")
+    @patch("localagent_bench.runner.require_clean_inputs")
+    @patch("localagent_bench.runner.unload")
+    @patch("localagent_bench.runner.version", return_value="test")
+    @patch("localagent_bench.runner.run_pi")
+    @patch("localagent_bench.runner.list_models")
+    def test_off_task_with_thinking_or_retry_disqualifies_entire_model(
+        self,
+        list_models_mock,
+        run_pi_mock,
+        _version_mock,
+        _unload_mock,
+        _require_clean_inputs_mock,
+        _command_version_mock,
+    ):
+        model = OllamaModel(
+            "model:a", 1, "digest", "now", {}, ("thinking",), True, True
+        )
+        list_models_mock.return_value = [model]
+        run_pi_mock.return_value = PiRun(
+            status="ok",
+            exit_code=0,
+            duration_seconds=0.5,
+            stdout="",
+            stderr="",
+            metrics={
+                "usage": {"output": 1, "reasoning": 3},
+                "tool_calls": 0,
+                "tool_errors": 0,
+                "streamed_thinking_chars": 7,
+                "retry_events": 1,
+            },
+            final_response="done",
+            command=["pi"],
+            sandbox={"backend": "audit-only", "enforced": False},
+            system_metrics={"process": {"available": False}, "energy": {"available": False}},
+        )
+        passed = ThinkingPreflight("passed", "off", "none", True, False, 0, 0, 1)
+        config = load_config(ROOT / "benchmark.json")
+        with tempfile.TemporaryDirectory() as directory:
+            with (
+                patch("localagent_bench.runner.inspect_model", return_value=model),
+                patch("localagent_bench.runner.preflight_thinking", return_value=passed),
+                patch("localagent_bench.runner.warmup", return_value={}) as warmup_mock,
+            ):
+                run_dir = run_benchmark(
+                    config,
+                    profile="smoke",
+                    requested_models=[model.name],
+                    requested_cases=None,
+                    repetitions=1,
+                    timeout_seconds=30,
+                    thinking_level="off",
+                    use_warmup=True,
+                    output_dir=Path(directory) / "run",
+                    order_seed=7,
+                )
+            result_path = next(run_dir.glob("models/*/cases/*/result.json"))
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            report = json.loads((run_dir / "report.json").read_text(encoding="utf-8"))
+            reasons = {
+                item["reason"] for item in result["integrity"]["thinking_control_violations"]
+            }
+            self.assertEqual({"unexpected_thinking", "unexpected_retry"}, reasons)
+            self.assertFalse(result["integrity"]["valid_for_ranking"])
+            self.assertEqual([model.name], report["integrity"]["disqualified_models"])
+            self.assertEqual([], report["leaderboard"])
+            policy = warmup_mock.call_args.args[4]
+            self.assertEqual("off", policy.requested)
+            self.assertEqual("none", policy.reasoning_effort)
 
 
 if __name__ == "__main__":

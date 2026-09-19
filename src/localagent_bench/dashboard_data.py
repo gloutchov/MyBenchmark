@@ -12,9 +12,10 @@ from pathlib import Path, PureWindowsPath
 from typing import Any, Iterable
 
 
-DASHBOARD_SCHEMA_VERSION = 1
-SUPPORTED_RUN_SCHEMA_VERSIONS = {2, 3}
-SUPPORTED_REPORT_SCHEMA_VERSIONS = {2, 3}
+DASHBOARD_SCHEMA_VERSION = 2
+SUPPORTED_DASHBOARD_SCHEMA_VERSIONS = {1, 2}
+SUPPORTED_RUN_SCHEMA_VERSIONS = {2, 3, 4}
+SUPPORTED_REPORT_SCHEMA_VERSIONS = {2, 3, 4}
 MAX_SOURCE_BYTES = 32 * 1024 * 1024
 PROFILE_PIPELINE = ("smoke", "standard", "full", "showcase")
 RUN_FIELDS = {
@@ -26,10 +27,12 @@ RUN_FIELDS = {
     "provenance",
     "sandbox",
     "integrity",
+    "thinking_control",
     "participants",
     "leaderboard",
     "tasks",
 }
+LEGACY_RUN_FIELDS = RUN_FIELDS - {"thinking_control"}
 PROVENANCE_FIELDS = {
     "run_schema_version",
     "report_schema_version",
@@ -45,6 +48,7 @@ SANDBOX_FIELDS = {
     "network_isolation",
 }
 INTEGRITY_FIELDS = {"status", "disqualified_models"}
+THINKING_CONTROL_FIELDS = {"version", "status", "requested", "reasoning_effort", "source"}
 LEADERBOARD_FIELDS = {
     "rank",
     "model",
@@ -287,6 +291,32 @@ def _sanitize_tasks(rows: Any) -> list[dict[str, Any]]:
     return output
 
 
+def _sanitize_thinking_control(manifest: dict[str, Any], report_run: dict[str, Any]) -> dict[str, Any]:
+    raw = report_run.get("thinking_control")
+    if not isinstance(raw, dict):
+        raw = manifest.get("thinking_control")
+    if not isinstance(raw, dict):
+        raw = {}
+    config = manifest.get("config") if isinstance(manifest.get("config"), dict) else {}
+    requested = _text(raw.get("requested"), maximum=32) or _text(config.get("thinking"), maximum=32)
+    version = _integer(raw.get("version")) or 0
+    if version < 1:
+        return {
+            "version": 0,
+            "status": "unverified",
+            "requested": requested or "unknown",
+            "reasoning_effort": None,
+            "source": "legacy_unverified",
+        }
+    return {
+        "version": version,
+        "status": _text(raw.get("status"), default="unverified", maximum=64),
+        "requested": requested or "unknown",
+        "reasoning_effort": _text(raw.get("reasoning_effort"), maximum=32) or None,
+        "source": _text(raw.get("source"), default="unknown", maximum=64),
+    }
+
+
 def _profile_order(profiles: Iterable[str]) -> list[str]:
     available = set(profiles)
     ordered = [profile for profile in PROFILE_PIPELINE if profile in available]
@@ -392,6 +422,7 @@ def build_dashboard_data(run_dirs: Iterable[Path]) -> dict[str, Any]:
                     "status": _text(report_integrity.get("status"), default="not_recorded", maximum=64),
                     "disqualified_models": disqualified,
                 },
+                "thinking_control": _sanitize_thinking_control(manifest, report_run),
                 "participants": sorted(participants),
                 "leaderboard": leaderboard,
                 "tasks": tasks,
@@ -416,11 +447,12 @@ def validate_dashboard_data(dataset: Any) -> None:
     if (
         not isinstance(dataset, dict)
         or isinstance(dataset.get("schema_version"), bool)
-        or dataset.get("schema_version") != DASHBOARD_SCHEMA_VERSION
+        or dataset.get("schema_version") not in SUPPORTED_DASHBOARD_SCHEMA_VERSIONS
     ):
         raise DashboardDataError("Dataset dashboard non valido o schema non supportato")
     if set(dataset) != {"schema_version", "profile_order", "runs", "funnel"}:
         raise DashboardDataError("Campi radice del dataset dashboard non validi")
+    dashboard_schema = dataset["schema_version"]
     profiles = dataset.get("profile_order")
     runs = dataset.get("runs")
     funnel = dataset.get("funnel")
@@ -431,7 +463,8 @@ def validate_dashboard_data(dataset: Any) -> None:
         raise DashboardDataError("runs deve contenere almeno un run")
     ids: set[str] = set()
     for run in runs:
-        run = _require_exact_fields(run, RUN_FIELDS, label="run dashboard")
+        expected_run_fields = RUN_FIELDS if dashboard_schema >= 2 else LEGACY_RUN_FIELDS
+        run = _require_exact_fields(run, expected_run_fields, label="run dashboard")
         if _text(run.get("id"), maximum=120) != run.get("id"):
             raise DashboardDataError("Run dashboard non valido")
         if run["id"] in ids:
@@ -471,6 +504,20 @@ def validate_dashboard_data(dataset: Any) -> None:
         _validate_public_string_list(
             integrity.get("disqualified_models"), label=f"disqualified_models di {run['id']}"
         )
+        if dashboard_schema >= 2:
+            thinking = _require_exact_fields(
+                run.get("thinking_control"),
+                THINKING_CONTROL_FIELDS,
+                label=f"thinking_control di {run['id']}",
+            )
+            if (
+                _integer(thinking["version"]) is None
+                or not _valid_public_text(thinking["status"], maximum=64)
+                or not _valid_public_text(thinking["requested"], maximum=32)
+                or not _valid_public_text(thinking["reasoning_effort"], maximum=32, nullable=True)
+                or not _valid_public_text(thinking["source"], maximum=64)
+            ):
+                raise DashboardDataError(f"Controllo thinking non valido nel run {run['id']}")
         if not isinstance(run.get("leaderboard"), list) or not isinstance(run.get("tasks"), list):
             raise DashboardDataError(f"Leaderboard o task non valide nel run {run['id']}")
         for row in run["leaderboard"]:

@@ -65,6 +65,27 @@ def _compatibility_signature(manifest: dict[str, Any], report: dict[str, Any]) -
     report_integrity = report.get("integrity", {})
     if not isinstance(report_integrity, dict):
         report_integrity = {}
+    thinking_control = manifest.get("thinking_control", {})
+    if not isinstance(thinking_control, dict):
+        thinking_control = {}
+    retry_policy = thinking_control.get("retry_policy", {})
+    if not isinstance(retry_policy, dict):
+        retry_policy = {}
+    model_metadata = manifest.get("model_metadata", {})
+    capability_signature: list[tuple[str, bool | None, tuple[str, ...]]] = []
+    if isinstance(model_metadata, dict):
+        for model, raw in sorted(model_metadata.items(), key=lambda item: str(item[0])):
+            details = raw if isinstance(raw, dict) else {}
+            raw_capabilities = details.get("capabilities", [])
+            capabilities = (
+                tuple(sorted(str(item) for item in raw_capabilities if isinstance(item, str)))
+                if isinstance(raw_capabilities, (list, tuple))
+                else ()
+            )
+            capable = details.get("thinking_capable")
+            capability_signature.append(
+                (str(model), capable if isinstance(capable, bool) else None, capabilities)
+            )
     cases = manifest.get("cases")
     if not isinstance(cases, list):
         cases = sorted({str(item.get("case_id")) for item in report.get("results", []) if isinstance(item, dict)})
@@ -81,6 +102,22 @@ def _compatibility_signature(manifest: dict[str, Any], report: dict[str, Any]) -
         "timeout_seconds": configuration.get("timeout_seconds", manifest.get("timeout_seconds")),
         "repetitions": configuration.get("repetitions", manifest.get("repetitions")),
         "thinking": configuration.get("thinking", manifest.get("thinking")),
+        "thinking_control_version": thinking_control.get("version", 0),
+        "thinking_control_status": thinking_control.get("status", "unverified"),
+        "reasoning_effort": thinking_control.get("reasoning_effort"),
+        "thinking_control_source": thinking_control.get("source", "legacy_unverified"),
+        "agent_max_retries": retry_policy.get(
+            "agent_max_retries", configuration.get("agent_max_retries")
+        ),
+        "provider_max_retries": retry_policy.get(
+            "provider_max_retries", configuration.get("provider_max_retries")
+        ),
+        "http_idle_timeout_ms": thinking_control.get(
+            "http_idle_timeout_ms", configuration.get("http_idle_timeout_ms")
+        ),
+        "pi_version": environment.get("pi"),
+        "ollama_version": environment.get("ollama"),
+        "model_capabilities": tuple(capability_signature),
         "warmup": configuration.get("warmup", manifest.get("warmup")),
         "context_window": configuration.get("context_window"),
         "max_tokens": configuration.get("max_tokens"),
@@ -131,7 +168,7 @@ def build_comparison(run_dirs: list[Path]) -> dict[str, Any]:
     for run_dir in resolved_dirs:
         manifest = _load_object(run_dir / "run.json")
         report = _load_object(run_dir / "report.json")
-        if report.get("schema_version") not in {2, 3}:
+        if report.get("schema_version") not in {2, 3, 4}:
             raise ComparisonError(f"Schema report non supportato in {run_dir.name}")
         loaded.append((run_dir, manifest, report))
 
