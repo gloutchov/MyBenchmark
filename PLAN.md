@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.7.0**
+Versione corrente / Current version: **0.8.0**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -355,30 +355,33 @@ Versione corrente / Current version: **0.7.0**
 - Test richiesti: calibrazione diretta della fixture; unit e test negativi del grader; fixture alternativa nascosta se necessaria per impedire hardcoding; `case validate thinking_challenge` e validazione completa; test config/profili; test runner e manifesti per coorti; test comparison per separazione delle modalità; test dashboard/export per modalità, profilo indipendente e funnel invariato; compileall, unittest, test Node, CI multipiattaforma; smoke reale del nuovo profilo e confronto con almeno tre ripetizioni per cella; verifica manuale degli artefatti migliori e dei fallimenti.
 - Documentazione: README, manuali bilingui, quick start autore e showcase/dashboard, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e questo piano; documentare obiettivo del caso, protocollo A/B, limiti statistici, costo aggiuntivo, interpretazione dei reasoning token e divieto di fallback condizionali.
 - Release: milestone rilasciabile come `v0.8.0`; tag, GitHub Release, push, merge e rimozione branch richiedono approvazione esplicita del progettista.
-- Stato: **pianificata; nessun branch M8 creato e nessun caso, profilo o grader ancora implementato.**
+- Stato: **implementazione e verifiche locali completate sul branch `milestone/8-thinking-benchmark-case`; il progettista ha autorizzato esplicitamente commit, push, merge, tag, release e rimozione del branch il 2026-09-19, e la chiusura remota è in corso. Il caso `thinking_challenge` è stato creato tramite Case SDK come pianificatore esatto multi-vincolo, con baseline 5/100, scenari alternativi nel grader, regressione anti-hardcoding sotto 60 e soluzione generica temporanea calibrata a 100/100. Il profilo indipendente `thinking` è configurato; `standard` e `full` includono il caso, mentre `smoke` e `showcase` restano invariati. Export e dashboard mantengono `thinking`/`showcase` fuori dal funnel principale e separano classifiche e fattori per run/modalità. Compileall, 106 test Python, 8 test Node e la validazione dei sei casi sono verdi; 12 probe dipendenti da loopback o sistemi operativi diversi non sono applicabili nel sandbox corrente. La verifica Playwright via server locale è verde a 1440×900 e 390×844 in tema chiaro/scuro, senza overflow orizzontale, errori console o richieste remote e con dialogo accessibile da tastiera. L'esperimento reale su Pi 0.85.1, Ollama 0.34.2 e `qwen3.5:9b-mlx`, seed `20260919`, sandbox Seatbelt `required`, timeout 1.200 s e tre ripetizioni per cella ha mantenuto condizioni e retry simmetrici: `medium` ha ottenuto 60/0/0, qualità media 20,0, completion 33%, mediana 532,2 s e 14.589 token output; `off` ha ottenuto 22/0/10, qualità media 10,7, completion 0%, mediana 486,8 s e 13.874 token output. Il preflight e ogni task confermano reasoning `medium` osservato (1.548–1.895 caratteri thinking) e nessun thinking in `off`, sempre con zero retry e integrità valida. Tutte le task terminano per limite `length`: con soli tre campioni il risultato segnala un vantaggio descrittivo di qualità per `medium`, a costo di circa 45,5 s e 715 token mediani, ma non sostiene inferenza statistica. `compare` rifiuta correttamente l'aggregazione incrociata; l'export dashboard schema 2 mostra le due coorti separate e un funnel vuoto, senza contenuto reasoning. La revisione manuale conferma che il 60/100 supera scenari nascosti, tie-break e infeasibilità, mentre gli 0/100 derivano da implementazioni troncate/non importabili, non da errori del grader.**
 
 ### Checklist milestone 8
 
-- [ ] Branch milestone creato (`milestone/8-thinking-benchmark-case`)
-- [ ] Brief funzionale e minacce alla validità del caso revisionati
-- [ ] Caso creato tramite Case SDK e manifesto validato
-- [ ] Fixture sintetica e grader deterministico completati
-- [ ] Baseline calibrata sotto 60 con massimo/somma pari a 100
-- [ ] Test negativi e anti-hardcoding aggiunti
-- [ ] Profilo indipendente `thinking` aggiunto
-- [ ] Caso integrato in `standard` e `full`; `smoke` mantenuto rapido
-- [ ] Controllo thinking verificato anche per `showcase`
-- [ ] Dashboard/export aggiornati per coorti indipendenti e funnel invariato
-- [ ] Protocollo simmetrico `off`/`medium` documentato senza fallback condizionale
-- [ ] Compileall, unittest, test Node e validazione completa casi eseguiti
-- [ ] Smoke reale del profilo `thinking` eseguito
-- [ ] Esperimento reale con almeno tre ripetizioni per cella eseguito e revisionato
-- [ ] Eventuale finalissima doppia eseguita con entrambi i modi per tutti i finalisti e ordine controbilanciato
+- [x] Branch milestone creato (`milestone/8-thinking-benchmark-case`)
+- [x] Brief funzionale e minacce alla validità del caso revisionati
+- [x] Caso creato tramite Case SDK e manifesto validato
+- [x] Fixture sintetica e grader deterministico completati
+- [x] Baseline calibrata a 5/100 con massimo/somma pari a 100; soluzione generica di controllo a 100/100
+- [x] Test negativi e anti-hardcoding aggiunti
+- [x] Profilo indipendente `thinking` aggiunto
+- [x] Caso integrato in `standard` e `full`; `smoke` mantenuto rapido
+- [x] Controllo thinking verificato anche per `showcase`
+- [x] Dashboard/export aggiornati per coorti indipendenti e funnel invariato
+- [x] Protocollo simmetrico `off`/`medium` documentato senza fallback condizionale
+- [x] Compileall, 106 test Python, 8 test Node e validazione completa dei 6 casi eseguiti; 12 skip ambientali motivati
+- [x] Verifica browser/server Playwright completata su desktop/mobile, temi chiaro/scuro, tastiera e rete solo locale
+- [x] Smoke reale del profilo `thinking` eseguito su `qwen3.5:9b-mlx` con sandbox `required`
+- [x] Esperimento reale con tre ripetizioni per cella `medium`/`off` eseguito e revisionato
+- [x] Miglior artefatto e fallimenti revisionati; limite `length`, punteggi parziali e assenza di errori grader documentati
+- [x] `compare` incrociato rifiutato ed export/dashboard reali verificati con coorti separate e funnel vuoto
+- [x] Finalissima doppia non eseguita: verifica opzionale non necessaria per l'accettazione M8; il protocollo controbilanciato resta documentato per i futuri finalisti
 - [ ] CI macOS, Ubuntu e Windows verde sul branch/PR
-- [ ] Versione `0.8.0` sincronizzata nei punti canonici
-- [ ] README, ISTRUZIONI, INSTRUCTIONS, quick start, SECURITY_MODEL, MAP e AGENTS aggiornati
-- [ ] PLAN aggiornato con risultati, limiti e identificativi delle verifiche
-- [ ] Approvazione esplicita del progettista ottenuta prima del merge
+- [x] Versione `0.8.0` sincronizzata nei punti canonici
+- [x] README, ISTRUZIONI, INSTRUCTIONS, quick start, SECURITY_MODEL, MAP e AGENTS aggiornati
+- [x] PLAN aggiornato con stato, calibrazione e verifiche pendenti
+- [x] Approvazione esplicita del progettista ottenuta il 2026-09-19 prima del merge
 - [ ] Commit finale e PR/merge verso `main` completati
 - [ ] CI verificata su `main`
 - [ ] Tag `v0.8.0` e GitHub Release pubblicati quando autorizzati

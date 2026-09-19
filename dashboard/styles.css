@@ -599,6 +599,33 @@ main > section,
   background: var(--blue);
 }
 
+.cohort-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  gap: 1rem;
+}
+
+.cohort-section {
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  background: var(--panel-soft);
+}
+
+.cohort-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.8rem;
+}
+
+.cohort-heading h3 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
 .comparison-list {
   display: grid;
   gap: 1rem;

@@ -62,6 +62,8 @@ Regole obbligatorie:
 - la fixture iniziale ottiene meno di 60/100;
 - test e grader non usano credenziali o rete reale.
 
+Per casi che misurano pianificazione o ragionamento, aggiungere scenari alternativi nel grader che non siano presenti nella fixture e verificare che una soluzione hardcoded sull'esempio pubblico resti sotto 60. Il grader deve valutare soltanto comportamento osservabile, mai richiedere o premiare una catena di pensiero.
+
 ### 4. Validare
 
 Prima di eseguire il comando, revisionare sempre il grader: è codice fidato eseguito con i permessi dell'utente e non dentro la sandbox dell'agente.
@@ -127,6 +129,8 @@ Replace the example prompt and fixture with entirely synthetic material. The pro
 ### 3. Write the grader
 
 `grader.py` receives the candidate workspace as its first argument and must print one JSON object using the contract shown above. Check IDs must be unique, points must total exactly 100, earned points must stay within each check's range, and `score` must equal total earned points. The initial fixture must score below 60/100. Tests and graders must not use real credentials or networking.
+
+For planning or reasoning cases, add alternative grader scenarios that are absent from the fixture and verify that a solution hardcoded to the public example remains below 60. Grade observable behavior only; never request or reward a chain-of-thought trace.
 
 ### 4. Validate
 

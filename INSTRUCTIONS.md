@@ -45,9 +45,23 @@ python3 benchmark.py run --profile standard
 ## 4. Main workflows
 
 - `smoke` checks Pi/Ollama integration and basic tool calling.
-- `standard` covers a targeted patch, security hardening, and validated configuration/i18n.
+- `standard` covers a targeted patch, security hardening, validated configuration/i18n, and the exact multi-constraint `thinking_challenge` case.
 - `full` adds milestone closure, versioning, documentation, and Git discipline.
+- `thinking` independently runs only `thinking_challenge` for focused A/B experiments.
 - `showcase` is a separate final that asks shortlisted models to build a static dashboard from the same frozen dataset; do not mix it into earlier profiles.
+
+### Focused thinking experiment
+
+`thinking_challenge` requires an exact planner covering budget, risk, team capacities, dependencies, conflicts, required categories, and deterministic tie-breaking. Its grader uses alternative scenarios absent from the fixture and never asks for or rewards a chain-of-thought trace.
+
+Run the independent `thinking` profile in separate `off` and `medium` directories with the same models, seed, parameters, and at least three repetitions per cell:
+
+```bash
+python3 benchmark.py run --profile thinking --models MODEL --thinking off --repetitions 3 --seed 20260919 --output results/thinking-off
+python3 benchmark.py run --profile thinking --models MODEL --thinking medium --repetitions 3 --seed 20260919 --output results/thinking-medium
+```
+
+Counterbalance cohort order across larger campaigns. Never grant the second mode only to failures: timeouts, errors, and below-threshold scores remain outcomes of their cohort. `compare` intentionally refuses to aggregate different thinking modes.
 
 Use `--models` for exact Ollama model names, `--cases` for explicit case IDs, `--timeout` for a per-task limit in seconds, and `--output` for a new or empty destination. `--thinking` accepts `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max` and overrides the default without fallback. Tasks are randomized; pass `--seed NUMBER` to reproduce the exact order recorded in `run.json`. `--sandbox` accepts `audit`, `auto`, or `required`; use `required` when the run must not continue without OS enforcement. Run the full profile three times on shortlisted models when making a final choice.
 
@@ -56,6 +70,8 @@ Use `--models` for exact Ollama model names, `--cases` for explicit case IDs, `-
 The official benchmark uses `--thinking off`. Before any case runs, the runner queries `/api/show` for each model and sends a minimal request to `/v1/chat/completions` with `reasoning_effort: "none"`. Isolated Pi configuration contains the same explicit parameter, `max_tokens`, disabled HTTP idle timeout, and zero retries; native warmup uses `think: false`. `--no-warmup` disables only the optional extra warmup, never the mandatory preflight.
 
 A rejected or unverifiable preflight excludes that model before its tasks without stopping other models. In an `off` cohort, observable reasoning or an unexpected retry during any task disqualifies the entire model. The probe stores only status, duration, and counts—never reasoning content. Active modes require the `thinking` capability and an observable reasoning signal and must run in distinct directories/cohorts. Do not grant a second mode only to failed models: an `off`/`medium` comparison must give every participant both modes under symmetric conditions.
+
+In exports and the official dashboard, `thinking` and `showcase` remain independent profiles: they are filterable and show their thinking mode/control, but they are not stages in the `smoke` → `standard` → `full` funnel. Rankings from `off` and `medium` runs are grouped separately instead of being merged into a combined rank.
 
 Compare compatible runs statistically:
 

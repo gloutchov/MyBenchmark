@@ -158,28 +158,42 @@
       container.replaceChildren(emptyState("no_leaderboard"));
       return;
     }
-    const { wrapper, body } = tableShell(["rank", "model", "profile", "overall", "quality", "completion", "duration"]);
-    view.leaderboard.forEach((item, index) => {
-      const row = document.createElement("tr");
-      const position = document.createElement("td");
-      position.textContent = String(index + 1);
-      position.className = "rank-cell";
-      const model = document.createElement("td");
-      model.append(element("strong", "model-name", item.model), element("span", "run-id", item.run_id));
-      const profile = document.createElement("td");
-      profile.append(badge(item.profile, "profile"));
-      const overall = document.createElement("td");
-      overall.append(scoreCell(item.overall_score));
-      const quality = document.createElement("td");
-      quality.textContent = formatNumber(item.quality_score, 1);
-      const completion = document.createElement("td");
-      completion.textContent = typeof item.completion_rate === "number" ? `${formatNumber(item.completion_rate, 1)}%` : t("unknown");
-      const duration = document.createElement("td");
-      duration.textContent = formatDuration(item.median_duration_seconds);
-      row.append(position, model, profile, overall, quality, completion, duration);
-      body.append(row);
+    const groups = new Map();
+    view.leaderboard.forEach((item) => {
+      if (!groups.has(item.run_id)) groups.set(item.run_id, []);
+      groups.get(item.run_id).push(item);
     });
-    container.replaceChildren(wrapper);
+    const grid = element("div", "cohort-grid");
+    groups.forEach((items, runId) => {
+      const cohort = element("section", "cohort-section");
+      const heading = element("div", "cohort-heading");
+      heading.append(
+        element("h3", "", `${items[0].profile} · ${t("thinking_control")}: ${items[0].thinking_mode}`),
+        element("span", "run-id", runId)
+      );
+      const { wrapper, body } = tableShell(["rank", "model", "overall", "quality", "completion", "duration"]);
+      items.forEach((item) => {
+        const row = document.createElement("tr");
+        const position = document.createElement("td");
+        position.textContent = String(item.rank);
+        position.className = "rank-cell";
+        const model = document.createElement("td");
+        model.append(element("strong", "model-name", item.model));
+        const overall = document.createElement("td");
+        overall.append(scoreCell(item.overall_score));
+        const quality = document.createElement("td");
+        quality.textContent = formatNumber(item.quality_score, 1);
+        const completion = document.createElement("td");
+        completion.textContent = typeof item.completion_rate === "number" ? `${formatNumber(item.completion_rate, 1)}%` : t("unknown");
+        const duration = document.createElement("td");
+        duration.textContent = formatDuration(item.median_duration_seconds);
+        row.append(position, model, overall, quality, completion, duration);
+        body.append(row);
+      });
+      cohort.append(heading, wrapper);
+      grid.append(cohort);
+    });
+    container.replaceChildren(grid);
   }
 
   function renderComparison(view) {
@@ -188,35 +202,51 @@
       container.replaceChildren(emptyState("no_leaderboard"));
       return;
     }
-    const rows = [...view.leaderboard]
-      .sort((left, right) => (right.overall_score ?? -1) - (left.overall_score ?? -1))
-      .slice(0, 6);
     const metrics = [
       ["quality", "quality_score", "bar-blue"],
       ["completion", "completion_rate", "bar-green"],
       ["speed", "speed_score", "bar-orange"],
       ["token_efficiency", "token_efficiency_score", "bar-cyan"],
     ];
-    const list = element("div", "comparison-list");
-    rows.forEach((row) => {
-      const card = element("article", "comparison-row");
-      const heading = element("div", "comparison-model");
-      heading.append(element("strong", "model-name", row.model), badge(row.profile, "profile"));
-      card.append(heading);
-      metrics.forEach(([label, key, color]) => {
-        const metric = element("div", "metric-row");
-        const caption = element("span", "metric-label", t(label));
-        const track = element("span", "metric-track");
-        const fill = element("span", `metric-fill ${color}`);
-        const value = typeof row[key] === "number" ? Math.max(0, Math.min(100, row[key])) : 0;
-        fill.style.width = `${value}%`;
-        track.append(fill);
-        metric.append(caption, track, element("span", "metric-value", formatNumber(row[key], 0)));
-        card.append(metric);
-      });
-      list.append(card);
+    const groups = new Map();
+    view.leaderboard.forEach((row) => {
+      if (!groups.has(row.run_id)) groups.set(row.run_id, []);
+      groups.get(row.run_id).push(row);
     });
-    container.replaceChildren(list);
+    const grid = element("div", "cohort-grid");
+    groups.forEach((groupRows, runId) => {
+      const cohort = element("section", "cohort-section");
+      const cohortHeading = element("div", "cohort-heading");
+      cohortHeading.append(
+        element("h3", "", `${groupRows[0].profile} · ${t("thinking_control")}: ${groupRows[0].thinking_mode}`),
+        element("span", "run-id", runId)
+      );
+      const list = element("div", "comparison-list");
+      [...groupRows]
+        .sort((left, right) => (right.overall_score ?? -1) - (left.overall_score ?? -1))
+        .slice(0, 6)
+        .forEach((row) => {
+          const card = element("article", "comparison-row");
+          const heading = element("div", "comparison-model");
+          heading.append(element("strong", "model-name", row.model));
+          card.append(heading);
+          metrics.forEach(([label, key, color]) => {
+            const metric = element("div", "metric-row");
+            const caption = element("span", "metric-label", t(label));
+            const track = element("span", "metric-track");
+            const fill = element("span", `metric-fill ${color}`);
+            const value = typeof row[key] === "number" ? Math.max(0, Math.min(100, row[key])) : 0;
+            fill.style.width = `${value}%`;
+            track.append(fill);
+            metric.append(caption, track, element("span", "metric-value", formatNumber(row[key], 0)));
+            card.append(metric);
+          });
+          list.append(card);
+        });
+      cohort.append(cohortHeading, list);
+      grid.append(cohort);
+    });
+    container.replaceChildren(grid);
   }
 
   function modelList(models) {
@@ -266,7 +296,7 @@
       container.replaceChildren(emptyState("no_tasks"));
       return;
     }
-    const { wrapper, body } = tableShell(["model", "case", "profile", "state", "overall", "duration", "output_tokens", "actions"]);
+    const { wrapper, body } = tableShell(["model", "case", "profile", "thinking_control", "state", "overall", "duration", "output_tokens", "actions"]);
     view.tasks.forEach((task) => {
       const row = document.createElement("tr");
       const model = document.createElement("td");
@@ -276,6 +306,8 @@
       caseCell.append(element("span", "task-title", title), element("span", "run-id", task.case_id));
       const profile = document.createElement("td");
       profile.append(badge(task.profile, "profile"));
+      const thinking = document.createElement("td");
+      thinking.textContent = task.thinking_mode;
       const state = document.createElement("td");
       const stateKind = task.state === "passed" ? "passed" : task.state === "below_threshold" ? "below" : "error";
       state.append(badge(stateLabel(task.state), stateKind));
@@ -290,7 +322,7 @@
       button.type = "button";
       button.addEventListener("click", () => onDetails(task));
       actions.append(button);
-      row.append(model, caseCell, profile, state, score, duration, tokens, actions);
+      row.append(model, caseCell, profile, thinking, state, score, duration, tokens, actions);
       body.append(row);
     });
     container.replaceChildren(wrapper);
@@ -341,6 +373,7 @@
     const entries = [
       ["model", task.model],
       ["profile", task.profile],
+      ["thinking_control", task.thinking_mode],
       ["run", task.run_id],
       ["state", stateLabel(task.state)],
       ["status", task.status],
