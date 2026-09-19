@@ -4,7 +4,7 @@ Benchmark personale, ripetibile e offline per confrontare modelli Ollama usati c
 
 Personal, repeatable, offline benchmark for comparing Ollama models used as coding agents through [Pi](https://pi.dev). Its scenarios derive from this repository's operating rules: small patches, modular architecture, tests, security, configuration, i18n, documentation, and Git discipline.
 
-Stato / Status: **0.7.0 – milestone 7 in sviluppo / milestone 7 in development**
+Stato / Status: **0.8.0 – milestone 8 in sviluppo / milestone 8 in development**
 Piattaforme / Platforms: macOS, Windows, Linux
 Verifica reale / Real-world validation: **run benchmark Pi/Ollama reali verificati soltanto su macOS e Windows; Linux è coperto dalla CI, ma non è ancora stato validato con uno smoke Pi/Ollama reale. / Real Pi/Ollama benchmark runs have been verified only on macOS and Windows; Linux is covered by CI, but has not yet been validated with a real Pi/Ollama smoke run.**
 Licenza / License: Apache-2.0
@@ -19,10 +19,11 @@ Il benchmark valuta il risultato completo dell'agente, non una singola risposta 
 - configurazione validata, i18n e preferenze UI;
 - aggiornamento coordinato di versione, piano e documentazione;
 - casi personali descritti da manifesti validati, con pesi e rubriche manuali opzionali;
+- pianificazione esatta multi-vincolo con scenari nascosti per misurare il beneficio osservabile del thinking senza richiederne la traccia;
 - esportazione privacy-bounded dei run, finalissima dashboard separata e dashboard ufficiale offline per leggere i risultati;
 - stato di uscita, timeout, errori tool, token e tempo end-to-end.
 
-The benchmark evaluates the complete agent outcome rather than a single text response: functional quality, scope discipline, security, configuration/i18n, documentation, Git workflow, failures, tokens, and end-to-end time. It also provides privacy-bounded run exports, a separate model dashboard showcase, and an official offline results viewer.
+The benchmark evaluates the complete agent outcome rather than a single text response: functional quality, scope discipline, security, configuration/i18n, exact multi-constraint planning, documentation, Git workflow, failures, tokens, and end-to-end time. It also provides privacy-bounded run exports, a separate model dashboard showcase, and an official offline results viewer.
 
 Il punteggio composito pesa **qualità 80%**, **completamento 10%**, **velocità relativa 5%** ed **efficienza token relativa 5%**. Qualità e tempi restano visibili separatamente; un modello veloce che non completa il task non viene favorito in modo sostanziale.
 
@@ -107,8 +108,9 @@ Un run completo con molti modelli può richiedere ore. Conviene prima eseguire `
 | Profilo | Casi | Uso consigliato |
 |---|---:|---|
 | `smoke` | 1 | Verifica rapida di integrazione Pi/Ollama e tool calling |
-| `standard` | 3 | Confronto principale su implementazione, sicurezza e architettura |
-| `full` | 4 | Aggiunge versioning, documentazione e disciplina Git |
+| `standard` | 4 | Confronto principale; include il caso multi-vincolo `thinking_challenge` |
+| `full` | 5 | Aggiunge versioning, documentazione e disciplina Git |
+| `thinking` | 1 | Esperimento rapido e indipendente sul solo `thinking_challenge` |
 | `showcase` | 1 | Fa costruire ai finalisti una dashboard offline dallo stesso dataset congelato |
 
 È possibile selezionare modelli e casi esplicitamente:
@@ -134,6 +136,10 @@ The official benchmark uses `off`. Before any task, the runner reads Ollama capa
 `--thinking off|minimal|low|medium|high|xhigh|max` crea coorti separate senza fallback silenziosi. `minimal`/`low` diventano `low`, `xhigh`/`max` diventano `max`; una modalità attiva richiede capability thinking e reasoning osservabile nel preflight. Non confrontare né aggregare run `off` e run attivi: `compare` li rifiuta. Per un esperimento A/B usare gli stessi modelli, digest, casi, seed e parametri in directory distinte.
 
 `--thinking off|minimal|low|medium|high|xhigh|max` creates separate cohorts without silent fallback. `minimal`/`low` map to `low`, while `xhigh`/`max` map to `max`; active modes require a thinking capability and observable reasoning in preflight. Do not compare or aggregate `off` and active runs: `compare` rejects them. For A/B experiments, use the same models, digests, cases, seed, and parameters in distinct directories.
+
+Il profilo indipendente `thinking` esegue soltanto `thinking_challenge`, un pianificatore esatto con budget, rischio, capacità team, dipendenze, conflitti, categorie obbligatorie e tie-break deterministico. Il grader usa anche scenari non presenti nella fixture e valuta esclusivamente output, test e documentazione. Per una misura A/B eseguire almeno tre ripetizioni `off` e tre `medium` per ogni modello, in directory diverse e con gli stessi seed/parametri; alternare l'ordine delle coorti quando possibile. Timeout ed errori restano risultati della rispettiva coorte e non autorizzano retry selettivi.
+
+The independent `thinking` profile runs only `thinking_challenge`, an exact planner with budget, risk, team capacity, dependencies, conflicts, required categories, and deterministic tie-breaking. Its grader also uses scenarios absent from the fixture and evaluates only outputs, tests, and documentation. For an A/B measurement, run at least three `off` and three `medium` repetitions for every model in separate directories with matching seeds and parameters; counterbalance cohort order when possible. Timeouts and errors remain outcomes of their cohort and never grant selective retries.
 
 ## Output e lettura / Output and interpretation
 

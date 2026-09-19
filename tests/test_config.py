@@ -17,8 +17,11 @@ class ConfigTests(unittest.TestCase):
     def test_repository_config_discovers_case_manifests(self):
         config = load_config(ROOT / "benchmark.json")
         self.assertEqual("installed", config.models)
-        self.assertEqual(5, len(config.cases))
+        self.assertEqual(6, len(config.cases))
         self.assertEqual(("targeted_patch",), config.profiles["smoke"])
+        self.assertEqual(("thinking_challenge",), config.profiles["thinking"])
+        self.assertIn("thinking_challenge", config.profiles["standard"])
+        self.assertIn("thinking_challenge", config.profiles["full"])
         self.assertEqual("audit", config.defaults.sandbox)
         self.assertEqual((ROOT / "cases").resolve(), config.cases_directory)
         self.assertEqual(

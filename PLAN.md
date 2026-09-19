@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.7.0**
+Versione corrente / Current version: **0.8.0**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -355,29 +355,30 @@ Versione corrente / Current version: **0.7.0**
 - Test richiesti: calibrazione diretta della fixture; unit e test negativi del grader; fixture alternativa nascosta se necessaria per impedire hardcoding; `case validate thinking_challenge` e validazione completa; test config/profili; test runner e manifesti per coorti; test comparison per separazione delle modalità; test dashboard/export per modalità, profilo indipendente e funnel invariato; compileall, unittest, test Node, CI multipiattaforma; smoke reale del nuovo profilo e confronto con almeno tre ripetizioni per cella; verifica manuale degli artefatti migliori e dei fallimenti.
 - Documentazione: README, manuali bilingui, quick start autore e showcase/dashboard, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e questo piano; documentare obiettivo del caso, protocollo A/B, limiti statistici, costo aggiuntivo, interpretazione dei reasoning token e divieto di fallback condizionali.
 - Release: milestone rilasciabile come `v0.8.0`; tag, GitHub Release, push, merge e rimozione branch richiedono approvazione esplicita del progettista.
-- Stato: **pianificata; nessun branch M8 creato e nessun caso, profilo o grader ancora implementato.**
+- Stato: **implementazione locale in corso sul branch `milestone/8-thinking-benchmark-case` dal 2026-09-19. Il caso `thinking_challenge` è stato creato tramite Case SDK come pianificatore esatto multi-vincolo, con baseline 5/100, scenari alternativi nel grader, regressione anti-hardcoding sotto 60 e soluzione generica temporanea calibrata a 100/100. Il profilo indipendente `thinking` è configurato; `standard` e `full` includono il caso, mentre `smoke` e `showcase` restano invariati. Export e dashboard mantengono `thinking`/`showcase` fuori dal funnel principale e separano classifiche e fattori per run/modalità. Compileall, 106 test Python, 8 test Node e la validazione dei sei casi sono verdi; 12 probe dipendenti da loopback o sistemi operativi diversi non sono applicabili nel sandbox corrente. La verifica Playwright via server locale è verde a 1440×900 e 390×844 in tema chiaro/scuro, senza overflow orizzontale, errori console o richieste remote e con dialogo accessibile da tastiera. Restano smoke reale e campagna A/B a tre ripetizioni per cella, CI e chiusura con avallo.**
 
 ### Checklist milestone 8
 
-- [ ] Branch milestone creato (`milestone/8-thinking-benchmark-case`)
-- [ ] Brief funzionale e minacce alla validità del caso revisionati
-- [ ] Caso creato tramite Case SDK e manifesto validato
-- [ ] Fixture sintetica e grader deterministico completati
-- [ ] Baseline calibrata sotto 60 con massimo/somma pari a 100
-- [ ] Test negativi e anti-hardcoding aggiunti
-- [ ] Profilo indipendente `thinking` aggiunto
-- [ ] Caso integrato in `standard` e `full`; `smoke` mantenuto rapido
-- [ ] Controllo thinking verificato anche per `showcase`
-- [ ] Dashboard/export aggiornati per coorti indipendenti e funnel invariato
-- [ ] Protocollo simmetrico `off`/`medium` documentato senza fallback condizionale
-- [ ] Compileall, unittest, test Node e validazione completa casi eseguiti
+- [x] Branch milestone creato (`milestone/8-thinking-benchmark-case`)
+- [x] Brief funzionale e minacce alla validità del caso revisionati
+- [x] Caso creato tramite Case SDK e manifesto validato
+- [x] Fixture sintetica e grader deterministico completati
+- [x] Baseline calibrata a 5/100 con massimo/somma pari a 100; soluzione generica di controllo a 100/100
+- [x] Test negativi e anti-hardcoding aggiunti
+- [x] Profilo indipendente `thinking` aggiunto
+- [x] Caso integrato in `standard` e `full`; `smoke` mantenuto rapido
+- [x] Controllo thinking verificato anche per `showcase`
+- [x] Dashboard/export aggiornati per coorti indipendenti e funnel invariato
+- [x] Protocollo simmetrico `off`/`medium` documentato senza fallback condizionale
+- [x] Compileall, 106 test Python, 8 test Node e validazione completa dei 6 casi eseguiti; 12 skip ambientali motivati
+- [x] Verifica browser/server Playwright completata su desktop/mobile, temi chiaro/scuro, tastiera e rete solo locale
 - [ ] Smoke reale del profilo `thinking` eseguito
 - [ ] Esperimento reale con almeno tre ripetizioni per cella eseguito e revisionato
 - [ ] Eventuale finalissima doppia eseguita con entrambi i modi per tutti i finalisti e ordine controbilanciato
 - [ ] CI macOS, Ubuntu e Windows verde sul branch/PR
-- [ ] Versione `0.8.0` sincronizzata nei punti canonici
-- [ ] README, ISTRUZIONI, INSTRUCTIONS, quick start, SECURITY_MODEL, MAP e AGENTS aggiornati
-- [ ] PLAN aggiornato con risultati, limiti e identificativi delle verifiche
+- [x] Versione `0.8.0` sincronizzata nei punti canonici
+- [x] README, ISTRUZIONI, INSTRUCTIONS, quick start, SECURITY_MODEL, MAP e AGENTS aggiornati
+- [x] PLAN aggiornato con stato, calibrazione e verifiche pendenti
 - [ ] Approvazione esplicita del progettista ottenuta prima del merge
 - [ ] Commit finale e PR/merge verso `main` completati
 - [ ] CI verificata su `main`

@@ -85,7 +85,9 @@ test("creates filtered and sorted views without mutating the dataset", () => {
   });
   assert.deepEqual(view.availableModels.includes("qwen3.5:9b-mlx"), true);
   assert.ok(view.leaderboard.every((row) => row.profile === "smoke" && row.model === "qwen3.5:9b-mlx"));
+  assert.ok(view.leaderboard.every((row) => row.thinking_mode === "unknown"));
   assert.ok(view.tasks.every((row) => row.model === "qwen3.5:9b-mlx"));
+  assert.ok(view.tasks.every((row) => row.thinking_mode === "unknown"));
   assert.equal(view.funnel[0].profile, "smoke");
   assert.equal(JSON.stringify(fixture), before);
 });
@@ -96,7 +98,7 @@ test("merges alternate datasets, deduplicates identical runs, and rejects collis
   assert.equal(merged.schema_version, 2);
   assert.equal(merged.runs.length, fixture.runs.length + 1);
   assert.deepEqual(merged.profile_order, ["smoke", "standard", "full", "custom"]);
-  assert.equal(merged.funnel.at(-1).profile, "custom");
+  assert.deepEqual(merged.funnel.map((stage) => stage.profile), ["smoke", "standard", "full"]);
   assert.ok(merged.runs.every((run) => run.thinking_control.status === "unverified"));
   assert.ok(merged.runs.every((run) => run.thinking_control.source === "legacy_unverified"));
 
@@ -104,6 +106,27 @@ test("merges alternate datasets, deduplicates identical runs, and rejects collis
   collision.runs[0].id = fixture.runs[0].id;
   collision.funnel[0].run_ids = [fixture.runs[0].id];
   assert.throws(() => Core.mergeDashboardData([fixture, collision]), /collision/i);
+});
+
+test("keeps thinking and showcase as independent profiles outside the funnel", () => {
+  const thinking = alternateDataset();
+  thinking.runs[0].id = "thinking-run";
+  thinking.runs[0].profile = "thinking";
+  thinking.profile_order = ["thinking"];
+  thinking.funnel[0].profile = "thinking";
+  thinking.funnel[0].run_ids = ["thinking-run"];
+
+  const showcase = alternateDataset();
+  showcase.runs[0].id = "showcase-run";
+  showcase.runs[0].profile = "showcase";
+  showcase.profile_order = ["showcase"];
+  showcase.funnel[0].profile = "showcase";
+  showcase.funnel[0].run_ids = ["showcase-run"];
+
+  const merged = Core.mergeDashboardData([fixture, thinking, showcase]);
+  assert.deepEqual(merged.profile_order, ["smoke", "standard", "full", "thinking", "showcase"]);
+  assert.deepEqual(merged.funnel.map((stage) => stage.profile), ["smoke", "standard", "full"]);
+  assert.equal(Core.createDashboardView(merged, { profile: "thinking" }).funnel.length, 0);
 });
 
 test("rebuilds neutral funnel semantics", () => {
@@ -147,4 +170,5 @@ test("official assets are semantic and contain no remote runtime hooks", () => {
   assert.match(source, /:focus-visible/);
   assert.match(source, /prefers-color-scheme/);
   assert.match(source, /localStorage/);
+  assert.match(source, /cohort-grid/);
 });

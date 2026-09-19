@@ -94,6 +94,8 @@ Revisionare il JSON e poi selezionare `results/finalists-dashboard-data.json`. �
 
 Review the JSON, then select `results/finalists-dashboard-data.json`. Multiple exports may be selected together: identical runs are deduplicated, while matching IDs with different contents are rejected. Each file is capped at 32 MiB.
 
+Il filtro profilo include anche `thinking` e `showcase`, ma il funnel mostra soltanto la progressione `smoke` → `standard` → `full`. Classifiche e grafici restano raggruppati per run e modalità thinking: coorti `off` e `medium` non vengono fuse. / The profile filter also includes `thinking` and `showcase`, while the funnel shows only `smoke` → `standard` → `full`. Rankings and charts remain grouped by run and thinking mode, so `off` and `medium` cohorts are not merged.
+
 L'importazione resta nella memoria della scheda del browser. Non invia dati, non scrive file e si annulla ricaricando la pagina. Solo lingua e tema vengono memorizzati come preferenze locali.
 
 Imports remain in the browser tab's memory. No data is uploaded and no file is written; reload the page to discard imported data. Only language and theme are retained as local preferences.

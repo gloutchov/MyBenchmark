@@ -32,8 +32,9 @@
   },
   "profiles": {
     "smoke": ["targeted_patch"],
-    "standard": ["targeted_patch", "secure_workspace", "config_i18n"],
-    "full": ["targeted_patch", "secure_workspace", "config_i18n", "milestone_closure"],
+    "standard": ["targeted_patch", "secure_workspace", "config_i18n", "thinking_challenge"],
+    "full": ["targeted_patch", "secure_workspace", "config_i18n", "thinking_challenge", "milestone_closure"],
+    "thinking": ["thinking_challenge"],
     "showcase": ["results_dashboard"]
   },
   "cases": {

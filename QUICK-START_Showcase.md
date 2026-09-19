@@ -37,9 +37,9 @@ L'esportatore legge soltanto `run.json` e `report.json`, limita ogni sorgente a 
 
 The exporter reads only `run.json` and `report.json`, caps each source at 32 MiB, and emits schema 2 through a whitelist while continuing to read the historical schema-1 fixture. It retains run IDs, profiles, SHA-256 hashes, commits, sandbox/integrity and thinking-control status, participants, leaderboards, and required task metrics. Legacy runs are marked `unverified`; detailed preflights and reasoning are excluded along with absolute paths, prompts, responses, commands, logs, violation evidence, and free-form errors. Inputs and output must stay under the project root; output cannot live inside a source run. Existing files are replaced atomically only with `--force`.
 
-Ispezionare il JSON prima di congelarlo. Il funnel usa `continued_to_next` e `not_run_in_next`: quest'ultimo significa soltanto che il modello non compare nel profilo seguente, non che abbia fallito.
+Ispezionare il JSON prima di congelarlo. Il funnel usa `continued_to_next` e `not_run_in_next`: quest'ultimo significa soltanto che il modello non compare nel profilo seguente, non che abbia fallito. Soltanto `smoke`, `standard` e `full` formano il funnel; eventuali run `thinking` e `showcase` restano coorti indipendenti e filtrabili.
 
-Inspect the JSON before freezing it. The funnel uses `continued_to_next` and `not_run_in_next`; the latter only means that a model does not appear in the next profile, not that it failed.
+Inspect the JSON before freezing it. The funnel uses `continued_to_next` and `not_run_in_next`; the latter only means that a model does not appear in the next profile, not that it failed. Only `smoke`, `standard`, and `full` form the funnel; any `thinking` and `showcase` runs remain independent, filterable cohorts.
 
 ## 3. Congelare l'input della finalissima / Freeze the final input
 
@@ -91,6 +91,8 @@ python3 benchmark.py run \
 La finalissima ufficiale resta una coorte `off` verificata: capability discovery e preflight vengono eseguiti prima di `results_dashboard`, e una violazione thinking/retry esclude il modello. Non rilanciare selettivamente con thinking i soli candidati falliti. Se si vuole un confronto sperimentale `off`/`medium`, eseguire **tutti** i finalisti anche in una seconda directory con `--thinking medium`, stesso dataset, seed, parametri e numero di tentativi; alternare l'ordine delle coorti tra ripetizioni. I punteggi restano separati e `compare` ne impedisce l'aggregazione.
 
 The official final remains a verified `off` cohort: capability discovery and preflight run before `results_dashboard`, and a thinking/retry violation disqualifies the model. Never rerun only failed candidates with thinking enabled. For an experimental `off`/`medium` comparison, run **every** finalist in a second directory with `--thinking medium`, the same dataset, seed, parameters, and attempt count; counterbalance cohort order across repetitions. Scores remain separate and `compare` prevents their aggregation.
+
+La dashboard ufficiale raggruppa classifica e fattori per singolo run/modalità, quindi le coorti `off` e `medium` possono essere viste affiancate senza generare un rank combinato. / The official dashboard groups rankings and score factors by run/mode, so `off` and `medium` cohorts can be viewed side by side without creating a combined rank.
 
 Il punteggio automatico è tecnico. La rubrica visuale da 20 punti viene copiata accanto a ogni workspace ma resta esclusa dalla classifica automatica.
 

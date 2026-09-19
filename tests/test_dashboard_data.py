@@ -142,6 +142,30 @@ class DashboardDataTests(unittest.TestCase):
                 self.assertNotIn(forbidden, serialized)
             validate_dashboard_data(dataset)
 
+    def test_independent_profiles_remain_outside_the_progression_funnel(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            smoke = write_run(root, "smoke-run", "smoke", ["alpha", "beta"])
+            standard = write_run(root, "standard-run", "standard", ["alpha"])
+            full = write_run(root, "full-run", "full", ["alpha"])
+            thinking = write_run(root, "thinking-run", "thinking", ["alpha", "beta"])
+            showcase = write_run(root, "showcase-run", "showcase", ["alpha"])
+
+            dataset = build_dashboard_data([thinking, showcase, full, smoke, standard])
+
+            self.assertEqual(
+                ["smoke", "standard", "full", "thinking", "showcase"],
+                dataset["profile_order"],
+            )
+            self.assertEqual(
+                ["smoke", "standard", "full"],
+                [stage["profile"] for stage in dataset["funnel"]],
+            )
+            self.assertEqual("standard", dataset["funnel"][0]["next_profile"])
+            self.assertEqual("full", dataset["funnel"][1]["next_profile"])
+            self.assertIsNone(dataset["funnel"][2]["next_profile"])
+            validate_dashboard_data(dataset)
+
     def test_rejects_duplicate_sources_schema_mismatch_and_profile_mismatch(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

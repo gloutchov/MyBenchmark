@@ -11,7 +11,8 @@
 
   const SCHEMA_VERSION = 2;
   const SUPPORTED_SCHEMA_VERSIONS = new Set([1, 2]);
-  const PROFILE_PIPELINE = ["smoke", "standard", "full", "showcase"];
+  const PROFILE_ORDER = ["smoke", "standard", "full", "thinking", "showcase"];
+  const FUNNEL_PIPELINE = ["smoke", "standard", "full"];
   const SORT_FIELDS = new Set([
     "rank",
     "overall_score",
@@ -253,7 +254,11 @@
     }
 
     const funnelProfiles = dataset.funnel.map((stage) => (isObject(stage) ? stage.profile : null));
-    if (JSON.stringify(funnelProfiles) !== JSON.stringify(dataset.profile_order)) {
+    const expectedFunnelProfiles =
+      dataset.schema_version === 1
+        ? dataset.profile_order
+        : FUNNEL_PIPELINE.filter((profile) => profiles.has(profile));
+    if (JSON.stringify(funnelProfiles) !== JSON.stringify(expectedFunnelProfiles)) {
       fail("Funnel does not match profile_order");
     }
     for (const stage of dataset.funnel) {
@@ -301,12 +306,13 @@
 
   function profileOrder(profiles) {
     const available = new Set(profiles);
-    const ordered = PROFILE_PIPELINE.filter((profile) => available.has(profile));
-    const extras = [...available].filter((profile) => !PROFILE_PIPELINE.includes(profile)).sort();
+    const ordered = PROFILE_ORDER.filter((profile) => available.has(profile));
+    const extras = [...available].filter((profile) => !PROFILE_ORDER.includes(profile)).sort();
     return ordered.concat(extras);
   }
 
   function buildFunnel(runs, order) {
+    const funnelOrder = FUNNEL_PIPELINE.filter((profile) => order.includes(profile));
     const runIds = new Map();
     const participants = new Map();
     order.forEach((profile) => {
@@ -317,10 +323,10 @@
       runIds.get(run.profile).push(run.id);
       run.participants.forEach((model) => participants.get(run.profile).add(model));
     }
-    return order.map((profile, index) => {
+    return funnelOrder.map((profile, index) => {
       const current = participants.get(profile);
-      const previous = index > 0 ? participants.get(order[index - 1]) : new Set();
-      const nextProfile = index + 1 < order.length ? order[index + 1] : null;
+      const previous = index > 0 ? participants.get(funnelOrder[index - 1]) : new Set();
+      const nextProfile = index + 1 < funnelOrder.length ? funnelOrder[index + 1] : null;
       const following = nextProfile ? participants.get(nextProfile) : new Set();
       const sorted = (values) => [...values].sort((a, b) => a.localeCompare(b));
       return {
@@ -406,13 +412,23 @@
 
     const leaderboard = runs
       .flatMap((run) =>
-        run.leaderboard.map((row) => ({ ...clone(row), run_id: run.id, profile: run.profile }))
+        run.leaderboard.map((row) => ({
+          ...clone(row),
+          run_id: run.id,
+          profile: run.profile,
+          thinking_mode: run.thinking_control ? run.thinking_control.requested : "unknown",
+        }))
       )
       .filter((row) => selectedModel === "all" || row.model === selectedModel)
       .sort((left, right) => compareRows(left, right, sortBy, sortDirection) || left.model.localeCompare(right.model));
 
     const tasks = runs
-      .flatMap((run) => run.tasks.map((task) => ({ ...clone(task), run_id: run.id, profile: run.profile })))
+      .flatMap((run) => run.tasks.map((task) => ({
+        ...clone(task),
+        run_id: run.id,
+        profile: run.profile,
+        thinking_mode: run.thinking_control ? run.thinking_control.requested : "unknown",
+      })))
       .filter((task) => selectedModel === "all" || task.model === selectedModel)
       .filter((task) => {
         if (!query) return true;

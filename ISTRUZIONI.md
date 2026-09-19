@@ -50,11 +50,24 @@ Usare `smoke` con tutti i modelli. Serve soprattutto a individuare modelli che n
 
 ### Confronto ordinario
 
-Usare `standard`: comprende una patch mirata, un hardening di sicurezza e una funzionalità di configurazione/i18n.
+Usare `standard`: comprende una patch mirata, un hardening di sicurezza, configurazione/i18n e il caso di pianificazione esatta multi-vincolo `thinking_challenge`.
 
 ### Scelta finale
 
-Usare `full --repetitions 3` soltanto sui finalisti. Il quarto caso verifica branch, versione, documentazione, piano e stop prima del merge.
+Usare `full --repetitions 3` soltanto sui finalisti. Il quinto caso verifica branch, versione, documentazione, piano e stop prima del merge.
+
+### Esperimento thinking mirato
+
+Il profilo indipendente `thinking` esegue soltanto `thinking_challenge`. Il caso richiede un pianificatore esatto con budget, rischio, capacità team, dipendenze, conflitti, categorie obbligatorie e tie-break deterministico. Il grader usa scenari alternativi non presenti nella fixture e non chiede né premia la catena di pensiero.
+
+Per confrontare `off` e `medium`, usare gli stessi modelli, seed, parametri e tre ripetizioni per cella, ma directory distinte:
+
+```bash
+python3 benchmark.py run --profile thinking --models MODELLO --thinking off --repetitions 3 --seed 20260919 --output results/thinking-off
+python3 benchmark.py run --profile thinking --models MODELLO --thinking medium --repetitions 3 --seed 20260919 --output results/thinking-medium
+```
+
+Alternare o controbilanciare l'ordine delle coorti nelle campagne più ampie. Non eseguire la seconda modalità soltanto per i fallimenti: timeout, errori e punteggi sotto soglia restano esiti della relativa coorte. `compare` rifiuta intenzionalmente di aggregare modalità diverse.
 
 Quando i finalisti sono definiti, usare il profilo separato `showcase`: il caso `results_dashboard` chiede a ciascun modello di costruire una dashboard statica dallo stesso dataset congelato. Non aggiungere il caso ai profili precedenti, perché la valutazione visuale deve restare una finalissima distinta.
 
@@ -67,6 +80,8 @@ Quando i finalisti sono definiti, usare il profilo separato `showcase`: il caso 
 Il benchmark ufficiale usa `--thinking off`. Prima di eseguire qualsiasi caso, per ogni modello il runner legge `/api/show` e invia una richiesta minima a `/v1/chat/completions` con `reasoning_effort: "none"`. La configurazione isolata di Pi contiene lo stesso parametro, `max_tokens`, timeout idle disabilitato e zero retry; il warmup nativo usa `think: false`. `--no-warmup` evita solo il warmup aggiuntivo, non il preflight obbligatorio.
 
 Un preflight rifiutato o non verificabile esclude il modello prima delle task senza fermare gli altri. In una coorte `off`, reasoning osservabile o retry inattesi durante una task escludono l'intero modello. Il preflight registra solo stato, durata e conteggi: non conserva la traccia di reasoning. Le modalità attive richiedono la capability `thinking` e un segnale osservabile; devono essere eseguite in directory e coorti separate. Non usare una seconda modalità solo per i modelli falliti: se si confrontano `off` e `medium`, tutti i modelli devono ricevere entrambe con condizioni simmetriche.
+
+Nell'export e nella dashboard, `thinking` e `showcase` restano profili indipendenti: sono filtrabili e mostrano modalità e controllo thinking, ma non diventano fasi del funnel `smoke` → `standard` → `full`. Le classifiche di run `off` e `medium` sono presentate in gruppi separati e non fuse in un rank combinato.
 
 ### Confronto statistico tra run
 

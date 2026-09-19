@@ -17,7 +17,8 @@ SUPPORTED_DASHBOARD_SCHEMA_VERSIONS = {1, 2}
 SUPPORTED_RUN_SCHEMA_VERSIONS = {2, 3, 4}
 SUPPORTED_REPORT_SCHEMA_VERSIONS = {2, 3, 4}
 MAX_SOURCE_BYTES = 32 * 1024 * 1024
-PROFILE_PIPELINE = ("smoke", "standard", "full", "showcase")
+PROFILE_ORDER = ("smoke", "standard", "full", "thinking", "showcase")
+FUNNEL_PIPELINE = ("smoke", "standard", "full")
 RUN_FIELDS = {
     "id",
     "profile",
@@ -319,8 +320,8 @@ def _sanitize_thinking_control(manifest: dict[str, Any], report_run: dict[str, A
 
 def _profile_order(profiles: Iterable[str]) -> list[str]:
     available = set(profiles)
-    ordered = [profile for profile in PROFILE_PIPELINE if profile in available]
-    ordered.extend(sorted(available - set(PROFILE_PIPELINE)))
+    ordered = [profile for profile in PROFILE_ORDER if profile in available]
+    ordered.extend(sorted(available - set(PROFILE_ORDER)))
     return ordered
 
 
@@ -331,11 +332,12 @@ def _build_funnel(runs: list[dict[str, Any]], profile_order: list[str]) -> list[
         profile = run["profile"]
         run_ids[profile].append(run["id"])
         participants[profile].update(run["participants"])
+    funnel_order = [profile for profile in FUNNEL_PIPELINE if profile in profile_order]
     funnel: list[dict[str, Any]] = []
-    for index, profile in enumerate(profile_order):
+    for index, profile in enumerate(funnel_order):
         current = participants[profile]
-        previous = participants[profile_order[index - 1]] if index else set()
-        next_profile = profile_order[index + 1] if index + 1 < len(profile_order) else None
+        previous = participants[funnel_order[index - 1]] if index else set()
+        next_profile = funnel_order[index + 1] if index + 1 < len(funnel_order) else None
         following = participants[next_profile] if next_profile else set()
         funnel.append(
             {
@@ -569,7 +571,11 @@ def validate_dashboard_data(dataset: Any) -> None:
                 or (task["integrity_valid"] is not None and not isinstance(task["integrity_valid"], bool))
             ):
                 raise DashboardDataError(f"Task non valida nel run {run['id']}")
-    if not isinstance(funnel, list) or [item.get("profile") for item in funnel if isinstance(item, dict)] != profiles:
+    funnel_profiles = [item.get("profile") for item in funnel if isinstance(item, dict)] if isinstance(funnel, list) else []
+    expected_funnel_profiles = (
+        profiles if dashboard_schema == 1 else [profile for profile in FUNNEL_PIPELINE if profile in profiles]
+    )
+    if not isinstance(funnel, list) or funnel_profiles != expected_funnel_profiles:
         raise DashboardDataError("Funnel non coerente con profile_order")
     for stage in funnel:
         stage = _require_exact_fields(stage, FUNNEL_FIELDS, label="funnel")
