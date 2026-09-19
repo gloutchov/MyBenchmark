@@ -16,6 +16,7 @@ from .case_sdk import (
     safe_case_id,
 )
 from .sandbox import SANDBOX_MODES
+from .thinking import THINKING_LEVELS
 
 
 class ConfigError(ValueError):
@@ -27,6 +28,10 @@ class Defaults:
     timeout_seconds: int
     repetitions: int
     thinking: str
+    thinking_preflight_timeout_seconds: int
+    http_idle_timeout_ms: int
+    agent_max_retries: int
+    provider_max_retries: int
     warmup: bool
     keep_alive: str
     context_window: int
@@ -105,6 +110,12 @@ def load_config(path: Path) -> BenchmarkConfig:
         timeout_seconds=int(defaults_raw.get("timeout_seconds", 1200)),
         repetitions=int(defaults_raw.get("repetitions", 1)),
         thinking=str(defaults_raw.get("thinking", "off")),
+        thinking_preflight_timeout_seconds=int(
+            defaults_raw.get("thinking_preflight_timeout_seconds", 300)
+        ),
+        http_idle_timeout_ms=int(defaults_raw.get("http_idle_timeout_ms", 0)),
+        agent_max_retries=int(defaults_raw.get("agent_max_retries", 0)),
+        provider_max_retries=int(defaults_raw.get("provider_max_retries", 0)),
         warmup=bool(defaults_raw.get("warmup", True)),
         keep_alive=str(defaults_raw.get("keep_alive", "15m")),
         context_window=int(defaults_raw.get("context_window", 32768)),
@@ -114,8 +125,16 @@ def load_config(path: Path) -> BenchmarkConfig:
     )
     if defaults.timeout_seconds < 10 or defaults.repetitions < 1:
         raise ConfigError("timeout_seconds deve essere >= 10 e repetitions >= 1")
-    if defaults.thinking not in {"off", "minimal", "low", "medium", "high", "xhigh", "max"}:
+    if defaults.thinking not in THINKING_LEVELS:
         raise ConfigError("Livello thinking non valido")
+    if defaults.thinking_preflight_timeout_seconds < 10:
+        raise ConfigError("thinking_preflight_timeout_seconds deve essere >= 10")
+    if (
+        defaults.http_idle_timeout_ms < 0
+        or defaults.agent_max_retries < 0
+        or defaults.provider_max_retries < 0
+    ):
+        raise ConfigError("Timeout e retry thinking devono essere >= 0")
     if defaults.context_window < 4096 or defaults.max_tokens < 256:
         raise ConfigError("context_window o max_tokens troppo piccoli")
     if defaults.sandbox not in SANDBOX_MODES:

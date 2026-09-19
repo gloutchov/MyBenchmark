@@ -111,6 +111,7 @@ class DashboardDataTests(unittest.TestCase):
 
             dataset = build_dashboard_data([full, smoke, standard])
 
+            self.assertEqual(2, dataset["schema_version"])
             self.assertEqual(["smoke", "standard", "full"], dataset["profile_order"])
             self.assertEqual(["smoke-run", "standard-run", "full-run"], [run["id"] for run in dataset["runs"]])
             smoke_stage = dataset["funnel"][0]
@@ -118,6 +119,16 @@ class DashboardDataTests(unittest.TestCase):
             self.assertEqual(["beta", "excluded-model"], smoke_stage["not_run_in_next"])
             self.assertEqual(["new-finalist"], dataset["funnel"][2]["new_participants"])
             self.assertEqual("integrity_excluded", dataset["runs"][0]["tasks"][2]["state"])
+            self.assertEqual(
+                {
+                    "version": 0,
+                    "status": "unverified",
+                    "requested": "unknown",
+                    "reasoning_effort": None,
+                    "source": "legacy_unverified",
+                },
+                dataset["runs"][0]["thinking_control"],
+            )
             serialized = json.dumps(dataset)
             for forbidden in (
                 "PRIVATE-PROMPT",
@@ -211,9 +222,47 @@ class DashboardDataTests(unittest.TestCase):
         fixture = json.loads(
             (ROOT / "cases" / "results_dashboard" / "fixture" / "dashboard-data.json").read_text(encoding="utf-8")
         )
-        self.assertEqual(1, schema["properties"]["schema_version"]["const"])
+        self.assertEqual([1, 2], schema["properties"]["schema_version"]["enum"])
         validate_dashboard_data(fixture)
+        self.assertEqual(1, fixture["schema_version"])
         self.assertEqual(["smoke", "standard", "full"], fixture["profile_order"])
+
+    def test_schema_four_exports_only_safe_thinking_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            run = write_run(root, "verified", "showcase", ["alpha"])
+            manifest_path = run / "run.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["schema_version"] = 4
+            manifest["configuration"] = {"thinking": "off"}
+            manifest["thinking_control"] = {
+                "version": 1,
+                "status": "passed",
+                "requested": "off",
+                "reasoning_effort": "none",
+                "source": "explicit_sampling_parameter",
+                "preflights": {"alpha": {"private_reasoning": "DO-NOT-EXPORT"}},
+            }
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            report_path = run / "report.json"
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            report["schema_version"] = 4
+            report["run"]["thinking_control"] = manifest["thinking_control"]
+            report_path.write_text(json.dumps(report), encoding="utf-8")
+
+            dataset = build_dashboard_data([run])
+
+            self.assertEqual(
+                {
+                    "version": 1,
+                    "status": "passed",
+                    "requested": "off",
+                    "reasoning_effort": "none",
+                    "source": "explicit_sampling_parameter",
+                },
+                dataset["runs"][0]["thinking_control"],
+            )
+            self.assertNotIn("DO-NOT-EXPORT", json.dumps(dataset))
 
     def test_public_validator_rejects_nested_non_whitelisted_fields(self):
         fixture = json.loads(

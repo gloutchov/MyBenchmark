@@ -4,7 +4,7 @@
 
 ### Requisiti
 
-- Python 3.10+, Git, Pi e Ollama già configurati;
+- Python 3.10+, Git, Pi 0.85.1 e Ollama già configurati;
 - `bubblewrap` (`bwrap`) e `unshare` da util-linux;
 - user namespace e network namespace non privilegiati consentiti dalla policy dell'host;
 - un modello Ollama già scaricato.
@@ -21,10 +21,10 @@ L'elevazione serve soltanto all'installazione amministrativa. Eseguire benchmark
 
 ```bash
 python3 benchmark.py doctor
-python3 benchmark.py run --profile smoke --models NOME_MODELLO --sandbox required
+python3 benchmark.py run --profile smoke --models NOME_MODELLO --thinking off --sandbox required
 ```
 
-`doctor` deve riportare `linux-bubblewrap` con isolamento filesystem, processi e rete. In `required`, un probe fallito interrompe il run prima delle task. `auto` consente invece un fallback registrato e `audit` applica soltanto policy e rilevamento.
+`doctor` deve accettare Pi 0.85.1 e riportare `linux-bubblewrap` con isolamento filesystem, processi e rete. Prima della task, il preflight deve inoltre confermare `reasoning_effort: "none"`; `--no-warmup` non lo disabilita. In `required`, un probe fallito interrompe il run prima delle task. `auto` consente invece un fallback registrato e `audit` applica soltanto policy e rilevamento.
 
 Il backend avvia Pi in un user/network namespace nuovo, usa bubblewrap per montare read-only i runtime necessari e read-write soltanto workspace e configurazione Pi, e non configura interfacce di rete. Uno Unix socket dentro `.benchmark-scratch/` raggiunge un broker host che inoltra esclusivamente all'host e alla porta Ollama configurati.
 
@@ -39,7 +39,7 @@ Il backend avvia Pi in un user/network namespace nuovo, usa bubblewrap per monta
 
 ### Requirements
 
-- Python 3.10+, Git, Pi, and Ollama already configured;
+- Python 3.10+, Git, Pi 0.85.1, and Ollama already configured;
 - `bubblewrap` (`bwrap`) and util-linux `unshare`;
 - unprivileged user and network namespaces allowed by host policy;
 - at least one downloaded Ollama model.
@@ -56,10 +56,10 @@ Elevation is needed only for administrative installation. Run the benchmark, Pi,
 
 ```bash
 python3 benchmark.py doctor
-python3 benchmark.py run --profile smoke --models MODEL_NAME --sandbox required
+python3 benchmark.py run --profile smoke --models MODEL_NAME --thinking off --sandbox required
 ```
 
-`doctor` must report `linux-bubblewrap` with filesystem, process, and network isolation. In `required` mode, a failed probe stops before any task. `auto` permits a recorded fallback, while `audit` applies policy and detection only.
+`doctor` must accept Pi 0.85.1 and report `linux-bubblewrap` with filesystem, process, and network isolation. Before the task, preflight must also confirm `reasoning_effort: "none"`; `--no-warmup` does not disable it. In `required` mode, a failed probe stops before any task. `auto` permits a recorded fallback, while `audit` applies policy and detection only.
 
 The backend starts Pi in new user/network namespaces, uses bubblewrap to mount required runtime paths read-only and only the workspace and Pi configuration read-write, and configures no network interface. A Unix socket under `.benchmark-scratch/` reaches a trusted host broker pinned to the configured Ollama host and port.
 

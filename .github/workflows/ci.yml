@@ -25,6 +25,8 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
+      - name: Install the supported Pi contract-test version
+        run: npm install --global @earendil-works/pi-coding-agent@0.85.1
       - name: Install Linux sandbox backend
         if: runner.os == 'Linux'
         run: |

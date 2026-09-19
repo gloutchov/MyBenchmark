@@ -60,10 +60,16 @@ def _load_results(run_dir: Path) -> list[dict[str, Any]]:
                 findings = audit_workspace_accesses(events, path.parent / "workspace", protected_paths)
                 source_mutations = integrity.get("source_mutations", [])
                 snapshot_mutations = integrity.get("snapshot_mutations", [])
+                thinking_violations = integrity.get("thinking_control_violations", [])
                 integrity.update(
                     {
                         "audit_version": AUDIT_VERSION,
-                        "valid_for_ranking": not source_mutations and not snapshot_mutations and not findings,
+                        "valid_for_ranking": not (
+                            source_mutations
+                            or snapshot_mutations
+                            or findings
+                            or thinking_violations
+                        ),
                         "source_mutations": source_mutations,
                         "snapshot_mutations": snapshot_mutations,
                         "external_accesses": findings,
@@ -118,6 +124,11 @@ def _integrity_summary(
         item for item in results if item.get("integrity", {}).get("valid_for_ranking") is False
     ]
     disqualified = {str(item.get("model", "unknown")) for item in explicit_invalid}
+    thinking_control = manifest.get("thinking_control", {})
+    if isinstance(thinking_control, dict):
+        recorded = thinking_control.get("disqualified_models", [])
+        if isinstance(recorded, list):
+            disqualified.update(str(model) for model in recorded if isinstance(model, str))
     input_mismatches, input_disqualified = _mismatched_models(results, "input_fingerprint")
     baseline_mismatches, baseline_disqualified = _mismatched_models(results, "baseline_tree")
     mismatched_cases = set(input_mismatches) | set(baseline_mismatches)
@@ -144,6 +155,7 @@ def _integrity_summary(
         ("source_mutations", "repository_mutation"),
         ("snapshot_mutations", "snapshot_mutation"),
         ("external_accesses", "external_workspace_access"),
+        ("thinking_control_violations", "thinking_control_violation"),
     )
     for item in results:
         item_integrity = item.get("integrity", {})
@@ -310,8 +322,21 @@ def build_report(run_dir: Path) -> dict[str, Any]:
         )
     leaderboard.sort(key=lambda row: (-row["overall_score"], -row["quality_score"], row["median_duration_seconds"]))
 
+    recorded_thinking = manifest.get("thinking_control")
+    if not isinstance(recorded_thinking, dict):
+        configuration = manifest.get("configuration", {})
+        if not isinstance(configuration, dict):
+            configuration = {}
+        recorded_thinking = {
+            "version": 0,
+            "status": "unverified",
+            "requested": configuration.get("thinking", manifest.get("thinking")),
+            "reasoning_effort": None,
+            "source": "legacy_unverified",
+            "disqualified_models": [],
+        }
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "formula": {
             "overall": "0.80*quality + 0.10*completion + 0.05*speed + 0.05*token_efficiency",
             "completion_threshold": 60,
@@ -322,6 +347,7 @@ def build_report(run_dir: Path) -> dict[str, Any]:
             "profile": manifest.get("profile"),
             "sandbox": manifest.get("sandbox", {"backend": "audit-only", "enforced": False}),
             "environment": manifest.get("environment", {}),
+            "thinking_control": recorded_thinking,
         },
         "leaderboard": leaderboard,
         "results": results,
@@ -335,10 +361,13 @@ def render_markdown(report: dict[str, Any], run_dir: Path) -> str:
     sandbox = run_metadata.get("sandbox", {}) if isinstance(run_metadata, dict) else {}
     environment = run_metadata.get("environment", {}) if isinstance(run_metadata, dict) else {}
     hardware = environment.get("hardware", {}) if isinstance(environment, dict) else {}
+    thinking_control = run_metadata.get("thinking_control", {}) if isinstance(run_metadata, dict) else {}
     if not isinstance(sandbox, dict):
         sandbox = {}
     if not isinstance(hardware, dict):
         hardware = {}
+    if not isinstance(thinking_control, dict):
+        thinking_control = {}
     backend = sandbox.get("backend", "audit-only")
     enforced = bool(sandbox.get("enforced", False))
     capabilities = ", ".join(
@@ -362,11 +391,21 @@ def render_markdown(report: dict[str, Any], run_dir: Path) -> str:
         f"Sandbox: **{backend}** ({'enforced' if enforced else 'audit-only'}); capacità applicate: {capabilities}.",
         f"Hardware: `{hardware.get('machine') or 'n/d'}`, CPU logiche: {hardware.get('logical_cpu_count') or 'n/d'}, memoria: {memory_text}.",
         "",
+        "## Controllo thinking",
+        "",
+        (
+            f"Stato: **{thinking_control.get('status', 'unverified')}**; "
+            f"richiesto: `{thinking_control.get('requested') or 'n/d'}`; "
+            f"inviato a Ollama: `{thinking_control.get('reasoning_effort') or 'non verificato'}`; "
+            f"versione controllo: {thinking_control.get('version', 0)}."
+        ),
+        "",
         "## Integrità del run",
         "",
     ]
     if sandbox.get("deprecated_backend"):
-        lines[9:9] = [
+        thinking_heading = lines.index("## Controllo thinking")
+        lines[thinking_heading:thinking_heading] = [
             "Nota: il backend macOS usa `sandbox-exec`, interfaccia deprecata da Apple; disponibilità e probe sono registrati a ogni run.",
             "",
         ]

@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from localagent_bench.config import ConfigError, load_config
+from localagent_bench.cli import _parser
 
 
 class ConfigTests(unittest.TestCase):
@@ -36,6 +37,34 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual("127.0.0.1", config.dashboard.host)
         self.assertEqual(0, config.dashboard.port)
         self.assertTrue(config.dashboard.open_browser)
+        self.assertEqual("off", config.defaults.thinking)
+        self.assertEqual(300, config.defaults.thinking_preflight_timeout_seconds)
+        self.assertEqual(0, config.defaults.http_idle_timeout_ms)
+        self.assertEqual(0, config.defaults.agent_max_retries)
+        self.assertEqual(0, config.defaults.provider_max_retries)
+
+    def test_cli_thinking_override_is_parsed_without_changing_default(self):
+        args = _parser().parse_args(["run", "--thinking", "medium"])
+        self.assertEqual("medium", args.thinking)
+        self.assertEqual("off", load_config(ROOT / "benchmark.json").defaults.thinking)
+        with self.assertRaises(SystemExit):
+            _parser().parse_args(["run", "--thinking", "automatic"])
+
+    def test_invalid_thinking_control_defaults_are_rejected(self):
+        raw = json.loads((ROOT / "benchmark.json").read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            raw["defaults"]["thinking"] = "automatic"
+            path = root / "benchmark.json"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ConfigError, "thinking"):
+                load_config(path)
+
+            raw["defaults"]["thinking"] = "off"
+            raw["defaults"]["thinking_preflight_timeout_seconds"] = 1
+            path.write_text(json.dumps(raw), encoding="utf-8")
+            with self.assertRaisesRegex(ConfigError, "thinking_preflight_timeout_seconds"):
+                load_config(path)
 
     def test_unknown_profile_case_is_rejected(self):
         raw = json.loads((ROOT / "benchmark.json").read_text(encoding="utf-8"))

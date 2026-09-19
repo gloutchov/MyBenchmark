@@ -4,7 +4,7 @@ Benchmark personale, ripetibile e offline per confrontare modelli Ollama usati c
 
 Personal, repeatable, offline benchmark for comparing Ollama models used as coding agents through [Pi](https://pi.dev). Its scenarios derive from this repository's operating rules: small patches, modular architecture, tests, security, configuration, i18n, documentation, and Git discipline.
 
-Stato / Status: **0.6.0 – release stabile pubblicata / stable release published**
+Stato / Status: **0.7.0 – milestone 7 in sviluppo / milestone 7 in development**
 Piattaforme / Platforms: macOS, Windows, Linux
 Verifica reale / Real-world validation: **run benchmark Pi/Ollama reali verificati soltanto su macOS e Windows; Linux è coperto dalla CI, ma non è ancora stato validato con uno smoke Pi/Ollama reale. / Real Pi/Ollama benchmark runs have been verified only on macOS and Windows; Linux is covered by CI, but has not yet been validated with a real Pi/Ollama smoke run.**
 Licenza / License: Apache-2.0
@@ -38,9 +38,9 @@ La sandbox OS è opzionale: macOS usa `sandbox-exec`; Linux richiede `bwrap`, `u
 
 The OS sandbox is optional: macOS uses `sandbox-exec`; Linux requires `bwrap`, `unshare`, and usable user/network namespaces; Windows 10/11 uses AppContainer. Each backend is enabled only after a real probe. `doctor` always reports the backend and capabilities that are actually available.
 
-Non servono pacchetti Python esterni. Pi 0.84.3 è la versione verificata durante la creazione; il comando `doctor` aiuta a rilevare incompatibilità future.
+Non servono pacchetti Python esterni. Pi **0.85.1** è la versione supportata e coperta dal test contrattuale del payload; `doctor` rifiuta versioni diverse finché non vengono verificate.
 
-No external Python packages are required. Pi 0.84.3 was the version verified during development; `doctor` helps detect future incompatibilities.
+No external Python packages are required. Pi **0.85.1** is the supported version covered by the request-payload contract test; `doctor` rejects other versions until they are verified.
 
 Per vedere subito risultati comprensibili, avviare la dashboard locale; userà automaticamente i run compatibili presenti in `results/`:
 
@@ -56,7 +56,7 @@ To see understandable results immediately, start the local dashboard with `pytho
 python3 benchmark.py doctor
 python3 benchmark.py list
 python3 benchmark.py case validate
-python3 benchmark.py run --profile smoke --models qwen3.5:9b-Q4_K_M
+python3 benchmark.py run --profile smoke --models qwen3.5:9b-Q4_K_M --thinking off
 ```
 
 Per verificare la finalissima senza eseguire modelli reali:
@@ -119,17 +119,28 @@ python3 benchmark.py run \
   --cases targeted_patch secure_workspace \
   --repetitions 2 \
   --timeout 1800 \
+  --thinking off \
   --seed 20260829
 ```
 
 Su PowerShell, inserire il comando su una sola riga oppure usare il carattere di continuazione appropriato.
+
+## Controllo thinking / Thinking control
+
+Il benchmark ufficiale usa `off`. Prima delle task, per ogni modello, il runner legge le capability da Ollama e prova realmente `reasoning_effort: "none"` sullo stesso endpoint OpenAI-compatible usato da Pi. La configurazione Pi isolata ripete il valore in `samplingParams`, disabilita timeout HTTP idle e retry automatici, e il warmup usa `think: false`. Se il controllo viene rifiutato, compare reasoning osservabile oppure Pi emette un retry inatteso, l'intero modello viene escluso dalla classifica. Il preflight è obbligatorio anche con `--no-warmup`; non salva la catena di pensiero.
+
+The official benchmark uses `off`. Before any task, the runner reads Ollama capabilities and actually probes `reasoning_effort: "none"` through the same OpenAI-compatible endpoint used by Pi. Isolated Pi configuration repeats that value in `samplingParams`, disables HTTP idle timeouts and automatic retries, and warmup uses `think: false`. A rejected control, observable reasoning, or an unexpected Pi retry disqualifies the entire model. The preflight remains mandatory with `--no-warmup` and never stores its chain of thought.
+
+`--thinking off|minimal|low|medium|high|xhigh|max` crea coorti separate senza fallback silenziosi. `minimal`/`low` diventano `low`, `xhigh`/`max` diventano `max`; una modalità attiva richiede capability thinking e reasoning osservabile nel preflight. Non confrontare né aggregare run `off` e run attivi: `compare` li rifiuta. Per un esperimento A/B usare gli stessi modelli, digest, casi, seed e parametri in directory distinte.
+
+`--thinking off|minimal|low|medium|high|xhigh|max` creates separate cohorts without silent fallback. `minimal`/`low` map to `low`, while `xhigh`/`max` map to `max`; active modes require a thinking capability and observable reasoning in preflight. Do not compare or aggregate `off` and active runs: `compare` rejects them. For A/B experiments, use the same models, digests, cases, seed, and parameters in distinct directories.
 
 ## Output e lettura / Output and interpretation
 
 Ogni run crea `results/YYYYMMDD-HHMMSS/` con:
 
 - `REPORT.md` e `report.json`: classifica, isolamento effettivo, metriche disponibili e dettaglio;
-- `run.json`: ambiente/hardware, versioni, backend sandbox effettivo, commit/stato Git, modelli, seed, ordine task, hash input e policy di esecuzione, warmup e stato d'integrità;
+- `run.json`: ambiente/hardware, versioni, backend sandbox effettivo, commit/stato Git, modelli/capability, seed, ordine task, hash input, policy di esecuzione, controllo/preflight thinking, retry, timeout idle, warmup e stato d'integrità;
 - per ogni modello/caso: workspace finale, eventi JSONL di Pi, risposta finale, stderr, stato Git, patch, score, singoli check e, quando dichiarata, `manual-rubric.md` separata dal punteggio automatico.
 
 All'avvio il runner rifiuta `AGENTS.md`, `.gitignore`, manifesti, prompt, fixture, grader o rubriche selezionati se modificati rispetto a Git. Crea poi un unico snapshot dei soli file tracciati e della policy di esecuzione, escludendo cache e output ignorati, e registra hash e tree Git delle baseline. Ogni task riceve una directory `.benchmark-scratch/` interna e ignorata da Git; `TMPDIR`, `TMP` e `TEMP` puntano lì. Path shell risolti fuori workspace, tentativi espliciti di rete, modifiche al repository o allo snapshot e baseline non uniformi escludono dalla classifica l'intero modello coinvolto; una modifica allo snapshot interrompe anche la matrice. Il report mostra stato e dettaglio delle violazioni prima della classifica.
@@ -144,7 +155,7 @@ Esamina sempre `grade.json`, `diff.patch` e il workspace dei due o tre modelli m
 
 Always inspect `grade.json`, `diff.patch`, and the final workspace for the top candidates. Automated graders do not replace human judgment about readability, explanations, or architectural taste.
 
-I tempi includono ragionamento, strumenti e test e sono quindi una misura di produttività end-to-end. Confrontali solo sulla stessa macchina, con lo stesso profilo e carico simile. Il warmup esclude il caricamento iniziale dal tempo del task; `run.json` conserva le metriche del warmup separatamente.
+I tempi includono output, eventuale reasoning della coorte attiva, strumenti e test e sono quindi una misura di produttività end-to-end. Confrontali solo sulla stessa macchina, con lo stesso profilo, modalità thinking e carico simile. Preflight e warmup restano fuori dalle metriche task e sono registrati separatamente; `--no-warmup` non disabilita il preflight.
 
 Ogni `result.json` include inoltre metriche POSIX dei processi figli e, sui sistemi Linux che espongono contatori RAPL leggibili, energia host-wide. Campo `available`, provider e scope impediscono di confondere un dato assente o di sistema con il consumo esclusivo del modello.
 
@@ -158,9 +169,9 @@ Aggregare run compatibili senza ricopiare manualmente i punteggi:
 python3 benchmark.py compare results/RUN-1 results/RUN-2 results/RUN-3
 ```
 
-Il comando produce `comparison.json` e `COMPARISON.md` con media, mediana, deviazione standard e intervallo al 95% approssimato, limitato al dominio naturale della metrica. Rifiuta directory duplicate e confronti tra versioni/parametri, profili, input, digest modello, backend sandbox, piattaforme o hardware differenti; i modelli esclusi dall'integrità non ricevono campioni.
+Il comando produce `comparison.json` e `COMPARISON.md` con media, mediana, deviazione standard e intervallo al 95% approssimato, limitato al dominio naturale della metrica. Rifiuta directory duplicate e confronti tra versioni/parametri, profili, input, digest/capability modello, controllo thinking, retry, timeout idle, versioni Pi/Ollama, backend sandbox, piattaforme o hardware differenti; i modelli esclusi dall'integrità non ricevono campioni. I run precedenti alla 0.7.0 restano leggibili ma sono `thinking_control: unverified` e non sono baseline compatibili con i run verificati.
 
-The command writes `comparison.json` and `COMPARISON.md` with mean, median, standard deviation, and an approximate 95% interval bounded to each metric's natural domain. It rejects duplicate directories and runs with different versions/parameters, profiles, inputs, model digests, sandbox backends, platforms, or recorded hardware; integrity-disqualified models do not contribute samples.
+The command writes `comparison.json` and `COMPARISON.md` with mean, median, standard deviation, and an approximate 95% interval bounded to each metric's natural domain. It rejects duplicate directories and runs with different versions/parameters, profiles, inputs, model digests/capabilities, thinking controls, retry policies, idle timeouts, Pi/Ollama versions, sandbox backends, platforms, or recorded hardware. Pre-0.7.0 runs remain readable as `thinking_control: unverified` but are not compatible baselines for verified runs.
 
 ## Finalissima dashboard / Dashboard showcase
 
@@ -172,9 +183,9 @@ python3 benchmark.py dashboard-data \
   --output results/finalists-dashboard-data.json
 ```
 
-`dashboard-data` accetta report schema 2 e 3, conserva provenienza tramite hash SHA-256 e copia soltanto campi necessari a funnel, classifiche e dettaglio task. Non esporta path assoluti, prompt, risposte, comandi, log, evidenze d'integrità o errori liberi. Gli input e l'output devono restare nella root del progetto, le sorgenti non vengono modificate e un output esistente richiede `--force`. Il file pubblico segue [`schemas/dashboard-data.schema.json`](schemas/dashboard-data.schema.json).
+`dashboard-data` accetta run/report schema 2, 3 e 4 e produce dashboard schema 2; continua a leggere il dataset congelato schema 1. Esporta lo stato sintetico del controllo thinking e marca i run legacy come non verificati, ma non copia preflight dettagliati né reasoning. Conserva provenienza tramite hash SHA-256 e soltanto i campi necessari a funnel, classifiche e dettaglio task. Non esporta path assoluti, prompt, risposte, comandi, log, evidenze d'integrità o errori liberi. Gli input e l'output devono restare nella root del progetto, le sorgenti non vengono modificate e un output esistente richiede `--force`. Il formato pubblico segue [`schemas/dashboard-data.schema.json`](schemas/dashboard-data.schema.json).
 
-The `dashboard-data` command accepts schema 2 and 3 reports, retains provenance through SHA-256 hashes, and copies only fields needed for the funnel, leaderboards, and task details. It excludes absolute paths, prompts, responses, commands, logs, integrity evidence, and free-form errors. Inputs and output must remain under the project root, source runs are never modified, and replacing an output requires `--force`. The public format is defined by [`schemas/dashboard-data.schema.json`](schemas/dashboard-data.schema.json).
+The `dashboard-data` command accepts run/report schemas 2, 3, and 4 and emits dashboard schema 2 while continuing to read the frozen schema-1 dataset. It exports only summarized thinking-control state, marks legacy runs as unverified, and excludes detailed preflights and reasoning content. It retains SHA-256 provenance and only the fields required for the funnel, leaderboards, and task details; absolute paths, prompts, responses, commands, logs, integrity evidence, and free-form errors are excluded. Inputs and output stay under the project root, sources are never modified, and replacing an output requires `--force`.
 
 Dopo revisione, congelare lo stesso JSON in `cases/results_dashboard/fixture/dashboard-data.json`, validare e committare il caso, quindi eseguire soltanto i finalisti con `--profile showcase`. Il grader automatico usa anche un dataset alternativo nascosto e resta separato dalla rubrica visuale da 20 punti. Il funnel distingue esplicitamente `not_run_in_next` da un fallimento. Procedura completa: [QUICK-START_Showcase.md](QUICK-START_Showcase.md).
 
@@ -207,7 +218,7 @@ In **Choose files**, select only one or more `dashboard-data.json` exports creat
 
 ## Configurazione / Configuration
 
-[`benchmark.json`](benchmark.json) centralizza URL Ollama, comando Pi, timeout, thinking, contesto, token massimi, warmup, sandbox, profili, directory di discovery dei casi e opzioni locali della dashboard. La sezione `dashboard` mantiene asset e risultati dentro il repository, impone l'host `127.0.0.1` e configura sorgente dati, porta e apertura automatica. L'eventuale `dashboard/data/snapshot.js` è un output locale ignorato da Git. Ogni `cases/<id>/case.json`, verificabile contro [`schemas/case.schema.json`](schemas/case.schema.json), contiene ID, titoli bilingui, categoria, peso e path relativi; i manifesti pre-0.4 inline restano leggibili per compatibilità. `"models": "installed"` rileva tutti i modelli da `/api/tags`; una lista esplicita rende il set stabile. `defaults.sandbox` accetta `audit`, `auto` o `required`; il default conservativo e retrocompatibile è `audit`.
+[`benchmark.json`](benchmark.json) centralizza URL Ollama, comando Pi, timeout task/preflight, thinking, timeout idle HTTP, retry agente/provider, contesto, token massimi, warmup, sandbox, profili, directory di discovery dei casi e opzioni locali della dashboard. Il default resta `thinking: "off"`, `http_idle_timeout_ms: 0` e zero retry. La sezione `dashboard` mantiene asset e risultati dentro il repository, impone l'host `127.0.0.1` e configura sorgente dati, porta e apertura automatica. L'eventuale `dashboard/data/snapshot.js` è un output locale ignorato da Git. Ogni `cases/<id>/case.json`, verificabile contro [`schemas/case.schema.json`](schemas/case.schema.json), contiene ID, titoli bilingui, categoria, peso e path relativi; i manifesti pre-0.4 inline restano leggibili per compatibilità. `"models": "installed"` rileva tutti i modelli da `/api/tags`; una lista esplicita rende il set stabile. `defaults.sandbox` accetta `audit`, `auto` o `required`; il default conservativo e retrocompatibile è `audit`.
 
 La temperatura è zero per ridurre la varianza. Le ripetizioni restano necessarie: tool calling e generazione locale non sono perfettamente deterministici. L'ordine delle task viene randomizzato e registrato; `--seed` permette di riprodurlo. Per un confronto decisionale usare almeno tre ripetizioni e la stessa alimentazione/condizione termica.
 

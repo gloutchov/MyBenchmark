@@ -93,9 +93,12 @@ test("creates filtered and sorted views without mutating the dataset", () => {
 test("merges alternate datasets, deduplicates identical runs, and rejects collisions", () => {
   const alternate = alternateDataset();
   const merged = Core.mergeDashboardData([fixture, fixture, alternate]);
+  assert.equal(merged.schema_version, 2);
   assert.equal(merged.runs.length, fixture.runs.length + 1);
   assert.deepEqual(merged.profile_order, ["smoke", "standard", "full", "custom"]);
   assert.equal(merged.funnel.at(-1).profile, "custom");
+  assert.ok(merged.runs.every((run) => run.thinking_control.status === "unverified"));
+  assert.ok(merged.runs.every((run) => run.thinking_control.source === "legacy_unverified"));
 
   const collision = alternateDataset();
   collision.runs[0].id = fixture.runs[0].id;
@@ -114,6 +117,7 @@ test("rebuilds neutral funnel semantics", () => {
     merged.runs.flatMap((run) => run.integrity.disqualified_models)
   );
   assert.equal(view.summary.disqualifiedCount, uniqueDisqualified.size);
+  assert.equal(view.summary.unverifiedThinkingCount, view.runs.length);
 });
 
 test("keeps Italian and English dictionaries synchronized", () => {

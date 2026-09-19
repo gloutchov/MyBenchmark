@@ -29,11 +29,33 @@ from .integrity import (
     snapshot_cases,
     verify_snapshot,
 )
-from .ollama import OllamaModel, list_models, unload, version, warmup
-from .pi_adapter import AUDIT_VERSION, SCRATCH_DIRECTORY, audit_workspace_accesses, run_pi, write_models_config
+from .ollama import (
+    OllamaModel,
+    ThinkingPreflight,
+    inspect_model,
+    list_models,
+    preflight_thinking,
+    unload,
+    version,
+    warmup,
+)
+from .pi_adapter import (
+    AUDIT_VERSION,
+    SCRATCH_DIRECTORY,
+    SUPPORTED_PI_VERSIONS,
+    audit_workspace_accesses,
+    run_pi,
+    write_models_config,
+)
 from .report import write_report
 from .sandbox import SandboxError, sandbox_capability, select_sandbox
 from .system_metrics import hardware_snapshot
+from .thinking import (
+    THINKING_CONTROL_VERSION,
+    ThinkingPolicy,
+    metrics_show_thinking,
+    resolve_thinking_policy,
+)
 
 
 class BenchmarkError(RuntimeError):
@@ -194,11 +216,35 @@ def _build_task_order(
 def doctor(config: BenchmarkConfig) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
     pi_path = shutil.which(config.pi_command[0])
-    checks.append({"name": "pi", "ok": pi_path is not None, "detail": pi_path or "comando non trovato"})
+    pi_version = _command_version([*config.pi_command, "--version"]) if pi_path else None
+    pi_supported = pi_version in SUPPORTED_PI_VERSIONS
+    checks.append(
+        {
+            "name": "pi",
+            "ok": pi_path is not None and pi_supported,
+            "detail": (
+                f"{pi_path}; versione {pi_version} supportata"
+                if pi_supported
+                else (
+                    f"{pi_path}; versione {pi_version or 'sconosciuta'} non supportata "
+                    f"(attese: {', '.join(SUPPORTED_PI_VERSIONS)})"
+                    if pi_path
+                    else "comando non trovato"
+                )
+            ),
+        }
+    )
     git_path = shutil.which("git")
     checks.append({"name": "git", "ok": git_path is not None, "detail": git_path or "comando non trovato"})
     try:
         models = list_models(config.ollama_url)
+        inspected: list[OllamaModel] = []
+        for model in models:
+            try:
+                inspected.append(inspect_model(config.ollama_url, model))
+            except Exception:
+                inspected.append(model)
+        models = inspected
         ollama_version = version(config.ollama_url)
         checks.append(
             {
@@ -231,7 +277,24 @@ def doctor(config: BenchmarkConfig) -> dict[str, Any]:
                 "detail": "AGENTS, .gitignore, manifesti, prompt, fixture, grader e rubriche puliti",
             }
         )
-    return {"ok": all(check["ok"] for check in checks), "checks": checks, "models": [asdict(model) for model in models]}
+    requested_policy = resolve_thinking_policy(config.defaults.thinking)
+    model_rows: list[dict[str, Any]] = []
+    for model in models:
+        if requested_policy.active and model.thinking_capable is False:
+            compatibility = "incompatible"
+        elif requested_policy.active and model.thinking_capable is None:
+            compatibility = "unknown"
+        else:
+            compatibility = "preflight_required"
+        model_rows.append(
+            {
+                **asdict(model),
+                "thinking_requested": requested_policy.requested,
+                "reasoning_effort": requested_policy.reasoning_effort,
+                "thinking_compatibility": compatibility,
+            }
+        )
+    return {"ok": all(check["ok"] for check in checks), "checks": checks, "models": model_rows}
 
 
 def run_benchmark(
@@ -242,6 +305,7 @@ def run_benchmark(
     requested_cases: list[str] | None,
     repetitions: int | None,
     timeout_seconds: int | None,
+    thinking_level: str | None,
     use_warmup: bool | None,
     output_dir: Path | None,
     order_seed: int | None = None,
@@ -252,10 +316,17 @@ def run_benchmark(
         require_clean_inputs(config.root, cases)
     except InputIntegrityError as exc:
         raise BenchmarkError(str(exc)) from exc
+    pi_version = _command_version([*config.pi_command, "--version"])
+    if pi_version not in SUPPORTED_PI_VERSIONS:
+        raise BenchmarkError(
+            f"Versione Pi non verificata: {pi_version or 'sconosciuta'}; "
+            f"supportate: {', '.join(SUPPORTED_PI_VERSIONS)}"
+        )
     installed = list_models(config.ollama_url)
     models = _resolve_models(config, requested_models, installed)
     repeat_count = repetitions or config.defaults.repetitions
     timeout = timeout_seconds or config.defaults.timeout_seconds
+    thinking_policy = resolve_thinking_policy(thinking_level or config.defaults.thinking)
     if repeat_count < 1 or timeout < 10:
         raise BenchmarkError("Ripetizioni e timeout devono essere positivi")
     should_warmup = config.defaults.warmup if use_warmup is None else use_warmup
@@ -281,11 +352,21 @@ def run_benchmark(
         raise BenchmarkError(str(exc)) from exc
     frozen_by_id = {case.id: case for case in frozen_cases}
     repository_state = repository_fingerprints(config.root, (run_dir,))
-    installed_by_name = {item.name: item for item in installed}
+    installed_by_name: dict[str, OllamaModel] = {}
+    for name in models:
+        base_model = next(item for item in installed if item.name == name)
+        try:
+            installed_by_name[name] = inspect_model(
+                config.ollama_url,
+                base_model,
+                timeout=min(config.defaults.thinking_preflight_timeout_seconds, timeout),
+            )
+        except Exception:
+            installed_by_name[name] = base_model
     seed = order_seed if order_seed is not None else secrets.randbits(64)
     tasks = _build_task_order(models, cases, repeat_count, seed)
     manifest = {
-        "schema_version": 3,
+        "schema_version": 4,
         "benchmark_version": __version__,
         "started_at": datetime.now(timezone.utc).isoformat(),
         "profile": profile,
@@ -293,7 +374,7 @@ def run_benchmark(
         "cases": [case.id for case in cases],
         "repetitions": repeat_count,
         "timeout_seconds": timeout,
-        "thinking": config.defaults.thinking,
+        "thinking": thinking_policy.requested,
         "warmup": should_warmup,
         "warmup_events": [],
         "order_seed": seed,
@@ -313,7 +394,12 @@ def run_benchmark(
             "ollama_url": config.ollama_url,
             "timeout_seconds": timeout,
             "repetitions": repeat_count,
-            "thinking": config.defaults.thinking,
+            "thinking": thinking_policy.requested,
+            "reasoning_effort": thinking_policy.reasoning_effort,
+            "thinking_preflight_timeout_seconds": config.defaults.thinking_preflight_timeout_seconds,
+            "http_idle_timeout_ms": config.defaults.http_idle_timeout_ms,
+            "agent_max_retries": config.defaults.agent_max_retries,
+            "provider_max_retries": config.defaults.provider_max_retries,
             "warmup": should_warmup,
             "keep_alive": config.defaults.keep_alive,
             "context_window": config.defaults.context_window,
@@ -321,10 +407,21 @@ def run_benchmark(
             "temperature": config.defaults.temperature,
         },
         "integrity": {"status": "passed", "aborted": False, "violations": []},
+        "thinking_control": {
+            **thinking_policy.to_manifest(),
+            "status": "pending",
+            "preflights": {},
+            "disqualified_models": [],
+            "retry_policy": {
+                "agent_max_retries": config.defaults.agent_max_retries,
+                "provider_max_retries": config.defaults.provider_max_retries,
+            },
+            "http_idle_timeout_ms": config.defaults.http_idle_timeout_ms,
+        },
         "environment": {
             "platform": platform.platform(),
             "python": sys.version.split()[0],
-            "pi": _command_version([*config.pi_command, "--version"]),
+            "pi": pi_version,
             "ollama": version(config.ollama_url),
             "hardware": hardware_snapshot(),
         },
@@ -332,10 +429,57 @@ def run_benchmark(
     }
     _write_manifest(run_dir, manifest)
 
+    preflight_by_model: dict[str, ThinkingPreflight] = {}
+    disqualified_thinking: set[str] = set()
+    for model in models:
+        try:
+            unload(config.ollama_url, model)
+        except Exception:
+            pass
+        print(
+            f"[thinking preflight] {model} · {thinking_policy.requested}"
+            f"/{thinking_policy.reasoning_effort}",
+            flush=True,
+        )
+        preflight = preflight_thinking(
+            config.ollama_url,
+            installed_by_name[model],
+            thinking_policy,
+            timeout=min(config.defaults.thinking_preflight_timeout_seconds, timeout),
+        )
+        preflight_by_model[model] = preflight
+        manifest["thinking_control"]["preflights"][model] = asdict(preflight)
+        if not preflight.passed:
+            disqualified_thinking.add(model)
+            manifest["integrity"]["status"] = "violations_detected"
+            manifest["integrity"]["violations"].append(
+                {
+                    "model": model,
+                    "case_id": "__preflight__",
+                    "repetition": 0,
+                    "kind": "thinking_control_unverified",
+                    "details": [{"status": preflight.status}],
+                }
+            )
+        try:
+            unload(config.ollama_url, model)
+        except Exception:
+            pass
+    manifest["thinking_control"]["disqualified_models"] = sorted(disqualified_thinking)
+    if not disqualified_thinking:
+        manifest["thinking_control"]["status"] = "passed"
+    elif len(disqualified_thinking) == len(models):
+        manifest["thinking_control"]["status"] = "failed"
+    else:
+        manifest["thinking_control"]["status"] = "partial"
+    _write_manifest(run_dir, manifest)
+
     active_model: str | None = None
     protected_paths = (config.root,)
     for current, task in enumerate(tasks, 1):
         model = str(task["model"])
+        if model in disqualified_thinking:
+            continue
         case_id = str(task["case_id"])
         repetition = int(task["repetition"])
         case = frozen_by_id[case_id]
@@ -357,7 +501,13 @@ def run_benchmark(
                 print(f"[warmup] {model}", flush=True)
                 event: dict[str, Any] = {"sequence": current, "model": model}
                 try:
-                    warmup_result = warmup(config.ollama_url, model, config.defaults.keep_alive, min(timeout, 300))
+                    warmup_result = warmup(
+                        config.ollama_url,
+                        model,
+                        config.defaults.keep_alive,
+                        min(timeout, 300),
+                        thinking_policy,
+                    )
                     event["metrics"] = {
                         key: warmup_result.get(key)
                         for key in ("total_duration", "load_duration", "prompt_eval_count", "eval_count", "eval_duration")
@@ -386,10 +536,14 @@ def run_benchmark(
         write_models_config(
             agent_dir,
             config.ollama_url,
-            models,
+            [installed_by_name[model]],
             config.defaults.context_window,
             config.defaults.max_tokens,
             config.defaults.temperature,
+            thinking_policy,
+            http_idle_timeout_ms=config.defaults.http_idle_timeout_ms,
+            agent_max_retries=config.defaults.agent_max_retries,
+            provider_max_retries=config.defaults.provider_max_retries,
         )
         baseline_commit = _prepare_workspace(
             config,
@@ -411,7 +565,7 @@ def run_benchmark(
             pi_run = run_pi(
                 config.pi_command,
                 model,
-                config.defaults.thinking,
+                thinking_policy.requested,
                 prompt,
                 workspace,
                 agent_dir,
@@ -426,7 +580,28 @@ def run_benchmark(
         repository_state = after_task_repository
         snapshot_mutations = verify_snapshot(context_dir, input_manifest)
         external_accesses = audit_workspace_accesses(pi_run.stdout, workspace, protected_paths)
-        valid_for_ranking = not source_mutations and not snapshot_mutations and not external_accesses
+        thinking_violations: list[dict[str, Any]] = []
+        if not thinking_policy.active and metrics_show_thinking(pi_run.metrics):
+            thinking_violations.append(
+                {
+                    "reason": "unexpected_thinking",
+                    "streamed_thinking_chars": int(pi_run.metrics.get("streamed_thinking_chars", 0)),
+                    "reasoning_tokens": int(pi_run.metrics.get("usage", {}).get("reasoning", 0)),
+                }
+            )
+        retry_events = pi_run.metrics.get("retry_events", 0)
+        if (
+            config.defaults.agent_max_retries == 0
+            and isinstance(retry_events, (int, float))
+            and not isinstance(retry_events, bool)
+            and retry_events > 0
+        ):
+            thinking_violations.append(
+                {"reason": "unexpected_retry", "retry_events": int(retry_events)}
+            )
+        valid_for_ranking = not (
+            source_mutations or snapshot_mutations or external_accesses or thinking_violations
+        )
         if source_mutations:
             _record_integrity_violation(
                 manifest,
@@ -444,6 +619,15 @@ def run_benchmark(
                 repetition=repetition,
                 kind="external_workspace_access",
                 details=external_accesses,
+            )
+        if thinking_violations:
+            _record_integrity_violation(
+                manifest,
+                model=model,
+                case_id=case.id,
+                repetition=repetition,
+                kind="thinking_control_violation",
+                details=thinking_violations,
             )
         if snapshot_mutations:
             manifest["integrity"]["status"] = "snapshot_compromised"
@@ -473,7 +657,7 @@ def run_benchmark(
         (case_dir / "git-status.txt").write_text(git_status, encoding="utf-8")
         (case_dir / "grade.json").write_text(json.dumps(grade, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         result = {
-            "schema_version": 3,
+            "schema_version": 4,
             "model": model,
             "case_id": case.id,
             "case_title": case.title,
@@ -487,6 +671,13 @@ def run_benchmark(
             "exit_code": pi_run.exit_code,
             "duration_seconds": pi_run.duration_seconds,
             "metrics": pi_run.metrics,
+            "thinking_control": {
+                **thinking_policy.to_manifest(),
+                "preflight": preflight_by_model[model].status,
+                "thinking_observed": metrics_show_thinking(pi_run.metrics),
+                "retry_policy": manifest["thinking_control"]["retry_policy"],
+                "http_idle_timeout_ms": config.defaults.http_idle_timeout_ms,
+            },
             "system_metrics": pi_run.system_metrics,
             "sandbox": pi_run.sandbox or sandbox.to_dict(),
             "grade": grade,
@@ -500,6 +691,7 @@ def run_benchmark(
                 "source_mutations": source_mutations,
                 "snapshot_mutations": snapshot_mutations,
                 "external_accesses": external_accesses,
+                "thinking_control_violations": thinking_violations,
             },
             "command": pi_run.command,
         }
