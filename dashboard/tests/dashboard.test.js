@@ -88,8 +88,49 @@ test("creates filtered and sorted views without mutating the dataset", () => {
   assert.ok(view.leaderboard.every((row) => row.thinking_mode === "unknown"));
   assert.ok(view.tasks.every((row) => row.model === "qwen3.5:9b-mlx"));
   assert.ok(view.tasks.every((row) => row.thinking_mode === "unknown"));
+  assert.ok(view.efficiency.every((cohort) => cohort.duration.points.length === 1));
+  assert.ok(view.efficiency.every((cohort) => cohort.tokens.points.length === 1));
+  assert.ok(view.efficiency.every((cohort) => cohort.duration.points[0].model === "qwen3.5:9b-mlx"));
   assert.equal(view.funnel[0].profile, "smoke");
   assert.equal(JSON.stringify(fixture), before);
+});
+
+test("builds separate efficiency cohorts with logarithmic domains and completion states", () => {
+  const view = Core.createDashboardView(fixture, { profile: "all", model: "all" });
+  assert.equal(view.efficiency.length, fixture.runs.length);
+  assert.deepEqual(view.efficiency.map((cohort) => cohort.run_id), fixture.runs.map((run) => run.id));
+  assert.ok(view.efficiency.every((cohort) => cohort.duration.domain.minimum > 0));
+  assert.ok(view.efficiency.every((cohort) => cohort.duration.domain.maximum > cohort.duration.domain.minimum));
+  assert.ok(view.efficiency.every((cohort) => cohort.tokens.domain.ticks.length <= 7));
+  const smoke = view.efficiency.find((cohort) => cohort.profile === "smoke");
+  assert.equal(smoke.duration.points.find((point) => point.model === "qwen3.5:9b-mlx").state, "complete");
+  assert.equal(smoke.duration.points.find((point) => point.model === "gpt-oss:20b").state, "below");
+});
+
+test("handles degenerate and missing efficiency metrics without inventing points", () => {
+  const domain = Core.buildLogDomain([42, 42, 42]);
+  assert.ok(domain.minimum < 42 && domain.maximum > 42);
+  assert.ok(domain.ticks.length >= 1 && domain.ticks.length <= 7);
+  const huge = Core.buildLogDomain([0.001, 1_000_000_000]);
+  assert.ok(huge.ticks.length <= 7);
+  const cohorts = Core.buildEfficiencyCohorts([
+    {
+      run_id: "run-a",
+      profile: "smoke",
+      thinking_mode: "off",
+      rank: 1,
+      model: "model-a",
+      quality_score: 80,
+      completion_rate: 50,
+      median_duration_seconds: 42,
+      median_output_tokens: null,
+    },
+  ]);
+  assert.equal(cohorts[0].duration.points.length, 1);
+  assert.equal(cohorts[0].duration.points[0].state, "partial");
+  assert.equal(cohorts[0].tokens.points.length, 0);
+  assert.equal(cohorts[0].tokens.omitted_count, 1);
+  assert.equal(cohorts[0].tokens.domain, null);
 });
 
 test("merges alternate datasets, deduplicates identical runs, and rejects collisions", () => {
@@ -171,4 +212,7 @@ test("official assets are semantic and contain no remote runtime hooks", () => {
   assert.match(source, /prefers-color-scheme/);
   assert.match(source, /localStorage/);
   assert.match(source, /cohort-grid/);
+  assert.match(source, /renderEfficiency/);
+  assert.match(source, /createElementNS/);
+  assert.match(html, /id="efficiency"/);
 });
