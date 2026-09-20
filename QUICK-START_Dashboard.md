@@ -96,6 +96,10 @@ Review the JSON, then select `results/finalists-dashboard-data.json`. Multiple e
 
 Il filtro profilo include anche `thinking` e `showcase`, ma il funnel mostra soltanto la progressione `smoke` → `standard` → `full`. Classifiche e grafici restano raggruppati per run e modalità thinking: coorti `off` e `medium` non vengono fuse. / The profile filter also includes `thinking` and `showcase`, while the funnel shows only `smoke` → `standard` → `full`. Rankings and charts remain grouped by run and thinking mode, so `off` and `medium` cohorts are not merged.
 
+La **Mappa di efficienza / Efficiency map** usa `quality_score` sull’asse verticale e, in due grafici distinti, durata mediana o token mediani sull’asse orizzontale logaritmico. In alto a sinistra si trovano i risultati di maggiore qualità e minore costo operativo. La numerazione dei punti rimanda alla legenda; i tre stili distinguono completamento pieno, parziale e nullo. I punti sono raggiungibili con `Tab` e aggiornano un riepilogo testuale. Non è presente una curva di tendenza e non viene creato alcun rank combinato tra coorti.
+
+The **Efficiency map** uses `quality_score` on the vertical axis and, in two separate plots, median duration or median output tokens on a logarithmic horizontal axis. The upper-left area represents higher quality at lower operating cost. Point numbers map to the legend, and three styles distinguish full, partial, and zero completion. Points are keyboard-focusable and update a textual summary. No trend line or cross-cohort combined ranking is produced.
+
 L'importazione resta nella memoria della scheda del browser. Non invia dati, non scrive file e si annulla ricaricando la pagina. Solo lingua e tema vengono memorizzati come preferenze locali.
 
 Imports remain in the browser tab's memory. No data is uploaded and no file is written; reload the page to discard imported data. Only language and theme are retained as local preferences.

@@ -4,7 +4,7 @@ Benchmark personale, ripetibile e offline per confrontare modelli Ollama usati c
 
 Personal, repeatable, offline benchmark for comparing Ollama models used as coding agents through [Pi](https://pi.dev). Its scenarios derive from this repository's operating rules: small patches, modular architecture, tests, security, configuration, i18n, documentation, and Git discipline.
 
-Stato / Status: **0.8.0 – milestone 8 in sviluppo / milestone 8 in development**
+Stato / Status: **0.9.0 – milestone 9 in sviluppo / milestone 9 in development**
 Piattaforme / Platforms: macOS, Windows, Linux
 Verifica reale / Real-world validation: **run benchmark Pi/Ollama reali verificati soltanto su macOS e Windows; Linux è coperto dalla CI, ma non è ancora stato validato con uno smoke Pi/Ollama reale. / Real Pi/Ollama benchmark runs have been verified only on macOS and Windows; Linux is covered by CI, but has not yet been validated with a real Pi/Ollama smoke run.**
 Licenza / License: Apache-2.0
@@ -20,7 +20,7 @@ Il benchmark valuta il risultato completo dell'agente, non una singola risposta 
 - aggiornamento coordinato di versione, piano e documentazione;
 - casi personali descritti da manifesti validati, con pesi e rubriche manuali opzionali;
 - pianificazione esatta multi-vincolo con scenari nascosti per misurare il beneficio osservabile del thinking senza richiederne la traccia;
-- esportazione privacy-bounded dei run, finalissima dashboard separata e dashboard ufficiale offline per leggere i risultati;
+- esportazione privacy-bounded dei run, finalissima dashboard separata e dashboard ufficiale offline con mappe qualità/tempo e qualità/token;
 - stato di uscita, timeout, errori tool, token e tempo end-to-end.
 
 The benchmark evaluates the complete agent outcome rather than a single text response: functional quality, scope discipline, security, configuration/i18n, exact multi-constraint planning, documentation, Git workflow, failures, tokens, and end-to-end time. It also provides privacy-bounded run exports, a separate model dashboard showcase, and an official offline results viewer.
@@ -217,6 +217,10 @@ python3 dashboard.py --dataset results/finalists-dashboard-data.json
 Il launcher usa soltanto la libreria standard, serve su `127.0.0.1`, sceglie una porta libera per default e apre il browser. Usare `--no-open` per copiare manualmente l'URL, `--port NUMERO` per una porta fissa e `Ctrl+C` per terminare. Se non trova run validi, usa in memoria la fixture dashboard revisionata. Non scrive né modifica i risultati sorgente.
 
 The official dashboard is maintained by the project and is not an output of the `showcase` test. Its standard-library launcher serves only allowlisted assets and an in-memory public dataset on `127.0.0.1`; it never exposes raw result files. Pass explicit run directories, `--dataset` for an existing sanitized export, `--no-open`, or `--port NUMBER` as needed. If no compatible run is found, the reviewed dashboard fixture is served in memory.
+
+La sezione **Mappa di efficienza / Efficiency map** visualizza per ogni run e modalità thinking due grafici distinti: qualità rispetto alla durata mediana e qualità rispetto ai token mediani di output. Gli assi orizzontali sono logaritmici e dichiarati; l’area desiderabile è in alto a sinistra. Il grafico usa `quality_score`, non il punteggio complessivo che incorpora già velocità ed efficienza, e non fonde mai coorti incompatibili. I punti e la legenda distinguono completamento pieno, parziale e assenza di task sopra soglia e sono consultabili anche da tastiera.
+
+The **Efficiency map** shows two separate plots for every run and thinking mode: quality against median duration and quality against median output tokens. Horizontal axes are explicitly logarithmic, and the desirable area is toward the upper left. The plot uses `quality_score`, not the overall score that already includes speed and token efficiency, and never merges incompatible cohorts. Points and legends distinguish full, partial, and zero completion and are keyboard-accessible.
 
 Nel selettore **Scegli file / Choose files**, aprire esclusivamente uno o più file `dashboard-data.json` creati con `python3 benchmark.py dashboard-data ...`: non selezionare `run.json`, `report.json`, directory di run o artefatti raw. L'importazione avviene localmente nel browser, non carica file in rete e non li salva nel repository.
 

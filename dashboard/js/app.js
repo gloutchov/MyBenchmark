@@ -118,6 +118,7 @@
     UI.renderIntegrity(view);
     UI.renderLeaderboard(view);
     UI.renderComparison(view);
+    UI.renderEfficiency(view);
     UI.renderFunnel(view);
     UI.renderTasks(view, UI.showTaskDialog);
     UI.renderRuns(view);

@@ -399,6 +399,88 @@
     return direction === "asc" ? comparison : -comparison;
   }
 
+  function buildLogDomain(values) {
+    const positive = values.filter((value) => typeof value === "number" && Number.isFinite(value) && value > 0);
+    if (!positive.length) return null;
+    const minimum = Math.min(...positive);
+    const maximum = Math.max(...positive);
+    const rawLow = Math.log10(minimum);
+    const rawHigh = Math.log10(maximum);
+    const span = rawHigh - rawLow;
+    const padding = span === 0 ? 0.35 : Math.max(0.06, span * 0.08);
+    const low = rawLow - padding;
+    const high = rawHigh + padding;
+    const ticks = [];
+    for (let exponent = Math.floor(low) - 1; exponent <= Math.ceil(high) + 1; exponent += 1) {
+      for (const multiplier of [1, 2, 5]) {
+        const tick = multiplier * 10 ** exponent;
+        if (tick >= 10 ** low && tick <= 10 ** high) ticks.push(tick);
+      }
+    }
+    if (!ticks.length) ticks.push(minimum);
+    const uniqueTicks = [...new Set(ticks)].sort((left, right) => left - right);
+    const visibleTicks = uniqueTicks.length <= 7
+      ? uniqueTicks
+      : [...new Set(Array.from({ length: 7 }, (_item, index) => uniqueTicks[Math.round(index * (uniqueTicks.length - 1) / 6)]))];
+    return {
+      minimum: 10 ** low,
+      maximum: 10 ** high,
+      ticks: visibleTicks,
+    };
+  }
+
+  function efficiencyState(row) {
+    if (typeof row.completion_rate !== "number" || row.completion_rate <= 0) return "below";
+    return row.completion_rate >= 100 ? "complete" : "partial";
+  }
+
+  function buildEfficiencyPlot(points, field) {
+    const plotted = points.filter((point) => typeof point[field] === "number" && point[field] > 0);
+    const domain = buildLogDomain(plotted.map((point) => point[field]));
+    return {
+      field,
+      domain,
+      points: plotted,
+      omitted_count: points.length - plotted.length,
+    };
+  }
+
+  function buildEfficiencyCohorts(leaderboard, runOrder) {
+    const groups = new Map();
+    leaderboard.forEach((row) => {
+      if (typeof row.quality_score !== "number") return;
+      if (!groups.has(row.run_id)) groups.set(row.run_id, []);
+      groups.get(row.run_id).push({
+        rank: row.rank,
+        model: row.model,
+        quality_score: row.quality_score,
+        completion_rate: row.completion_rate,
+        median_duration_seconds: row.median_duration_seconds,
+        median_output_tokens: row.median_output_tokens,
+        state: efficiencyState(row),
+        profile: row.profile,
+        thinking_mode: row.thinking_mode,
+      });
+    });
+    const cohorts = [...groups.entries()].map(([runId, rawPoints]) => {
+      const points = rawPoints.sort((left, right) => left.rank - right.rank || left.model.localeCompare(right.model));
+      const qualityMaximum = Math.max(100, ...points.map((point) => point.quality_score));
+      return {
+        run_id: runId,
+        profile: points[0].profile,
+        thinking_mode: points[0].thinking_mode,
+        quality_maximum: Math.ceil(qualityMaximum / 25) * 25,
+        duration: buildEfficiencyPlot(points, "median_duration_seconds"),
+        tokens: buildEfficiencyPlot(points, "median_output_tokens"),
+      };
+    });
+    if (Array.isArray(runOrder)) {
+      const positions = new Map(runOrder.map((runId, index) => [runId, index]));
+      cohorts.sort((left, right) => (positions.get(left.run_id) ?? Number.MAX_SAFE_INTEGER) - (positions.get(right.run_id) ?? Number.MAX_SAFE_INTEGER));
+    }
+    return cohorts;
+  }
+
   function createDashboardView(dataset, filters) {
     validateDashboardData(dataset);
     const options = filters && isObject(filters) ? filters : {};
@@ -421,6 +503,7 @@
       )
       .filter((row) => selectedModel === "all" || row.model === selectedModel)
       .sort((left, right) => compareRows(left, right, sortBy, sortDirection) || left.model.localeCompare(right.model));
+    const efficiency = buildEfficiencyCohorts(leaderboard, runs.map((run) => run.id));
 
     const tasks = runs
       .flatMap((run) => run.tasks.map((task) => ({
@@ -479,6 +562,7 @@
       profiles: [...dataset.profile_order],
       runs: clone(runs),
       leaderboard,
+      efficiency,
       funnel,
       tasks,
       availableModels,
@@ -489,7 +573,9 @@
 
   return {
     SCHEMA_VERSION,
+    buildEfficiencyCohorts,
     buildFunnel,
+    buildLogDomain,
     createDashboardView,
     mergeDashboardData,
     validateDashboardData,

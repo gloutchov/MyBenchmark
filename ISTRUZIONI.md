@@ -148,6 +148,8 @@ python3 dashboard.py
 
 Il comando aggrega i run validi soltanto in memoria, avvia un server su `127.0.0.1` con una porta libera, apre il browser e stampa l'URL. Non serve file raw e non modifica i risultati. Terminare con `Ctrl+C`. Se non esistono run compatibili, serve in memoria la fixture dashboard revisionata.
 
+La sezione **Mappa di efficienza** mostra, separatamente per ogni run e modalità thinking, il rapporto tra `quality_score` e durata mediana e tra `quality_score` e token mediani di output. Gli assi orizzontali sono logaritmici: spostarsi verso sinistra significa consumare meno tempo o token, mentre salire significa ottenere qualità maggiore. I numeri nei punti corrispondono alla legenda sottostante; punto pieno, punto ciano e punto vuoto indicano rispettivamente completamento 100%, parziale e nessuna task sopra soglia. Passare sul punto o raggiungerlo con `Tab` mostra i valori completi. Non confrontare visivamente coorti diverse come se fossero un unico esperimento.
+
 È possibile scegliere sorgenti e comportamento in modo esplicito:
 
 ```bash

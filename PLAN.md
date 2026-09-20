@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.8.0**
+Versione corrente / Current version: **0.9.0**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -386,3 +386,34 @@ Versione corrente / Current version: **0.8.0**
 - [x] CI verificata su `main` (run `35457439164`)
 - [x] Tag annotato `v0.8.0` e GitHub Release stabile pubblicati senza artifact binari di progetto
 - [x] Branch obsoleto eliminato dal remoto e in locale dopo merge, CI, tag e release
+
+## Milestone 9 – Mappa visiva di efficienza
+
+- Obiettivo: aggiungere alla dashboard ufficiale una lettura cartesiana e accessibile del rapporto tra qualità, durata e token, così da rendere immediatamente visibili i modelli efficienti senza alterare la formula di scoring o mescolare coorti incompatibili.
+- Branch previsto: `milestone/9-dashboard-efficiency-map`
+- Incremento versione: `+0.1.0` (`v0.9.0`)
+- Attività principali: introdurre una sezione full-width “Mappa efficienza / Efficiency map” con due scatter plot per qualità/tempo e qualità/token; derivare i punti esclusivamente dai campi pubblici già presenti nella leaderboard; usare `quality_score` come risultato indipendente per evitare il doppio conteggio di velocità ed efficienza già incluso in `overall_score`; separare ogni run e modalità thinking in una coorte distinta; usare una scala logaritmica dichiarata per gli assi orizzontali; distinguere completamenti pieni e risultati sotto soglia; aggiungere dettaglio hover/focus, riepilogo testuale e navigazione da tastiera; mantenere filtri, tema, lingua, CSP, importazione e funzionamento `file://` esistenti; non introdurre dipendenze, CDN, telemetria o richieste remote.
+- Criteri di accettazione: ogni punto appartiene a un solo run/coorte e non produce classifiche combinate implicite; i modelli esclusi per integrità restano assenti; gli assi gestiscono valori mancanti, identici, nulli e range molto diversi senza overflow; la zona desiderabile è spiegata come alta qualità con minore durata/token senza introdurre una curva di tendenza; tooltip/focus espongono modello, qualità, metrica X, completamento, profilo e thinking; il contenuto resta leggibile in italiano e inglese, tema chiaro/scuro, desktop e mobile; la dashboard continua a funzionare offline sia tramite server loopback sia, quando viene generato lo snapshot locale, da `file://`.
+- Test richiesti: unit test JavaScript per derivazione dei punti, separazione delle coorti, ordinamento, domini logaritmici, valori degeneri e filtri; test Python invariati per whitelist/export/server; suite Node e unittest complete; compileall; verifica browser tramite server locale su desktop e mobile, temi chiaro/scuro, tastiera e focus dei punti; controllo console, overflow e assenza di richieste remote; verifica opzionale `file://` soltanto se viene rigenerato uno snapshot locale.
+- Documentazione: aggiornare README, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md`, quick start dashboard e questo piano; documentare significato degli assi, scala logaritmica, separazione delle coorti e limiti interpretativi.
+- Release: milestone funzionale rilasciabile come `v0.9.0`; commit, push, PR, merge, tag, GitHub Release e rimozione branch richiedono approvazione esplicita del progettista dopo test e revisione visuale.
+- Stato: **implementazione completata sul branch dedicato e verifiche locali verdi. I due scatter plot nativi e offline separano le coorti per run/modalità, usano `quality_score` con assi orizzontali logaritmici e mantengono filtri, i18n, tema e accessibilità da tastiera. Compileall, 106 test Python, 10 test Node e la validazione dei sei casi sono verdi; 12 probe dipendenti da loopback o sistemi operativi diversi risultano non applicabili nel sandbox corrente. La verifica HTTP manuale conferma asset autorizzati e dataset ridotto con header di sicurezza, oltre al rifiuto 404 di file non autorizzati. La revisione Playwright via server locale è verde a 1440×900 e 390×844 in tema chiaro/scuro e italiano/inglese: nessun overflow orizzontale, zero errori o warning console, focus dei punti raggiungibile con `Tab`, riepilogo testuale aggiornato e sole otto richieste statiche a `127.0.0.1`. Il progettista ha approvato esplicitamente commit, merge, tag, push, release e rimozione del branch il 2026-09-20; restano da completare il flusso Git/GitHub e le verifiche CI.**
+
+### Checklist milestone 9
+
+- [x] Branch milestone creato (`milestone/9-dashboard-efficiency-map`)
+- [x] Brief funzionale, incremento `0.9.0` e criteri di accettazione definiti
+- [x] Implementazione dei due scatter plot completata
+- [x] Coorti, soglie, valori mancanti e scala logaritmica coperti da test JavaScript
+- [x] Test Python, JavaScript e compileall eseguiti (106 Python superati, 12 skip attesi; 10 Node superati)
+- [x] Verifica browser desktop/mobile, temi, lingue, tastiera, overflow, console e rete completata
+- [x] Verifica server loopback, header di sicurezza, asset autorizzati e route negate completata
+- [x] Validazione dei sei casi benchmark completata
+- [x] Versione `0.9.0` sincronizzata nei punti canonici
+- [x] README, manuali, quick start, security model, MAP e AGENTS aggiornati
+- [x] PLAN aggiornato con i risultati disponibili e il controllo browser ancora pendente
+- [x] Approvazione esplicita del progettista ottenuta il 2026-09-20 prima del merge
+- [ ] Commit finale e PR/merge verso `main` completati
+- [ ] CI verificata su branch/PR e su `main`
+- [ ] Tag annotato `v0.9.0` e GitHub Release pubblicati se approvati
+- [ ] Branch obsoleto eliminato soltanto dopo merge, CI, tag e release previsti

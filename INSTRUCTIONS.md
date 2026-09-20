@@ -138,6 +138,8 @@ python3 dashboard.py
 
 The command aggregates valid runs in memory, starts a server on `127.0.0.1` using an available port, opens the browser, and prints the URL. It never serves raw result files or modifies source runs. Stop it with `Ctrl+C`. If no compatible run exists, it serves the reviewed dashboard fixture in memory.
 
+The **Efficiency map** shows, separately for every run and thinking mode, `quality_score` against median duration and against median output tokens. Horizontal axes are logarithmic: moving left means using less time or fewer tokens, while moving up means higher quality. Point numbers map to the legend below; filled, cyan, and hollow points respectively indicate 100%, partial, and zero completion. Hover over a point or reach it with `Tab` to read the complete values. Do not interpret separate cohorts as one combined experiment.
+
 Select sources and launcher behavior explicitly when needed:
 
 ```bash
