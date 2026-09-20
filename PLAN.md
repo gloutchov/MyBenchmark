@@ -397,7 +397,7 @@ Versione corrente / Current version: **0.9.0**
 - Test richiesti: unit test JavaScript per derivazione dei punti, separazione delle coorti, ordinamento, domini logaritmici, valori degeneri e filtri; test Python invariati per whitelist/export/server; suite Node e unittest complete; compileall; verifica browser tramite server locale su desktop e mobile, temi chiaro/scuro, tastiera e focus dei punti; controllo console, overflow e assenza di richieste remote; verifica opzionale `file://` soltanto se viene rigenerato uno snapshot locale.
 - Documentazione: aggiornare README, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md`, quick start dashboard e questo piano; documentare significato degli assi, scala logaritmica, separazione delle coorti e limiti interpretativi.
 - Release: milestone funzionale rilasciabile come `v0.9.0`; commit, push, PR, merge, tag, GitHub Release e rimozione branch richiedono approvazione esplicita del progettista dopo test e revisione visuale.
-- Stato: **implementazione completata sul branch dedicato e verifiche locali verdi. I due scatter plot nativi e offline separano le coorti per run/modalità, usano `quality_score` con assi orizzontali logaritmici e mantengono filtri, i18n, tema e accessibilità da tastiera. Compileall, 106 test Python, 10 test Node e la validazione dei sei casi sono verdi; 12 probe dipendenti da loopback o sistemi operativi diversi risultano non applicabili nel sandbox corrente. La verifica HTTP manuale conferma asset autorizzati e dataset ridotto con header di sicurezza, oltre al rifiuto 404 di file non autorizzati. La revisione Playwright via server locale è verde a 1440×900 e 390×844 in tema chiaro/scuro e italiano/inglese: nessun overflow orizzontale, zero errori o warning console, focus dei punti raggiungibile con `Tab`, riepilogo testuale aggiornato e sole otto richieste statiche a `127.0.0.1`. Il progettista ha approvato esplicitamente commit, merge, tag, push, release e rimozione del branch il 2026-09-20; restano da completare il flusso Git/GitHub e le verifiche CI.**
+- Stato: **milestone chiusa, integrata e pubblicata il 2026-09-20. I due scatter plot nativi e offline separano le coorti per run/modalità, usano `quality_score` con assi orizzontali logaritmici e mantengono filtri, i18n, tema e accessibilità da tastiera. Compileall, 106 test Python, 10 test Node e la validazione dei sei casi sono verdi; 12 probe dipendenti da loopback o sistemi operativi diversi risultano non applicabili nel sandbox corrente. La verifica HTTP manuale conferma asset autorizzati e dataset ridotto con header di sicurezza, oltre al rifiuto 404 di file non autorizzati. La revisione Playwright via server locale è verde a 1440×900 e 390×844 in tema chiaro/scuro e italiano/inglese: nessun overflow orizzontale, zero errori o warning console, focus dei punti raggiungibile con `Tab`, riepilogo testuale aggiornato e sole otto richieste statiche a `127.0.0.1`. Dopo l'approvazione esplicita del progettista, la PR #3 è stata integrata con merge commit `8bb68e0`; la CI è verde su macOS, Ubuntu e Windows sia sulla PR (`35501206550`) sia su `main` (`35501371878`). Il tag annotato `v0.9.0` punta al merge verificato e la GitHub Release stabile è pubblicata senza artifact binari di progetto; il branch milestone è stato eliminato dal remoto e in locale.**
 
 ### Checklist milestone 9
 
@@ -411,9 +411,9 @@ Versione corrente / Current version: **0.9.0**
 - [x] Validazione dei sei casi benchmark completata
 - [x] Versione `0.9.0` sincronizzata nei punti canonici
 - [x] README, manuali, quick start, security model, MAP e AGENTS aggiornati
-- [x] PLAN aggiornato con i risultati disponibili e il controllo browser ancora pendente
+- [x] PLAN aggiornato con verifiche browser, CI, merge, tag, release e chiusura della milestone
 - [x] Approvazione esplicita del progettista ottenuta il 2026-09-20 prima del merge
-- [ ] Commit finale e PR/merge verso `main` completati
-- [ ] CI verificata su branch/PR e su `main`
-- [ ] Tag annotato `v0.9.0` e GitHub Release pubblicati se approvati
-- [ ] Branch obsoleto eliminato soltanto dopo merge, CI, tag e release previsti
+- [x] Commit finale e PR #3 integrati in `main` con merge commit `8bb68e0`
+- [x] CI macOS, Ubuntu e Windows verificata sulla PR (`35501206550`) e su `main` (`35501371878`)
+- [x] Tag annotato `v0.9.0` e GitHub Release stabile pubblicati senza artifact binari di progetto
+- [x] Branch obsoleto eliminato dal remoto e in locale dopo merge, CI, tag e release
