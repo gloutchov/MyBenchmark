@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.11.0**
+Versione corrente / Current version: **0.11.1 (predisposta sul branch patch, non ancora pubblicata)**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -527,3 +527,32 @@ Versione corrente / Current version: **0.11.0**
 - [x] Release sorgente senza artifact binari di progetto; checksum di artifact non applicabili
 - [x] Landing aggiornata pubblicata e verificata soltanto dopo autorizzazione esplicita (`36245909341`)
 - [x] Branch obsoleto eliminato soltanto dopo merge, CI, tag, release e deploy verificati
+
+## Patch 0.11.1 – Gerarchia dei percorsi nella landing
+
+- Obiettivo: distinguere chiaramente il percorso rapido guidato dal flusso avanzato a terminale e rendere immediatamente riconoscibili prerequisiti e documentazione utente.
+- Branch: `patch/0.11.1-landing-content`.
+- Incremento versione: `+0.0.1`, da `0.11.0` a `0.11.1`, con tag previsto `v0.11.1` soltanto dopo verifica locale e nuova approvazione del progettista.
+- Attività: rinominare la sezione 06 in “Full immersion”; descrivere l'esecuzione separata di `smoke`, `standard` e `full`, le opzioni e i casi personalizzati e la finalissima `showcase`; aggiungere prima della documentazione una sezione “Inizia” con requisiti e accessi; limitare la sezione documentale ai manuali e ai quick start, mostrando il solo manuale coerente con la lingua attiva; aggiornare test, mappa, versione e questo piano.
+- Criteri di accettazione: “Percorso rapido” e “Full immersion” non sono presentati come sinonimi; i comandi mostrano profili, opzioni, casi personalizzati e `showcase` senza omettere il requisito del dataset congelato; “Inizia” contiene Python, Ollama, Pi e checkout Git pulito; in italiano è visibile soltanto `ISTRUZIONI.md`, in inglese soltanto `INSTRUCTIONS.md`; README, `SECURITY_MODEL.md`, `MAP.md` e `PLAN.md` non compaiono nella griglia pubblica della documentazione; layout, tema, navigazione e accessibilità restano invariati.
+- Test: test statici Python e Node della landing, suite Python completa, compileall, validazione dei casi e verifica browser locale desktop/mobile in entrambe le lingue e nei temi chiaro/scuro; CI multipiattaforma soltanto dopo il push autorizzato.
+- Documentazione: aggiornare README per versione e asset della landing, MAP per la nuova gerarchia e PLAN per il workflow della patch; `SECURITY_MODEL.md` resta invariato perché non cambiano rete, dati, storage, CSP o superfici operative.
+- Release: patch sorgente `v0.11.1`; l'eventuale GitHub Release richiede una decisione separata del progettista, come previsto per gli incrementi `+0.0.1`.
+- Stato: **implementazione, verifiche e commit locali completati; il branch resta in attesa della verifica del progettista. Push, PR/merge, tag, deploy Pages, eventuale GitHub Release e rimozione del branch restano vietati fino al nuovo avallo esplicito.**
+
+### Checklist patch 0.11.1
+
+- [x] Branch dedicato creato da `main` pulito
+- [x] Sezione 06 trasformata in “Full immersion” con profili, opzioni, casi personalizzati e finalissima
+- [x] Nuova sezione “Inizia” aggiunta prima della documentazione
+- [x] Griglia documentale limitata a istruzioni e quick start, con manuale filtrato per lingua
+- [x] Versione `0.11.1`, README, MAP, test e PLAN aggiornati
+- [x] Test automatici e verifica browser locale completati
+- [x] Commit locale creato per la verifica del progettista
+- [ ] Verifica locale e approvazione esplicita del progettista ottenute
+- [ ] Push e PR eseguiti soltanto dopo approvazione
+- [ ] CI verificata su PR e `main`
+- [ ] Merge e deploy Pages completati e verificati
+- [ ] Tag annotato `v0.11.1` creato e pubblicato
+- [ ] Decisione sulla GitHub Release patch registrata
+- [ ] Branch locale e remoto eliminato dopo tutte le verifiche previste

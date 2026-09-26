@@ -56,6 +56,9 @@
       const value = strings[node.dataset.i18nContent];
       if (typeof value === "string") node.setAttribute("content", value);
     });
+    document.querySelectorAll("[data-language-only]").forEach((node) => {
+      node.hidden = !i18n.languageOnlyVisible(node.dataset.languageOnly, language);
+    });
     if (languageSelect) {
       languageSelect.replaceChildren(
         option("it", strings.language_it),

@@ -75,7 +75,7 @@ class LandingPageTests(unittest.TestCase):
         _, parser = self.parse("index.html")
         anchors = {link["href"][1:] for link in parser.links if link.get("href", "").startswith("#")}
         self.assertTrue(anchors.issubset(parser.ids), anchors - parser.ids)
-        self.assertTrue({"top", "why", "method", "quick", "dashboard", "start"}.issubset(parser.ids))
+        self.assertTrue({"top", "why", "method", "quick", "dashboard", "immersion", "start", "docs"}.issubset(parser.ids))
 
     def test_quick_path_is_honest_and_links_its_guide(self) -> None:
         index, parser = self.parse("index.html")
@@ -88,6 +88,32 @@ class LandingPageTests(unittest.TestCase):
             "https://github.com/gloutchov/LocalAgentBenchmark/blob/main/QUICK-START_Guided.md",
             links,
         )
+
+    def test_full_immersion_start_and_language_scoped_documentation(self) -> None:
+        index, parser = self.parse("index.html")
+        self.assertIn('id="immersion"', index)
+        self.assertIn('id="start"', index)
+        for profile in ("smoke", "standard", "full", "showcase"):
+            self.assertIn(f"--profile {profile}", index)
+        self.assertIn("--cases CASE_ID", index)
+
+        links = {link.get("href", "") for link in parser.links}
+        docs = "https://github.com/gloutchov/LocalAgentBenchmark/blob/main/"
+        for name in (
+            "ISTRUZIONI.md",
+            "INSTRUCTIONS.md",
+            "QUICK-START_Guided.md",
+            "QUICK-START_Dashboard.md",
+            "QUICK-START_Showcase.md",
+            "QUICK-START_Case-Author.md",
+            "QUICK-START_Windows.md",
+            "QUICK-START_Linux.md",
+        ):
+            self.assertIn(docs + name, links)
+        for internal in ("README.md", "SECURITY_MODEL.md", "MAP.md", "PLAN.md"):
+            self.assertNotIn(docs + internal, links)
+        self.assertIn('data-language-only="it" hidden', index)
+        self.assertIn('data-language-only="en"', index)
 
     def test_images_have_dimensions_and_localised_alternatives(self) -> None:
         _, parser = self.parse("index.html")

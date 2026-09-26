@@ -39,6 +39,14 @@ test("language detection uses Italian only for Italian locales", () => {
   assert.equal(preferences.languagePreference("en", "it-IT"), "en");
 });
 
+test("language-scoped documentation shows only the matching manual", () => {
+  assert.equal(i18n.languageOnlyVisible("it", "it-IT"), true);
+  assert.equal(i18n.languageOnlyVisible("en", "it-IT"), false);
+  assert.equal(i18n.languageOnlyVisible("it", "en-US"), false);
+  assert.equal(i18n.languageOnlyVisible("en", "en-US"), true);
+  assert.equal(i18n.languageOnlyVisible("", "en-US"), true);
+});
+
 test("theme preference validates values and resolves automatic mode", () => {
   assert.equal(preferences.themePreference("light"), "light");
   assert.equal(preferences.themePreference("dark"), "dark");

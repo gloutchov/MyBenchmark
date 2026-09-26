@@ -4,7 +4,7 @@ Benchmark personale, ripetibile e offline per confrontare modelli Ollama usati c
 
 Personal, repeatable, offline benchmark for comparing Ollama models used as coding agents through [Pi](https://pi.dev). Its scenarios derive from this repository's operating rules: small patches, modular architecture, tests, security, configuration, i18n, documentation, and Git discipline.
 
-Stato / Status: **0.11.0 – percorso rapido guidato verificato con un funnel reale completo / guided quick path verified with a complete real-world funnel**
+Stato / Status: **0.11.1 – landing con percorsi guidato e full immersion distinti / landing with distinct guided and full-immersion paths**
 Piattaforme / Platforms: macOS, Windows, Linux
 Verifica reale / Real-world validation: **run benchmark Pi/Ollama reali verificati soltanto su macOS e Windows; Linux è coperto dalla CI, ma non è ancora stato validato con uno smoke Pi/Ollama reale. / Real Pi/Ollama benchmark runs have been verified only on macOS and Windows; Linux is covered by CI, but has not yet been validated with a real Pi/Ollama smoke run.**
 Licenza / License: Apache-2.0
@@ -256,9 +256,9 @@ Aprire `http://127.0.0.1:8000/` e terminare con `Ctrl+C`. La pagina rileva la li
 
 The public landing page lives under [`site/`](site/) and is ready for GitHub Pages at `https://gloutchov.github.io/LocalAgentBenchmark/`. Preview it locally with the command above. The page detects browser language, defaults to Italian only for Italian locales and to English otherwise, and persists only explicit language and theme choices. All runtime assets are local and the site has no CDN, analytics, telemetry, forms, or remote runtime requests.
 
-I fotogrammi sotto `site/assets/` sono derivati ottimizzati del video locale `assets/Dashboard.mov`: il sorgente resta ignorato da Git, non viene pubblicato e non va modificato. Quando cambiano testi o UI, mantenere sincronizzati i dizionari in `site/js/i18n.js`, aggiornare entrambe le immagini fallback/WebP quando necessario e verificare `site/index.html`, `site/404.html`, il prefisso Pages `/LocalAgentBenchmark/` e i test statici.
+I fotogrammi sotto `site/assets/` sono derivati ottimizzati dei video locali `assets/Dashboard.mov` e `assets/Guided.mov`: i sorgenti restano ignorati da Git, non vengono pubblicati e non vanno modificati. Quando cambiano testi o UI, mantenere sincronizzati i dizionari in `site/js/i18n.js`, aggiornare entrambe le immagini fallback/WebP quando necessario e verificare `site/index.html`, `site/404.html`, il prefisso Pages `/LocalAgentBenchmark/` e i test statici.
 
-The optimized frames in `site/assets/` are derived from the local `assets/Dashboard.mov` source. The source remains Git-ignored, is never published, and must not be edited. Keep both dictionaries synchronized and verify the HTML, fallback/WebP images, Pages prefix, and static tests whenever the landing page changes.
+The optimized frames in `site/assets/` are derived from the local `assets/Dashboard.mov` and `assets/Guided.mov` sources. The sources remain Git-ignored, are never published, and must not be edited. Keep both dictionaries synchronized and verify the HTML, fallback/WebP images, Pages prefix, and static tests whenever the landing page changes.
 
 ## Configurazione / Configuration
 

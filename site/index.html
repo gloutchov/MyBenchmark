@@ -270,50 +270,68 @@
         </div>
       </section>
 
-      <section class="section section-start" id="start">
+      <section class="section section-start" id="immersion">
         <div class="start-copy">
-          <p class="section-index">06 — <span data-i18n="start_index"></span></p>
-          <h2 data-i18n="start_title"></h2>
-          <p data-i18n="start_intro"></p>
-          <div class="requirements">
-            <h3 data-i18n="requirements_title"></h3>
-            <ul>
-              <li data-i18n="requirement_python"></li>
-              <li data-i18n="requirement_ollama"></li>
-              <li data-i18n="requirement_pi"></li>
-              <li data-i18n="requirement_git"></li>
-            </ul>
-          </div>
+          <p class="section-index">06 — <span data-i18n="immersion_index"></span></p>
+          <h2 data-i18n="immersion_title"></h2>
+          <p data-i18n="immersion_intro"></p>
+          <a class="text-link immersion-link" href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/QUICK-START_Showcase.md" rel="noreferrer"><span data-i18n="immersion_showcase_guide"></span><span aria-hidden="true"> ↗</span></a>
         </div>
 
-        <div class="terminal-panel" aria-label="Quick start commands" data-i18n-aria-label="quick_commands_label">
+        <div class="terminal-panel" aria-label="Full immersion commands" data-i18n-aria-label="immersion_commands_label">
           <div class="terminal-bar"><span></span><span></span><span></span><strong>localagent-benchmark</strong></div>
-          <pre><code><span class="prompt">$</span> python3 benchmark.py doctor
-<span class="prompt">$</span> python3 benchmark.py list
-<span class="prompt">$</span> python3 benchmark.py case validate
-<span class="prompt">$</span> python3 benchmark.py run --profile smoke \
-    --models MODEL_NAME --thinking off
-<span class="prompt">$</span> python3 dashboard.py</code></pre>
-          <p data-i18n="terminal_note"></p>
+          <pre><code><span class="prompt">$</span> python3 benchmark.py run --profile smoke \
+    --models MODEL_A MODEL_B --thinking off
+<span class="prompt">$</span> python3 benchmark.py run --profile standard \
+    --models MODEL_A --seed 42 --sandbox required
+<span class="prompt">$</span> python3 benchmark.py run --profile full \
+    --models MODEL_A --repetitions 3
+<span class="prompt">$</span> python3 benchmark.py run --cases CASE_ID \
+    --models MODEL_A --timeout 1200
+<span class="prompt">$</span> python3 benchmark.py run --profile showcase \
+    --models FINALIST_A FINALIST_B --thinking off</code></pre>
+          <p data-i18n="immersion_note"></p>
+        </div>
+      </section>
+
+      <section class="section section-begin" id="start">
+        <div class="start-copy">
+          <p class="section-index">07 — <span data-i18n="start_index"></span></p>
+          <h2 data-i18n="start_title"></h2>
+          <p data-i18n="start_intro"></p>
+          <div class="begin-actions">
+            <a class="button button-primary" href="https://github.com/gloutchov/LocalAgentBenchmark/releases/latest" rel="noreferrer" data-i18n="start_release"></a>
+            <a class="button button-secondary" href="#docs" data-i18n="start_docs"></a>
+          </div>
+        </div>
+        <div class="requirements">
+          <h3 data-i18n="requirements_title"></h3>
+          <ul>
+            <li data-i18n="requirement_python"></li>
+            <li data-i18n="requirement_ollama"></li>
+            <li data-i18n="requirement_pi"></li>
+            <li data-i18n="requirement_git"></li>
+          </ul>
         </div>
       </section>
 
       <section class="section section-docs" id="docs">
         <div class="section-heading heading-split">
           <div>
-            <p class="section-index">07 — <span data-i18n="docs_index"></span></p>
+            <p class="section-index">08 — <span data-i18n="docs_index"></span></p>
             <h2 data-i18n="docs_title"></h2>
           </div>
           <p data-i18n="docs_intro"></p>
         </div>
         <div class="docs-grid">
+          <a href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/ISTRUZIONI.md" rel="noreferrer" data-language-only="it" hidden><span>ISTRUZIONI.md</span><strong data-i18n="docs_manual_it"></strong><i aria-hidden="true">↗</i></a>
+          <a href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/INSTRUCTIONS.md" rel="noreferrer" data-language-only="en"><span>INSTRUCTIONS.md</span><strong data-i18n="docs_manual_en"></strong><i aria-hidden="true">↗</i></a>
           <a href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/QUICK-START_Guided.md" rel="noreferrer"><span>QUICK-START_Guided.md</span><strong data-i18n="docs_guided"></strong><i aria-hidden="true">↗</i></a>
-          <a href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/README.md" rel="noreferrer"><span>README</span><strong data-i18n="docs_overview"></strong><i aria-hidden="true">↗</i></a>
-          <a href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/ISTRUZIONI.md" rel="noreferrer"><span>ISTRUZIONI.md</span><strong data-i18n="docs_manual_it"></strong><i aria-hidden="true">↗</i></a>
-          <a href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/INSTRUCTIONS.md" rel="noreferrer"><span>INSTRUCTIONS.md</span><strong data-i18n="docs_manual_en"></strong><i aria-hidden="true">↗</i></a>
-          <a href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/SECURITY_MODEL.md" rel="noreferrer"><span>SECURITY_MODEL.md</span><strong data-i18n="docs_security"></strong><i aria-hidden="true">↗</i></a>
-          <a href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/MAP.md" rel="noreferrer"><span>MAP.md</span><strong data-i18n="docs_map"></strong><i aria-hidden="true">↗</i></a>
-          <a href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/PLAN.md" rel="noreferrer"><span>PLAN.md</span><strong data-i18n="docs_plan"></strong><i aria-hidden="true">↗</i></a>
+          <a href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/QUICK-START_Dashboard.md" rel="noreferrer"><span>QUICK-START_Dashboard.md</span><strong data-i18n="docs_dashboard"></strong><i aria-hidden="true">↗</i></a>
+          <a href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/QUICK-START_Showcase.md" rel="noreferrer"><span>QUICK-START_Showcase.md</span><strong data-i18n="docs_showcase"></strong><i aria-hidden="true">↗</i></a>
+          <a href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/QUICK-START_Case-Author.md" rel="noreferrer"><span>QUICK-START_Case-Author.md</span><strong data-i18n="docs_case_author"></strong><i aria-hidden="true">↗</i></a>
+          <a href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/QUICK-START_Windows.md" rel="noreferrer"><span>QUICK-START_Windows.md</span><strong data-i18n="docs_windows"></strong><i aria-hidden="true">↗</i></a>
+          <a href="https://github.com/gloutchov/LocalAgentBenchmark/blob/main/QUICK-START_Linux.md" rel="noreferrer"><span>QUICK-START_Linux.md</span><strong data-i18n="docs_linux"></strong><i aria-hidden="true">↗</i></a>
         </div>
       </section>
     </main>
