@@ -287,4 +287,4 @@ Do not add private data, real repositories, or credentials to cases. Manifests a
 - The official dashboard does not anonymize or publish exports; review names, scores, and hashes before sharing a snapshot or `dashboard-data.json`.
 - The preflight verifies observable endpoint behavior, not internal processes hidden by Ollama or the model. An active model that exposes no reasoning signal is excluded as unverifiable.
 - Guided launchers are source scripts rather than signed installers or native apps; Linux double-click behavior depends on the file manager, and the Python distribution must include Tkinter.
-- A cancelled or failed guided session is preserved but cannot resume from its interrupted stage; only a completed session's dashboard can be reopened without a new benchmark.
+- A cancelled or failed guided session is preserved but cannot resume from its interrupted stage; the dashboard can still reopen one to three available runs without starting a new benchmark.

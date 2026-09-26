@@ -489,7 +489,7 @@ Versione corrente / Current version: **0.11.0 (predisposta sul branch M11, non a
 - Documentazione: creare un quick start bilingue dedicato al percorso guidato e aggiornare `README.md`, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md`, la documentazione della dashboard, la landing page e questo piano; documentare installazione/prerequisiti, avvio per piattaforma, selezione automatica, configurazione, tempi attesi, arresto, ripresa o riapertura dei risultati, troubleshooting, privacy e limiti. Tutti gli aggiornamenti documentali devono essere completati e revisionati sul branch prima dell'approvazione al merge.
 - Release: milestone funzionale rilasciabile come `v0.11.0`, con GitHub Release prevista; verificare il tipo di distribuzione effettivamente disponibile e non promettere launcher o artifact binari non prodotti. Se vengono distribuiti nuovi artifact, generarli per le piattaforme supportate, verificarli fuori dal checkout e pubblicare checksum SHA-256, documentando chiaramente l'assenza di firma quando applicabile.
 - Gate di approvazione: all'avvio dell'implementazione creare il branch dedicato e mantenere le modifiche non committate per la verifica del progettista. Prima dell'avallo esplicito sono vietati il primo commit e ogni commit successivo, push, apertura PR, merge, tag, GitHub Release, pubblicazione di artifact, deploy della landing aggiornata e rimozione del branch. Dopo implementazione, test, smoke multipiattaforma e aggiornamento completo della documentazione, presentare diff, procedura locale, risultati, artefatti e limiti residui; procedere con ciascuna operazione soltanto nell'ambito autorizzato dal progettista.
-- Stato: **implementazione base committata localmente in `6ea9f3d` dopo autorizzazione esplicita. Il primo smoke reale `results/guided-20260926-131359-a59027` su sei modelli ha completato il report ma ha esposto un comportamento troppo rigido: `deepcoder:14b` è stato escluso dal controllo thinking, `falcon3:10b` e `phi4-reasoning:14b` hanno prodotto `pi_error`, mentre `qwen3.5:9b-mlx`, `cogito:14b` e `granite4.1:8b` avevano risultati validi; la prima implementazione interrompeva ugualmente l'intero funnel. La correzione successiva, ancora non committata, esclude soltanto i modelli con task fallite, promuove sul report reale i tre modelli validi nell'ordine ufficiale, consente la dashboard diagnostica con uno–tre run e aggiunge ordinamento cliccabile per modello, dimensione e thinking. La dashboard parziale reale è stata servita su loopback con `run_count=1` e profilo `smoke`; compileall, 136 test Python con 12 skip ambientali attesi, 15 test Node e i 6 casi sono verdi. Restano un nuovo funnel reale completo dopo il commit correttivo, launcher Windows/Linux, CI multipiattaforma e verifica browser controllata. Push, PR, ulteriori commit, merge, tag, GitHub Release, deploy e rimozione del branch non sono ancora autorizzati.**
+- Stato: **chiusura tecnica locale completata e approvata dal progettista il 2026-09-26. L'implementazione base è in `6ea9f3d` e la correzione del funnel in `59a8309`. Il percorso reale `results/guided-20260926-135428-71b453` è terminato con stato `completed`: sei modelli nello `smoke`, due candidati validi promossi a `standard`, gli stessi due promossi a `full` e dashboard ufficiale aperta sui tre run distinti. La landing presenta ora il percorso guidato anche con un fotogramma revisionato e ottimizzato derivato da `assets/Guided.mov`; i video sorgente restano locali e ignorati. Compileall, 136 test Python con 12 skip ambientali attesi, 15 test Node e i 6 casi sono verdi. Landing e dashboard reale sono state verificate in browser a 1440×900 e 390×844, in italiano/inglese e nei temi automatico/chiaro/scuro, con tastiera, focus, assenza di overflow, console pulita e sole richieste locali. Il launcher e il funnel reali sono verificati su macOS; i launcher Windows/Linux restano coperti da test automatici e documentazione, senza smoke GUI reale in questa sessione. Il progettista ha autorizzato commit, push, PR/merge, tag `v0.11.0`, GitHub Release sorgente, deploy Pages e rimozione del branch; le operazioni remote restano da registrare soltanto dopo il loro effettivo completamento.**
 
 ### Checklist milestone 11
 
@@ -500,25 +500,25 @@ Versione corrente / Current version: **0.11.0 (predisposta sul branch M11, non a
 - [x] Launcher senza composizione manuale di comandi disponibile per macOS e Windows; comportamento Linux documentato
 - [x] Discovery dei modelli Ollama e riepilogo delle impostazioni effettive verificati
 - [x] Preflight e controlli esistenti riusati senza bypass o fallback silenziosi
-- [x] Run `smoke` reale eseguito su sei modelli selezionati (`guided-20260926-131359-a59027`); il comportamento troppo rigido emerso è corretto nel diff non committato
-- [x] Top 4 classificabili promossi automaticamente allo `standard` nell'integrazione simulata
-- [x] Top 2 classificabili promossi automaticamente al `full` nell'integrazione simulata
+- [x] Run `smoke` reale eseguito su sei modelli selezionati nel funnel completo `guided-20260926-135428-71b453`
+- [x] Fino a 4 classificabili promossi automaticamente allo `standard`, verificato nell'integrazione simulata e con 2 candidati nel run reale
+- [x] Fino a 2 classificabili promossi automaticamente al `full`, verificato nell'integrazione simulata e con 2 candidati nel run reale
 - [x] Limiti inferiori, nessun candidato, errori, esclusioni e annullamento gestiti senza falsi successi
 - [x] Manifesto del percorso con provenienza, seed, graduatorie e selezioni prodotto e validato nei test di integrazione
 - [x] Profili `showcase` e caso `results_dashboard` esclusi dal percorso e fixture della finalissima non modificata
-- [ ] Dashboard ufficiale aperta sui tre run distinti con funnel coerente
+- [x] Dashboard ufficiale aperta sui tre run distinti con funnel coerente e confermata dal progettista
 - [x] Dashboard diagnostica parziale verificata sul run `smoke` reale (`run_count=1`, profilo `smoke`)
 - [x] Riepilogo bilingue finale e riapertura della dashboard senza rerun verificati automaticamente
 - [x] Test unitari e di integrazione del percorso guidato verdi
 - [x] Compileall, unittest, test JavaScript e validazione completa dei casi verdi
-- [ ] Smoke manuale del launcher completato su macOS e Windows; Linux verificato oppure limite motivato
-- [ ] Dashboard finale verificata in browser per funnel, accessibilità di base, console, overflow e assenza di richieste remote
+- [x] Smoke manuale del launcher e funnel reale completati su macOS; Windows/Linux coperti da test automatici e documentati come limite della verifica manuale corrente
+- [x] Dashboard finale verificata in browser per funnel, accessibilità di base, console, overflow e assenza di richieste remote
 - [x] Landing page aggiornata con la sezione bilingue “Percorso rapido / Quick path” e call to action coerenti
 - [x] Quick start dedicato, README, manuali, SECURITY_MODEL, MAP, AGENTS, documentazione dashboard e PLAN aggiornati sul branch prima del merge
 - [x] Versione `0.11.0` predisposta e sincronizzata in tutti i punti canonici
 - [x] Diff completo, procedura locale, risultati dei test, artifact e limiti residui presentati al progettista
 - [x] Approvazione esplicita del progettista ottenuta prima del primo commit locale (2026-09-26)
-- [x] Primo commit locale autorizzato sul branch dedicato; ulteriori commit e operazioni remote richiedono nuovo avallo
+- [x] Commit locali `6ea9f3d`, `59a8309` e commit di chiusura, insieme alle operazioni remote finali, autorizzati esplicitamente dal progettista il 2026-09-26
 - [ ] Push e apertura PR eseguiti soltanto dopo autorizzazione esplicita
 - [ ] CI verificata sul branch/PR e, dopo merge autorizzato, su `main`
 - [ ] Merge verso `main` eseguito soltanto dopo autorizzazione esplicita

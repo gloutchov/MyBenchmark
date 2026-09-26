@@ -47,6 +47,7 @@ class LandingPageTests(unittest.TestCase):
             "js/preferences.js", "js/theme-bootstrap.js", "assets/favicon.svg",
             "assets/dashboard-overview.png", "assets/dashboard-overview.webp",
             "assets/dashboard-efficiency.png", "assets/dashboard-efficiency.webp",
+            "assets/guided-progress.png", "assets/guided-progress.webp",
         }
         missing = sorted(item for item in required if not (SITE / item).is_file())
         self.assertEqual([], missing)
@@ -118,6 +119,7 @@ class LandingPageTests(unittest.TestCase):
         self.assertIsNone(re.search(r"<link(?=[^>]+rel=['\"](?:stylesheet|icon)['\"])[^>]+href=['\"]https?://", all_text, re.I))
         self.assertIsNone(re.search(r"googletagmanager|google-analytics|plausible\.io|segment\.com", all_text, re.I))
         self.assertFalse((SITE / "assets" / "Dashboard.mov").exists())
+        self.assertFalse((SITE / "assets" / "Guided.mov").exists())
 
 
 if __name__ == "__main__":

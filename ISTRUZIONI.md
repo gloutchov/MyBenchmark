@@ -308,4 +308,4 @@ Non inserire dati privati, repository reali o credenziali nelle fixture. Manifes
 - La dashboard ufficiale non rende anonimo un export e non pubblica risultati: nomi, punteggi e hash vanno revisionati prima di condividere lo snapshot o un `dashboard-data.json`.
 - Il preflight prova il comportamento osservabile dell'endpoint, non può dimostrare processi interni che Ollama o il modello non espongono. Un modello che non espone reasoning in modalità attiva viene escluso come non verificabile.
 - I launcher guidati sono script sorgente, non installer o applicazioni firmate; il doppio clic Linux dipende dal file manager e Tkinter deve essere incluso nella distribuzione Python.
-- Una sessione guidata annullata o fallita viene conservata ma non può essere ripresa dal punto interrotto; soltanto la dashboard di una sessione completa può essere riaperta senza un nuovo benchmark.
+- Una sessione guidata annullata o fallita viene conservata ma non può essere ripresa dal punto interrotto; la dashboard può comunque riaprire da uno a tre run già disponibili senza un nuovo benchmark.
