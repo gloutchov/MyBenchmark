@@ -5,6 +5,8 @@
   const prefs = window.LocalAgentSitePreferences;
   const languageSelect = document.querySelector("[data-language-select]");
   const themeSelect = document.querySelector("[data-theme-select]");
+  const languageOptions = Array.from(document.querySelectorAll("[data-language-option]"));
+  const themeOptions = Array.from(document.querySelectorAll("[data-theme-option]"));
   const menuToggle = document.querySelector("[data-menu-toggle]");
   const headerPanel = document.querySelector("[data-header-panel]");
   const darkQuery = matchMedia("(prefers-color-scheme: dark)");
@@ -35,6 +37,10 @@
     return item;
   }
 
+  function markSelected(options, value, dataKey) {
+    options.forEach((item) => item.setAttribute("aria-pressed", String(item.dataset[dataKey] === value)));
+  }
+
   function applyLanguage(nextLanguage) {
     language = nextLanguage === "it" ? "it" : "en";
     const strings = i18n.getStrings(language);
@@ -56,6 +62,13 @@
       const value = strings[node.dataset.i18nContent];
       if (typeof value === "string") node.setAttribute("content", value);
     });
+    document.querySelectorAll("[data-i18n-title]").forEach((node) => {
+      const value = strings[node.dataset.i18nTitle];
+      if (typeof value === "string") node.setAttribute("title", value);
+    });
+    document.querySelectorAll("[data-language-only]").forEach((node) => {
+      node.hidden = !i18n.languageOnlyVisible(node.dataset.languageOnly, language);
+    });
     if (languageSelect) {
       languageSelect.replaceChildren(
         option("it", strings.language_it),
@@ -63,6 +76,7 @@
       );
       languageSelect.value = language;
     }
+    markSelected(languageOptions, language, "languageOption");
     if (themeSelect) {
       themeSelect.replaceChildren(
         option("auto", strings.theme_auto),
@@ -71,6 +85,7 @@
       );
       themeSelect.value = theme;
     }
+    markSelected(themeOptions, theme, "themeOption");
   }
 
   function applyTheme(nextTheme) {
@@ -78,6 +93,7 @@
     document.documentElement.dataset.themePreference = theme;
     document.documentElement.dataset.theme = prefs.resolveTheme(theme, darkQuery.matches);
     if (themeSelect) themeSelect.value = theme;
+    markSelected(themeOptions, theme, "themeOption");
   }
 
   function setMenu(open) {
@@ -92,10 +108,18 @@
     writePreference(prefs.LANGUAGE_KEY, languageSelect.value);
     applyLanguage(languageSelect.value);
   });
+  languageOptions.forEach((item) => item.addEventListener("click", () => {
+    writePreference(prefs.LANGUAGE_KEY, item.dataset.languageOption);
+    applyLanguage(item.dataset.languageOption);
+  }));
   if (themeSelect) themeSelect.addEventListener("change", () => {
     writePreference(prefs.THEME_KEY, themeSelect.value);
     applyTheme(themeSelect.value);
   });
+  themeOptions.forEach((item) => item.addEventListener("click", () => {
+    writePreference(prefs.THEME_KEY, item.dataset.themeOption);
+    applyTheme(item.dataset.themeOption);
+  }));
   darkQuery.addEventListener("change", () => {
     if (theme === "auto") applyTheme("auto");
   });

@@ -13,7 +13,7 @@ const preferences = require(path.join(SITE, "js", "preferences.js"));
 function htmlKeys(file) {
   const html = fs.readFileSync(path.join(SITE, file), "utf8");
   const keys = new Set();
-  for (const match of html.matchAll(/data-i18n(?:-aria-label|-alt|-content)?="([a-z0-9_]+)"/g)) keys.add(match[1]);
+  for (const match of html.matchAll(/data-i18n(?:-aria-label|-alt|-content|-title)?="([a-z0-9_]+)"/g)) keys.add(match[1]);
   return keys;
 }
 
@@ -37,6 +37,14 @@ test("language detection uses Italian only for Italian locales", () => {
   assert.equal(preferences.languagePreference(null, "it-CH"), "it");
   assert.equal(preferences.languagePreference(null, "de-DE"), "en");
   assert.equal(preferences.languagePreference("en", "it-IT"), "en");
+});
+
+test("language-scoped documentation shows only the matching manual", () => {
+  assert.equal(i18n.languageOnlyVisible("it", "it-IT"), true);
+  assert.equal(i18n.languageOnlyVisible("en", "it-IT"), false);
+  assert.equal(i18n.languageOnlyVisible("it", "en-US"), false);
+  assert.equal(i18n.languageOnlyVisible("en", "en-US"), true);
+  assert.equal(i18n.languageOnlyVisible("", "en-US"), true);
 });
 
 test("theme preference validates values and resolves automatic mode", () => {

@@ -72,10 +72,21 @@ class LandingPageTests(unittest.TestCase):
                 self.assertTrue((SITE / value).is_file(), f"missing {value} referenced by {name}")
 
     def test_navigation_anchors_have_targets(self) -> None:
-        _, parser = self.parse("index.html")
+        index, parser = self.parse("index.html")
         anchors = {link["href"][1:] for link in parser.links if link.get("href", "").startswith("#")}
         self.assertTrue(anchors.issubset(parser.ids), anchors - parser.ids)
-        self.assertTrue({"top", "why", "method", "quick", "dashboard", "start"}.issubset(parser.ids))
+        section_ids = ("why", "method", "quick", "dashboard", "interpretation", "immersion", "start", "docs")
+        self.assertTrue({"top", *section_ids}.issubset(parser.ids))
+        for section_id, key in zip(
+            section_ids,
+            ("why_index", "method_index", "quick_index", "dashboard_index", "limits_index", "immersion_index", "start_index", "docs_index"),
+            strict=True,
+        ):
+            self.assertIn(f'href="#{section_id}" data-i18n="{key}"', index)
+
+        styles = (SITE / "css" / "styles.css").read_text(encoding="utf-8")
+        self.assertIn(".start-copy > p:not(.section-index)", styles)
+        self.assertNotIn(".start-copy > p {", styles)
 
     def test_quick_path_is_honest_and_links_its_guide(self) -> None:
         index, parser = self.parse("index.html")
@@ -88,6 +99,32 @@ class LandingPageTests(unittest.TestCase):
             "https://github.com/gloutchov/LocalAgentBenchmark/blob/main/QUICK-START_Guided.md",
             links,
         )
+
+    def test_full_immersion_start_and_language_scoped_documentation(self) -> None:
+        index, parser = self.parse("index.html")
+        self.assertIn('id="immersion"', index)
+        self.assertIn('id="start"', index)
+        for profile in ("smoke", "standard", "full", "showcase"):
+            self.assertIn(f"--profile {profile}", index)
+        self.assertIn("--cases CASE_ID", index)
+
+        links = {link.get("href", "") for link in parser.links}
+        docs = "https://github.com/gloutchov/LocalAgentBenchmark/blob/main/"
+        for name in (
+            "ISTRUZIONI.md",
+            "INSTRUCTIONS.md",
+            "QUICK-START_Guided.md",
+            "QUICK-START_Dashboard.md",
+            "QUICK-START_Showcase.md",
+            "QUICK-START_Case-Author.md",
+            "QUICK-START_Windows.md",
+            "QUICK-START_Linux.md",
+        ):
+            self.assertIn(docs + name, links)
+        for internal in ("README.md", "SECURITY_MODEL.md", "MAP.md", "PLAN.md"):
+            self.assertNotIn(docs + internal, links)
+        self.assertIn('data-language-only="it" hidden', index)
+        self.assertIn('data-language-only="en"', index)
 
     def test_images_have_dimensions_and_localised_alternatives(self) -> None:
         _, parser = self.parse("index.html")
@@ -107,6 +144,10 @@ class LandingPageTests(unittest.TestCase):
         self.assertIn("connect-src 'none'", index)
         self.assertIn('class="skip-link"', index)
         self.assertIn('data-menu-toggle', index)
+        self.assertEqual(2, index.count("data-language-option="))
+        self.assertEqual(3, index.count("data-theme-option="))
+        self.assertIn('data-theme-option="light"', index)
+        self.assertIn('data-theme-option="dark"', index)
         self.assertIn('prefers-reduced-motion: reduce', (SITE / "css" / "styles.css").read_text())
         fallback = (SITE / "404.html").read_text(encoding="utf-8")
         self.assertGreaterEqual(fallback.count('href="/LocalAgentBenchmark/"'), 2)
