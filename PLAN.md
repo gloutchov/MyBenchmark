@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.10.0**
+Versione corrente / Current version: **0.11.0 (predisposta sul branch M11, non ancora committata)**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -484,40 +484,40 @@ Versione corrente / Current version: **0.10.0**
 - Sicurezza e privacy: invocare i processi con argomenti strutturati, senza interpolare nomi modello in comandi shell; restare su Ollama locale e sul server dashboard `127.0.0.1`; non introdurre rete Internet, telemetria o scritture fuori dalla root; applicare gli stessi controlli di path, input, sandbox, thinking e integrità della CLI; trattare `results/` e il manifesto del percorso come dati locali potenzialmente sensibili; richiedere conferma esplicita prima dell'avvio e prima di eventuali operazioni distruttive, senza cancellazioni automatiche dei run precedenti.
 - Stati ed errori: distinguere prerequisiti mancanti, Ollama non raggiungibile, nessun modello rilevato, input Git sporchi, modello escluso, task fallita, fase senza candidati, annullamento utente e dashboard non avviabile; non continuare automaticamente con dati incompleti o incompatibili. Al termine mostrare un riepilogo bilingue con promossi/esclusi, punteggi, percorsi relativi dei run e possibilità di riprovare l'apertura della dashboard senza rieseguire il benchmark.
 - Criteri di accettazione: da un checkout valido l'utente avvia il percorso senza digitare comandi; vede e conferma i modelli Ollama locali e le impostazioni; lo `smoke` usa il set selezionato, lo `standard` riceve esattamente i primi quattro classificabili o meno se non disponibili e il `full` riceve esattamente i primi due classificabili o meno se non disponibili; ogni fase usa una directory distinta e verificabile; esclusioni e interruzioni non vengono reinterpretate come successi; la dashboard ufficiale si apre con i tre run prodotti e mostra il funnel coerente; nessuna task `results_dashboard` e nessun run `showcase` vengono creati; il flusso funziona almeno su macOS e Windows e degrada con un messaggio documentato quando un prerequisito di piattaforma manca.
-- Test richiesti: unit test per discovery, configurazione, macchina a stati, selezione top 4/top 2, tie-break, meno candidati del limite, leaderboard vuota, esclusioni d'integrità/thinking, run parziale, annullamento e costruzione sicura degli argomenti; integration test con adapter e runner simulati per verificare ordine delle fasi, directory distinte, provenienza e apertura dashboard; test negativi per nomi modello ostili, path non confinati, output esistente, Ollama/Pi indisponibili e input protetti sporchi; smoke manuale del launcher su macOS e Windows, e su Linux quando disponibile; verifica browser della dashboard finale, funnel e assenza di richieste remote; esecuzione di `python3 -m compileall -q benchmark.py dashboard.py src cases tests`, `python3 -m unittest discover -s tests -v`, suite JavaScript, validazione di tutti i casi e CI multipiattaforma.
+- Test richiesti: unit test per discovery, configurazione, macchina a stati, selezione top 4/top 2, tie-break, meno candidati del limite, leaderboard vuota, esclusioni d'integrità/thinking, run parziale, annullamento e costruzione sicura degli argomenti; integration test con adapter e runner simulati per verificare ordine delle fasi, directory distinte, provenienza e apertura dashboard; test negativi per nomi modello ostili, path non confinati, output esistente, Ollama/Pi indisponibili e input protetti sporchi; smoke manuale del launcher su macOS e Windows, e su Linux quando disponibile; verifica browser della dashboard finale, funnel e assenza di richieste remote; esecuzione di `python3 -m compileall -q benchmark.py dashboard.py guided_benchmark.py src cases tests`, `python3 -m unittest discover -s tests -v`, suite JavaScript, validazione di tutti i casi e CI multipiattaforma.
 - Landing page: aggiungere una sezione bilingue “Percorso rapido / Quick path” che descriva rilevamento automatico, selezione progressiva `tutti` → `4` → `2`, durata indicativa non garantita, risultati locali e apertura della dashboard; chiarire che il metodo riduce il lavoro sui modelli meno promettenti ma non altera punteggi o controlli e non include la finalissima in cui i modelli costruiscono una dashboard. Aggiornare call to action, quick start e link senza introdurre download o capacità non realmente distribuiti.
 - Documentazione: creare un quick start bilingue dedicato al percorso guidato e aggiornare `README.md`, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md`, la documentazione della dashboard, la landing page e questo piano; documentare installazione/prerequisiti, avvio per piattaforma, selezione automatica, configurazione, tempi attesi, arresto, ripresa o riapertura dei risultati, troubleshooting, privacy e limiti. Tutti gli aggiornamenti documentali devono essere completati e revisionati sul branch prima dell'approvazione al merge.
 - Release: milestone funzionale rilasciabile come `v0.11.0`, con GitHub Release prevista; verificare il tipo di distribuzione effettivamente disponibile e non promettere launcher o artifact binari non prodotti. Se vengono distribuiti nuovi artifact, generarli per le piattaforme supportate, verificarli fuori dal checkout e pubblicare checksum SHA-256, documentando chiaramente l'assenza di firma quando applicabile.
 - Gate di approvazione: all'avvio dell'implementazione creare il branch dedicato e mantenere le modifiche non committate per la verifica del progettista. Prima dell'avallo esplicito sono vietati il primo commit e ogni commit successivo, push, apertura PR, merge, tag, GitHub Release, pubblicazione di artifact, deploy della landing aggiornata e rimozione del branch. Dopo implementazione, test, smoke multipiattaforma e aggiornamento completo della documentazione, presentare diff, procedura locale, risultati, artefatti e limiti residui; procedere con ciascuna operazione soltanto nell'ambito autorizzato dal progettista.
-- Stato: **pianificata dopo la milestone 10; implementazione non avviata.**
+- Stato: **implementazione completata sul branch dedicato e verifica locale pre-commit verde: compileall superato, 133 test Python superati con 12 skip ambientali attesi, 15 test Node superati e tutti i 6 casi validati. L'integrazione simulata copre il funnel completo, selezioni 4/2, manifesto, annullamento e apertura/riapertura dashboard; lo smoke manuale del launcher macOS rileva i modelli Ollama reali, mostra le impostazioni effettive e blocca correttamente l'avvio per `dirty_inputs`. Il progettista ha revisionato la consegna e autorizzato esplicitamente il primo commit locale M11 il 2026-09-26, rendendo possibile la successiva prova Pi/Ollama con input protetti puliti. Restano da verificare run reale, launcher Windows/Linux, CI multipiattaforma e dashboard/landing in un browser controllabile non disponibile in questa sessione. Push, PR, merge, tag, GitHub Release, deploy e rimozione del branch non sono ancora autorizzati.**
 
 ### Checklist milestone 11
 
 - [x] Milestone 10 chiusa e integrata prima dell'avvio
-- [ ] Branch `milestone/11-guided-benchmark-funnel` creato senza commit iniziali non autorizzati
-- [ ] Flusso UX, configurazione e criteri di promozione revisionati
-- [ ] Core di orchestrazione modulare implementato senza nuove dipendenze runtime
-- [ ] Launcher senza composizione manuale di comandi disponibile per macOS e Windows; comportamento Linux documentato
-- [ ] Discovery dei modelli Ollama e riepilogo delle impostazioni effettive verificati
-- [ ] Preflight e controlli esistenti riusati senza bypass o fallback silenziosi
+- [x] Branch `milestone/11-guided-benchmark-funnel` creato senza commit iniziali non autorizzati
+- [x] Flusso UX, configurazione e criteri di promozione revisionati
+- [x] Core di orchestrazione modulare implementato senza nuove dipendenze runtime
+- [x] Launcher senza composizione manuale di comandi disponibile per macOS e Windows; comportamento Linux documentato
+- [x] Discovery dei modelli Ollama e riepilogo delle impostazioni effettive verificati
+- [x] Preflight e controlli esistenti riusati senza bypass o fallback silenziosi
 - [ ] Run `smoke` eseguito sui modelli selezionati
-- [ ] Top 4 classificabili promossi automaticamente allo `standard`
-- [ ] Top 2 classificabili promossi automaticamente al `full`
-- [ ] Limiti inferiori, nessun candidato, errori, esclusioni e annullamento gestiti senza falsi successi
-- [ ] Manifesto del percorso con provenienza, seed, graduatorie e selezioni prodotto e validato
-- [ ] Profili `showcase` e caso `results_dashboard` esclusi dal percorso e fixture della finalissima non modificata
+- [x] Top 4 classificabili promossi automaticamente allo `standard` nell'integrazione simulata
+- [x] Top 2 classificabili promossi automaticamente al `full` nell'integrazione simulata
+- [x] Limiti inferiori, nessun candidato, errori, esclusioni e annullamento gestiti senza falsi successi
+- [x] Manifesto del percorso con provenienza, seed, graduatorie e selezioni prodotto e validato nei test di integrazione
+- [x] Profili `showcase` e caso `results_dashboard` esclusi dal percorso e fixture della finalissima non modificata
 - [ ] Dashboard ufficiale aperta sui tre run distinti con funnel coerente
-- [ ] Riepilogo bilingue finale e riapertura della dashboard senza rerun verificati
-- [ ] Test unitari e di integrazione del percorso guidato verdi
-- [ ] Compileall, unittest, test JavaScript e validazione completa dei casi verdi
+- [x] Riepilogo bilingue finale e riapertura della dashboard senza rerun verificati automaticamente
+- [x] Test unitari e di integrazione del percorso guidato verdi
+- [x] Compileall, unittest, test JavaScript e validazione completa dei casi verdi
 - [ ] Smoke manuale del launcher completato su macOS e Windows; Linux verificato oppure limite motivato
 - [ ] Dashboard finale verificata in browser per funnel, accessibilità di base, console, overflow e assenza di richieste remote
-- [ ] Landing page aggiornata con la sezione bilingue “Percorso rapido / Quick path” e call to action coerenti
-- [ ] Quick start dedicato, README, manuali, SECURITY_MODEL, MAP, AGENTS, documentazione dashboard e PLAN aggiornati e revisionati sul branch prima del merge
-- [ ] Versione `0.11.0` predisposta e sincronizzata in tutti i punti canonici
-- [ ] Diff completo, procedura locale, risultati dei test, artifact e limiti residui presentati al progettista
-- [ ] Approvazione esplicita del progettista ottenuta prima di qualunque commit
-- [ ] Commit autorizzati creati sul branch dedicato
+- [x] Landing page aggiornata con la sezione bilingue “Percorso rapido / Quick path” e call to action coerenti
+- [x] Quick start dedicato, README, manuali, SECURITY_MODEL, MAP, AGENTS, documentazione dashboard e PLAN aggiornati sul branch prima del merge
+- [x] Versione `0.11.0` predisposta e sincronizzata in tutti i punti canonici
+- [x] Diff completo, procedura locale, risultati dei test, artifact e limiti residui presentati al progettista
+- [x] Approvazione esplicita del progettista ottenuta prima del primo commit locale (2026-09-26)
+- [x] Primo commit locale autorizzato sul branch dedicato; ulteriori commit e operazioni remote richiedono nuovo avallo
 - [ ] Push e apertura PR eseguiti soltanto dopo autorizzazione esplicita
 - [ ] CI verificata sul branch/PR e, dopo merge autorizzato, su `main`
 - [ ] Merge verso `main` eseguito soltanto dopo autorizzazione esplicita

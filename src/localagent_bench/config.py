@@ -51,6 +51,13 @@ class DashboardSettings:
 
 
 @dataclass(frozen=True)
+class GuidedSettings:
+    profiles: tuple[str, str, str]
+    promotion_limits: tuple[int, int]
+    preferences_file: Path
+
+
+@dataclass(frozen=True)
 class BenchmarkConfig:
     root: Path
     ollama_url: str
@@ -61,6 +68,7 @@ class BenchmarkConfig:
     cases: dict[str, CaseSpec]
     cases_directory: Path
     dashboard: DashboardSettings
+    guided: GuidedSettings | None
 
 
 def _require(mapping: dict[str, Any], key: str, expected: type) -> Any:
@@ -243,6 +251,55 @@ def load_config(path: Path) -> BenchmarkConfig:
         open_browser=dashboard_open_browser,
     )
 
+    guided: GuidedSettings | None = None
+    if "guided" in raw:
+        guided_raw = raw["guided"]
+        if not isinstance(guided_raw, dict):
+            raise ConfigError("'guided' deve essere di tipo dict")
+        unknown_guided = sorted(
+            set(guided_raw) - {"profiles", "promotion_limits", "preferences_file"}
+        )
+        if unknown_guided:
+            raise ConfigError(f"Campi sconosciuti in guided: {', '.join(unknown_guided)}")
+        guided_profiles_raw = guided_raw.get("profiles", ["smoke", "standard", "full"])
+        if guided_profiles_raw != ["smoke", "standard", "full"]:
+            raise ConfigError("guided.profiles deve essere esattamente: smoke, standard, full")
+        missing_guided_profiles = [name for name in guided_profiles_raw if name not in profiles]
+        if missing_guided_profiles:
+            raise ConfigError(
+                "Profili guidati mancanti: " + ", ".join(missing_guided_profiles)
+            )
+        for profile_name in guided_profiles_raw:
+            if "results_dashboard" in profiles[profile_name]:
+                raise ConfigError(
+                    f"Il profilo guidato {profile_name} non può includere results_dashboard"
+                )
+        promotion_limits_raw = guided_raw.get("promotion_limits", [4, 2])
+        if (
+            not isinstance(promotion_limits_raw, list)
+            or len(promotion_limits_raw) != 2
+            or any(
+                isinstance(value, bool) or not isinstance(value, int) or value < 1
+                for value in promotion_limits_raw
+            )
+        ):
+            raise ConfigError("guided.promotion_limits deve contenere due interi positivi")
+        if promotion_limits_raw[1] > promotion_limits_raw[0]:
+            raise ConfigError(
+                "guided.promotion_limits deve essere decrescente (per esempio 4, 2)"
+            )
+        guided = GuidedSettings(
+            profiles=tuple(guided_profiles_raw),  # type: ignore[arg-type]
+            promotion_limits=tuple(promotion_limits_raw),  # type: ignore[arg-type]
+            preferences_file=_repository_path(
+                root,
+                guided_raw.get(
+                    "preferences_file", ".localagent-benchmark/guided-preferences.json"
+                ),
+                key="guided.preferences_file",
+            ),
+        )
+
     return BenchmarkConfig(
         root=root,
         ollama_url=ollama_url,
@@ -253,4 +310,5 @@ def load_config(path: Path) -> BenchmarkConfig:
         cases=cases,
         cases_directory=cases_directory,
         dashboard=dashboard,
+        guided=guided,
     )

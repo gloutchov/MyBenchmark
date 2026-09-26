@@ -45,6 +45,12 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(0, config.defaults.http_idle_timeout_ms)
         self.assertEqual(0, config.defaults.agent_max_retries)
         self.assertEqual(0, config.defaults.provider_max_retries)
+        self.assertEqual(("smoke", "standard", "full"), config.guided.profiles)
+        self.assertEqual((4, 2), config.guided.promotion_limits)
+        self.assertEqual(
+            (ROOT / ".localagent-benchmark" / "guided-preferences.json").resolve(),
+            config.guided.preferences_file,
+        )
 
     def test_cli_thinking_override_is_parsed_without_changing_default(self):
         args = _parser().parse_args(["run", "--thinking", "medium"])
@@ -96,6 +102,7 @@ class ConfigTests(unittest.TestCase):
             {"id": "legacy", "title": "Caso legacy", "category": "compatibility", "weight": 2}
         ]
         raw["profiles"] = {"standard": ["legacy"]}
+        raw.pop("guided", None)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             fixture = root / "cases" / "legacy" / "fixture"
@@ -145,6 +152,36 @@ class ConfigTests(unittest.TestCase):
             path.write_text(json.dumps(raw), encoding="utf-8")
             with self.assertRaisesRegex(ConfigError, "0 e 65535"):
                 load_config(path)
+
+    def test_guided_configuration_rejects_unsafe_profiles_limits_and_paths(self):
+        raw = json.loads((ROOT / "benchmark.json").read_text(encoding="utf-8"))
+        raw["cases"] = [
+            {"id": "example", "title": "Example", "category": "test", "weight": 1}
+        ]
+        raw["profiles"] = {
+            "smoke": ["example"],
+            "standard": ["example"],
+            "full": ["example"],
+            "showcase": ["example"],
+        }
+        mutations = (
+            ({"profiles": ["smoke", "showcase", "full"]}, "esattamente"),
+            ({"promotion_limits": [2, 4]}, "decrescente"),
+            ({"promotion_limits": [4, 0]}, "positivi"),
+            ({"preferences_file": "../preferences.json"}, "path relativo"),
+        )
+        for update, message in mutations:
+            with self.subTest(update=update), tempfile.TemporaryDirectory(dir=ROOT) as directory:
+                payload = json.loads(json.dumps(raw))
+                payload["guided"].update(update)
+                path = Path(directory) / "benchmark.json"
+                fixture = path.parent / "cases" / "example" / "fixture"
+                fixture.mkdir(parents=True)
+                (fixture.parent / "prompt.md").write_text("prompt\n", encoding="utf-8")
+                (fixture.parent / "grader.py").write_text("print('{}')\n", encoding="utf-8")
+                path.write_text(json.dumps(payload), encoding="utf-8")
+                with self.assertRaisesRegex(ConfigError, message):
+                    load_config(path)
 
 
 if __name__ == "__main__":

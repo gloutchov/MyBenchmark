@@ -18,7 +18,7 @@ Usa Python 3.10 o successivo. Node.js serve solo per i test JavaScript della
 dashboard e della landing page. Prima di aprire una pull request esegui:
 
 ```bash
-python3 -m compileall -q benchmark.py dashboard.py src cases tests
+python3 -m compileall -q benchmark.py dashboard.py guided_benchmark.py src cases tests
 python3 -m unittest discover -s tests -v
 node --test dashboard/tests/dashboard.test.js site/tests/site.test.js
 python3 benchmark.py case validate
@@ -33,6 +33,15 @@ Le modifiche alla landing richiedono anche un'anteprima statica locale e una
 verifica in browser reale di layout desktop/mobile, italiano/inglese, tutti i
 temi, tastiera e focus, overflow, console e richieste di rete. Mantieni il sito
 senza dipendenze runtime e aggiorna insieme i due dizionari.
+
+Guided-flow changes also require simulated funnel tests, a source-launcher smoke
+on every available platform, and documentation of platforms that were not
+available. Never bypass clean-input checks to obtain a manual benchmark run.
+
+Le modifiche al percorso guidato richiedono anche test simulati del funnel, uno
+smoke dei launcher sorgente sulle piattaforme disponibili e la documentazione
+di quelle non disponibili. Non aggirare mai il controllo degli input puliti per
+ottenere un run manuale.
 
 Keep changes small, update the bilingual documentation with user-visible
 behavior, and update `SECURITY_MODEL.md` for changes to sandboxing, filesystem,

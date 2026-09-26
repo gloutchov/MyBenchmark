@@ -74,7 +74,19 @@ class LandingPageTests(unittest.TestCase):
         _, parser = self.parse("index.html")
         anchors = {link["href"][1:] for link in parser.links if link.get("href", "").startswith("#")}
         self.assertTrue(anchors.issubset(parser.ids), anchors - parser.ids)
-        self.assertTrue({"top", "why", "method", "dashboard", "start"}.issubset(parser.ids))
+        self.assertTrue({"top", "why", "method", "quick", "dashboard", "start"}.issubset(parser.ids))
+
+    def test_quick_path_is_honest_and_links_its_guide(self) -> None:
+        index, parser = self.parse("index.html")
+        self.assertIn('href="#quick"', index)
+        self.assertIn("QUICK-START_Guided.md", index)
+        self.assertIn('<strong>4</strong>', index)
+        self.assertIn('<strong>2</strong>', index)
+        links = {link.get("href", "") for link in parser.links}
+        self.assertIn(
+            "https://github.com/gloutchov/LocalAgentBenchmark/blob/main/QUICK-START_Guided.md",
+            links,
+        )
 
     def test_images_have_dimensions_and_localised_alternatives(self) -> None:
         _, parser = self.parse("index.html")

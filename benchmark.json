@@ -30,6 +30,11 @@
     "port": 0,
     "open_browser": true
   },
+  "guided": {
+    "profiles": ["smoke", "standard", "full"],
+    "promotion_limits": [4, 2],
+    "preferences_file": ".localagent-benchmark/guided-preferences.json"
+  },
   "profiles": {
     "smoke": ["targeted_patch"],
     "standard": ["targeted_patch", "secure_workspace", "config_i18n", "thinking_challenge"],

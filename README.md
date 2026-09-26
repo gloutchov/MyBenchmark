@@ -4,7 +4,7 @@ Benchmark personale, ripetibile e offline per confrontare modelli Ollama usati c
 
 Personal, repeatable, offline benchmark for comparing Ollama models used as coding agents through [Pi](https://pi.dev). Its scenarios derive from this repository's operating rules: small patches, modular architecture, tests, security, configuration, i18n, documentation, and Git discipline.
 
-Stato / Status: **0.10.0 – landing page GitHub Pages completata localmente e in revisione / GitHub Pages landing page complete locally and under review**
+Stato / Status: **0.11.0 – percorso rapido guidato implementato sul branch M11 / guided quick path implemented on the M11 branch**
 Piattaforme / Platforms: macOS, Windows, Linux
 Verifica reale / Real-world validation: **run benchmark Pi/Ollama reali verificati soltanto su macOS e Windows; Linux è coperto dalla CI, ma non è ancora stato validato con uno smoke Pi/Ollama reale. / Real Pi/Ollama benchmark runs have been verified only on macOS and Windows; Linux is covered by CI, but has not yet been validated with a real Pi/Ollama smoke run.**
 Licenza / License: Apache-2.0
@@ -52,6 +52,22 @@ python3 dashboard.py
 To see understandable results immediately, start the local dashboard with `python3 dashboard.py`; it automatically loads compatible runs from `results/`. See [QUICK-START_Dashboard.md](QUICK-START_Dashboard.md) for explicit runs, JSON import, optional local snapshot generation, and troubleshooting.
 
 ## Avvio rapido / Quick start
+
+Per evitare di comporre comandi, aprire con doppio clic il launcher sorgente della propria piattaforma:
+
+- macOS: `launchers/LocalAgent-Benchmark.command`;
+- Windows: `launchers\LocalAgent-Benchmark.cmd`;
+- Linux: `launchers/LocalAgent-Benchmark.sh` e scegliere **Esegui** se richiesto dal file manager.
+
+La GUI rileva i modelli Ollama, mostra thinking e sandbox effettivi, chiede conferma, esegue `smoke` su tutti i selezionati, promuove al massimo `4` modelli a `standard` e al massimo `2` a `full`, quindi apre la dashboard ufficiale sui tre run. Il percorso non esegue `showcase` né chiede ai modelli di costruire una dashboard. Guida completa: [QUICK-START_Guided.md](QUICK-START_Guided.md).
+
+For a command-free start, double-click the source launcher for macOS, Windows, or Linux. The GUI detects local Ollama models, shows effective thinking and sandbox settings, asks for confirmation, runs the `all → 4 → 2` funnel, and opens the official dashboard. It never runs `showcase` or asks models to build a dashboard. See [QUICK-START_Guided.md](QUICK-START_Guided.md).
+
+La durata dipende da hardware, modelli e casi e non è garantita. Annullamento ed errori preservano gli artefatti diagnosticabili senza promuovere dati parziali; **Riapri dashboard / Reopen dashboard** riutilizza l'ultima sessione completa senza rieseguire i modelli.
+
+Duration depends on hardware, models, and cases and is not guaranteed. Cancellation and failures preserve diagnostic artifacts without promoting partial data; **Reopen dashboard** reuses the latest complete session without rerunning models.
+
+Per il flusso da terminale / For the terminal workflow:
 
 ```bash
 python3 benchmark.py doctor
@@ -218,6 +234,8 @@ Il launcher usa soltanto la libreria standard, serve su `127.0.0.1`, sceglie una
 
 The official dashboard is maintained by the project and is not an output of the `showcase` test. Its standard-library launcher serves only allowlisted assets and an in-memory public dataset on `127.0.0.1`; it never exposes raw result files. Pass explicit run directories, `--dataset` for an existing sanitized export, `--no-open`, or `--port NUMBER` as needed. If no compatible run is found, the reviewed dashboard fixture is served in memory.
 
+Il percorso guidato le passa esattamente le directory `smoke`, `standard` e `full` della sessione completata; **Riapri dashboard** legge i tre path relativi dal manifesto locale senza creare un nuovo run. / The guided path passes exactly the completed session's `smoke`, `standard`, and `full` directories; **Reopen dashboard** reads those three relative paths from the local manifest without creating a new run.
+
 La sezione **Mappa di efficienza / Efficiency map** visualizza per ogni run e modalità thinking due grafici distinti: qualità rispetto alla durata mediana e qualità rispetto ai token mediani di output. Gli assi orizzontali sono logaritmici e dichiarati; l’area desiderabile è in alto a sinistra. Il grafico usa `quality_score`, non il punteggio complessivo che incorpora già velocità ed efficienza, e non fonde mai coorti incompatibili. I punti e la legenda distinguono completamento pieno, parziale e assenza di task sopra soglia e sono consultabili anche da tastiera.
 
 The **Efficiency map** shows two separate plots for every run and thinking mode: quality against median duration and quality against median output tokens. Horizontal axes are explicitly logarithmic, and the desirable area is toward the upper left. The plot uses `quality_score`, not the overall score that already includes speed and token efficiency, and never merges incompatible cohorts. Points and legends distinguish full, partial, and zero completion and are keyboard-accessible.
@@ -244,7 +262,7 @@ The optimized frames in `site/assets/` are derived from the local `assets/Dashbo
 
 ## Configurazione / Configuration
 
-[`benchmark.json`](benchmark.json) centralizza URL Ollama, comando Pi, timeout task/preflight, thinking, timeout idle HTTP, retry agente/provider, contesto, token massimi, warmup, sandbox, profili, directory di discovery dei casi e opzioni locali della dashboard. Il default resta `thinking: "off"`, `http_idle_timeout_ms: 0` e zero retry. La sezione `dashboard` mantiene asset e risultati dentro il repository, impone l'host `127.0.0.1` e configura sorgente dati, porta e apertura automatica. L'eventuale `dashboard/data/snapshot.js` è un output locale ignorato da Git. Ogni `cases/<id>/case.json`, verificabile contro [`schemas/case.schema.json`](schemas/case.schema.json), contiene ID, titoli bilingui, categoria, peso e path relativi; i manifesti pre-0.4 inline restano leggibili per compatibilità. `"models": "installed"` rileva tutti i modelli da `/api/tags`; una lista esplicita rende il set stabile. `defaults.sandbox` accetta `audit`, `auto` o `required`; il default conservativo e retrocompatibile è `audit`.
+[`benchmark.json`](benchmark.json) centralizza URL Ollama, comando Pi, timeout task/preflight, thinking, timeout idle HTTP, retry agente/provider, contesto, token massimi, warmup, sandbox, profili, directory di discovery dei casi e opzioni locali della dashboard. Il default resta `thinking: "off"`, `http_idle_timeout_ms: 0` e zero retry. La sezione `dashboard` mantiene asset e risultati dentro il repository, impone l'host `127.0.0.1` e configura sorgente dati, porta e apertura automatica. La sezione `guided` fissa i profili `smoke`, `standard`, `full`, i limiti di promozione decrescenti `4`, `2` e il file locale delle preferenze GUI; viene validata senza fallback silenziosi e non può includere `results_dashboard`. L'eventuale `dashboard/data/snapshot.js` è un output locale ignorato da Git. Ogni `cases/<id>/case.json`, verificabile contro [`schemas/case.schema.json`](schemas/case.schema.json), contiene ID, titoli bilingui, categoria, peso e path relativi; i manifesti pre-0.4 inline restano leggibili per compatibilità. `"models": "installed"` rileva tutti i modelli da `/api/tags`; una lista esplicita rende il set stabile. `defaults.sandbox` accetta `audit`, `auto` o `required`; il default conservativo e retrocompatibile è `audit`.
 
 La temperatura è zero per ridurre la varianza. Le ripetizioni restano necessarie: tool calling e generazione locale non sono perfettamente deterministici. L'ordine delle task viene randomizzato e registrato; `--seed` permette di riprodurlo. Per un confronto decisionale usare almeno tre ripetizioni e la stessa alimentazione/condizione termica.
 
@@ -267,7 +285,7 @@ The reduced dashboard dataset also remains potentially sensitive: it includes lo
 ## Sviluppo / Development
 
 ```bash
-python3 -m compileall -q benchmark.py dashboard.py src cases tests
+python3 -m compileall -q benchmark.py dashboard.py guided_benchmark.py src cases tests
 python3 -m unittest discover -s tests -v
 node --test dashboard/tests/dashboard.test.js site/tests/site.test.js
 python3 benchmark.py case validate
@@ -289,14 +307,15 @@ Do not edit case inputs during a run. Use `case create`, customize the scaffold,
 
 ## Distribuzione / Distribution
 
-Il progetto viene eseguito direttamente dal checkout. I tag sorgente non includono ancora wheel o artifact binari; un'eventuale distribuzione fuori checkout richiederà packaging smoke e checksum SHA-256 secondo [`PLAN.md`](PLAN.md). Il workflow [GitHub Pages](.github/workflows/pages.yml) valida e pubblica soltanto `site/` dopo un push autorizzato su `main` o un avvio manuale; configurazione Pages e primo deploy restano subordinati all'approvazione del progettista.
+Il progetto viene eseguito direttamente dal checkout. La 0.11.0 aggiunge launcher sorgente sottili per macOS, Windows e Linux e l'entry point installabile `localagent-benchmark-guided`, ma non distribuisce installer, app bundle o binari firmati. I tag sorgente non includono ancora wheel o artifact binari; un'eventuale distribuzione fuori checkout richiederà packaging smoke e checksum SHA-256 secondo [`PLAN.md`](PLAN.md). Il workflow [GitHub Pages](.github/workflows/pages.yml) valida e pubblica soltanto `site/` dopo un push autorizzato su `main` o un avvio manuale.
 
-The project runs directly from its checkout and source tags do not currently include wheels or binary artifacts. The [GitHub Pages workflow](.github/workflows/pages.yml) validates and publishes only `site/` after an authorized push to `main` or a manual dispatch; Pages configuration and the first deployment still require project-owner approval.
+The project runs directly from its checkout. Version 0.11.0 adds thin macOS, Windows, and Linux source launchers plus the installable `localagent-benchmark-guided` entry point, but no installer, app bundle, signed executable, wheel, or binary artifact. The [GitHub Pages workflow](.github/workflows/pages.yml) validates and publishes only `site/` after an authorized push to `main` or a manual dispatch.
 
 ## Documentazione / Documentation
 
 - [Manuale italiano](ISTRUZIONI.md)
 - [English manual](INSTRUCTIONS.md)
+- [Percorso rapido guidato / Guided quick path](QUICK-START_Guided.md)
 - [Avvio rapido Linux / Linux quick start](QUICK-START_Linux.md)
 - [Avvio rapido Windows / Windows quick start](QUICK-START_Windows.md)
 - [Guida autore casi / Case author quick start](QUICK-START_Case-Author.md)

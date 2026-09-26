@@ -548,7 +548,7 @@ Prima di iniziare lo sviluppo effettivo:
 
 ## Note specifiche per LocalAgent Benchmark
 
-- Il comando di verifica locale è `python3 -m unittest discover -s tests -v`; eseguire anche `python3 -m compileall -q benchmark.py dashboard.py src cases tests` quando cambia codice Python.
+- Il comando di verifica locale è `python3 -m unittest discover -s tests -v`; eseguire anche `python3 -m compileall -q benchmark.py dashboard.py guided_benchmark.py src cases tests` quando cambia codice Python.
 - Mantenere il runtime Python privo di dipendenze esterne finché non esiste una motivazione documentata.
 - Non modificare fixture o grader mentre un benchmark è in esecuzione.
 - Prima di un run, mantenere puliti rispetto a Git `AGENTS.md`, `.gitignore` e tutti i manifesti, prompt, fixture, grader e rubriche selezionati: il preflight deve fallire, non essere aggirato, se questi input divergono.
@@ -587,3 +587,8 @@ Prima di iniziare lo sviluppo effettivo:
 - `assets/Dashboard.mov` è una sorgente locale immutabile e ignorata da Git: non modificarla, non aggiungerla al repository e non pubblicarla. Versionare sotto `site/assets/` soltanto derivati ritagliati, ottimizzati, privi di metadati superflui e approvati dal progettista.
 - Ogni modifica alla landing richiede test statici Python e JavaScript, verifica in browser a 1440×900 e 390×844, entrambe le lingue, tema automatico/chiaro/scuro, tastiera e focus, assenza di overflow, console pulita e controllo che tutte le richieste runtime restino sullo stesso origin.
 - Il workflow Pages deve mantenere le azioni fissate a commit revisionati, validare il sito e pubblicare soltanto `site/`. Attivazione Pages, commit, push, PR, merge, tag, release e deploy richiedono l'avallo esplicito previsto da `PLAN.md`.
+- Il percorso rapido deve restare una UI sottile sopra il runner esistente: usare nell'ordine la leaderboard ufficiale, non duplicarne formula o tie-break, non promuovere run parziali/esclusi e non aggirare doctor, preflight, snapshot, thinking, sandbox, warmup, audit o input puliti.
+- Il funnel guidato è soltanto `smoke` → massimo 4 in `standard` → massimo 2 in `full`; non deve eseguire `showcase` o `results_dashboard`, modificare la fixture congelata o creare classifiche fra coorti incompatibili.
+- Tutti i processi del percorso guidato devono ricevere argomenti strutturati senza shell, usare Ollama locale, scrivere soltanto sotto la root, conservare gli artefatti in cancellazione/errore e aprire la dashboard ufficiale con tre run distinti già validati.
+- `guided-run.json` deve essere atomico e registrare discovery, selezione, impostazioni, seed, directory relative, classifiche, esclusioni e transizioni. `.localagent-benchmark/` contiene soltanto preferenze GUI validate ed è ignorata da Git.
+- I launcher sotto `launchers/` sono script sorgente, non artifact binari o firmati: documentare con precisione Python/Tkinter, comportamento del doppio clic e limiti di piattaforma senza promettere installer inesistenti.

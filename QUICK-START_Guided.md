@@ -1,0 +1,118 @@
+# Percorso rapido guidato / Guided quick path
+
+Questa procedura confronta i modelli Ollama locali senza richiedere di comporre comandi. Dopo una conferma esplicita esegue `smoke` su tutti i modelli selezionati, promuove al massimo i primi quattro classificabili a `standard`, promuove al massimo i primi due a `full` e apre la dashboard ufficiale sui tre run.
+
+This workflow compares local Ollama models without requiring command composition. After explicit confirmation it runs `smoke` on every selected model, promotes up to the first four rankable models to `standard`, promotes up to two to `full`, and opens the official dashboard on the three runs.
+
+## Requisiti / Requirements
+
+- checkout sorgente completo di LocalAgent Benchmark 0.11.0;
+- Python 3.10 o successivo con Tkinter;
+- Git;
+- Ollama locale avviato su `127.0.0.1` con almeno un modello tool-capable;
+- Pi 0.85.1 disponibile come `pi`;
+- `AGENTS.md`, `.gitignore`, manifesti, prompt, fixture, grader e rubriche selezionati puliti rispetto a Git.
+
+The source checkout, Python 3.10+ with Tkinter, Git, local Ollama, Pi 0.85.1, and clean protected benchmark inputs are required. No third-party Python package is added.
+
+## Avvio con doppio clic / Double-click launch
+
+- **macOS:** aprire `launchers/LocalAgent-Benchmark.command`. Se Finder mostra un avviso per uno script sorgente non firmato, usare il menu contestuale **Apri** dopo aver verificato il checkout.
+- **Windows 10/11:** aprire `launchers\LocalAgent-Benchmark.cmd`. Il launcher prova prima `py -3`, poi `python`; una finestra console può restare dietro alla GUI e mostrare soltanto eventuali errori di avvio.
+- **Linux:** aprire `launchers/LocalAgent-Benchmark.sh`. Il comportamento del doppio clic dipende dal file manager; scegliere **Esegui** quando viene chiesto. Non viene distribuito un pacchetto desktop nativo.
+
+On macOS open `launchers/LocalAgent-Benchmark.command`; on Windows open `launchers\LocalAgent-Benchmark.cmd`; on Linux open `launchers/LocalAgent-Benchmark.sh` and choose **Run** if the file manager asks. These are thin source launchers, not signed binaries or installers.
+
+Chi preferisce un launcher già installato dal pacchetto Python può avviare `localagent-benchmark-guided`; non è necessario per il normale checkout sorgente.
+
+An installed source package also exposes `localagent-benchmark-guided`; it is not required for a normal source checkout.
+
+## Prima della conferma / Before confirmation
+
+La finestra esegue i controlli equivalenti a `doctor`, rileva i modelli tramite Ollama e mostra:
+
+- nome, dimensione e capability thinking nota dei modelli locali;
+- modelli selezionati, inizialmente tutti;
+- profili `smoke` → `standard` → `full` e limiti `4` → `2`;
+- modalità thinking, sandbox, timeout e warmup effettivi letti da `benchmark.json`;
+- un avviso che la durata dipende da modelli, hardware e casi e non è garantita.
+
+The window performs the equivalent of `doctor`, detects Ollama models, and displays the selected models, funnel, promotion limits, thinking mode, sandbox, timeout, warmup, and an explicit duration warning. The benchmark starts only after confirmation.
+
+Lingua e tema seguono il sistema per default. Gli override vengono salvati soltanto in `.localagent-benchmark/guided-preferences.json`, dentro la root e ignorato da Git.
+
+Language and theme follow the operating system by default. Overrides are stored only in `.localagent-benchmark/guided-preferences.json` inside the project root and ignored by Git.
+
+## Selezione e risultati / Selection and results
+
+Il flusso non ricalcola la classifica: usa nell'ordine la `leaderboard` già prodotta dal report ufficiale. Modelli esclusi per integrità, controllo thinking non verificato o incompletezza non vengono promossi. Se i classificabili sono meno di quattro o due, proseguono tutti quelli disponibili; se non ne resta nessuno, il percorso si ferma senza trasformare un fallimento in successo.
+
+The flow does not reimplement ranking: it consumes the official report `leaderboard` in its existing order. Integrity exclusions, unverified thinking controls, incomplete runs, failed tasks, and empty leaderboards never become successful promotions. Fewer candidates simply means a smaller next stage.
+
+Ogni sessione crea una directory simile a:
+
+```text
+results/guided-YYYYMMDD-HHMMSS-XXXXXX/
+├── guided-run.json
+├── smoke/
+├── standard/
+└── full/
+```
+
+`guided-run.json` registra modelli scoperti e selezionati, impostazioni effettive, seed base e di fase, directory, graduatorie, esclusioni e transizioni. I tre run conservano i normali `run.json`, `report.json`, `REPORT.md` e artefatti per task. Tutto può contenere nomi modello, path, output e altri dati locali sensibili: non condividere `results/` senza revisione.
+
+The session manifest records discovery, selection, effective settings, seeds, directories, leaderboards, exclusions, and transitions. Normal raw run artifacts remain local and potentially sensitive.
+
+## Annullamento, ripresa e dashboard / Cancellation, recovery, and dashboard
+
+Il pulsante **Annulla / Cancel** chiede conferma, termina il runner e i suoi processi figli e conserva gli artefatti completati o diagnosticabili. Una sessione interrotta non viene ripresa né promossa parzialmente: correggere il problema e avviare una nuova sessione.
+
+**Cancel** asks for confirmation, stops the runner process tree, and preserves completed or diagnostic artifacts. Interrupted sessions are not resumed or partially promoted; fix the issue and start a new session.
+
+Al completamento viene validato in memoria il dataset ridotto dei tre run e viene avviata la dashboard ufficiale su `127.0.0.1`. **Riapri dashboard / Reopen dashboard** usa l'ultima sessione con tre run registrati e non riesegue il benchmark. Funziona anche dopo aver riaperto la GUI. La dashboard non è la dashboard candidata del profilo `showcase`.
+
+After completion the reduced three-run dataset is validated in memory and the official loopback dashboard is launched. **Reopen dashboard** reuses the latest recorded three-run session, including after restarting the GUI, without rerunning models.
+
+## Configurazione / Configuration
+
+Il percorso usa `benchmark.json` come fonte unica. La sezione dedicata è:
+
+```json
+"guided": {
+  "profiles": ["smoke", "standard", "full"],
+  "promotion_limits": [4, 2],
+  "preferences_file": ".localagent-benchmark/guided-preferences.json"
+}
+```
+
+I profili devono restare esattamente nell'ordine indicato, i limiti devono essere interi positivi decrescenti e nessun profilo guidato può includere `results_dashboard`. Endpoint Ollama, Pi, thinking, retry, timeout, warmup, sandbox e directory risultati continuano a provenire dalle rispettive sezioni centrali. Il percorso guidato rifiuta endpoint Ollama non locali e non applica fallback silenziosi.
+
+Profiles must remain in the listed order, promotion limits must be descending positive integers, and guided profiles cannot include `results_dashboard`. All other effective settings come from the existing central sections. Non-local Ollama endpoints and silent fallback are rejected.
+
+## Cosa non esegue / What it does not run
+
+Il percorso rapido non esegue mai `showcase`, non apre il caso `results_dashboard`, non chiede ai modelli di creare una dashboard e non modifica la fixture congelata della finalissima. Riduce il lavoro sui modelli meno promettenti, ma non cambia formula, tie-break, preflight, snapshot, sandbox, audit, warmup o scoring.
+
+The quick path never runs `showcase`, never selects `results_dashboard`, never asks models to build a dashboard, and never changes the frozen showcase fixture. It saves work on less promising models without changing scoring or controls.
+
+## Risoluzione problemi / Troubleshooting
+
+- **Tkinter non disponibile / Tkinter unavailable:** installare una distribuzione Python che includa Tk; i launcher sorgente non scaricano componenti.
+- **Ollama non raggiungibile / Ollama unavailable:** avviare Ollama localmente e usare un endpoint loopback in `benchmark.json`.
+- **Nessun modello / No models:** scaricare almeno un modello tool-capable con Ollama, poi scegliere **Rileva di nuovo / Detect again**.
+- **Pi non disponibile o versione errata / Pi missing or wrong version:** installare Pi 0.85.1 e verificare che `pi` sia nel `PATH` del launcher grafico.
+- **Input protetti sporchi / Dirty protected inputs:** revisionare e committare legittimamente le modifiche prima del benchmark; non aggirare il preflight.
+- **Sandbox required non disponibile / required sandbox unavailable:** installare/configurare il backend previsto oppure cambiare consapevolmente `benchmark.json`; non avviene alcun downgrade automatico.
+- **Task fallita o fase incompleta / Failed task or incomplete stage:** consultare la directory mostrata e i report; il funnel non prosegue.
+- **Dashboard non avviabile / Dashboard cannot start:** chiudere eventuali processi locali in conflitto e usare **Riapri dashboard**; i run non vengono ricreati.
+- **Durata elevata / Long duration:** è normale con molti modelli. Il funnel limita le fasi più costose, ma non garantisce un tempo massimo complessivo.
+
+## Privacy e distribuzione / Privacy and distribution
+
+La GUI non introduce telemetria, CDN o chiamate Internet. I soli endpoint applicativi sono Ollama locale e la dashboard su loopback. I processi ricevono argomenti strutturati, non comandi shell interpolati. Non vengono cancellati automaticamente run precedenti.
+
+The GUI adds no telemetry, CDN, or Internet call. Its application endpoints are local Ollama and the loopback dashboard. Child processes receive structured arguments rather than interpolated shell commands, and prior runs are never deleted automatically.
+
+La release 0.11.0 distribuisce questi launcher come file sorgente nel repository e negli archivi sorgente generati da GitHub. Non promette installer, app bundle, eseguibili firmati o artifact binari multipiattaforma.
+
+Release 0.11.0 distributes these launchers as source files in the repository and GitHub-generated source archives. It does not claim to provide installers, signed app bundles, executables, or cross-platform binary artifacts.
