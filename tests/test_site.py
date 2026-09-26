@@ -72,10 +72,21 @@ class LandingPageTests(unittest.TestCase):
                 self.assertTrue((SITE / value).is_file(), f"missing {value} referenced by {name}")
 
     def test_navigation_anchors_have_targets(self) -> None:
-        _, parser = self.parse("index.html")
+        index, parser = self.parse("index.html")
         anchors = {link["href"][1:] for link in parser.links if link.get("href", "").startswith("#")}
         self.assertTrue(anchors.issubset(parser.ids), anchors - parser.ids)
-        self.assertTrue({"top", "why", "method", "quick", "dashboard", "immersion", "start", "docs"}.issubset(parser.ids))
+        section_ids = ("why", "method", "quick", "dashboard", "interpretation", "immersion", "start", "docs")
+        self.assertTrue({"top", *section_ids}.issubset(parser.ids))
+        for section_id, key in zip(
+            section_ids,
+            ("why_index", "method_index", "quick_index", "dashboard_index", "limits_index", "immersion_index", "start_index", "docs_index"),
+            strict=True,
+        ):
+            self.assertIn(f'href="#{section_id}" data-i18n="{key}"', index)
+
+        styles = (SITE / "css" / "styles.css").read_text(encoding="utf-8")
+        self.assertIn(".start-copy > p:not(.section-index)", styles)
+        self.assertNotIn(".start-copy > p {", styles)
 
     def test_quick_path_is_honest_and_links_its_guide(self) -> None:
         index, parser = self.parse("index.html")
@@ -133,6 +144,10 @@ class LandingPageTests(unittest.TestCase):
         self.assertIn("connect-src 'none'", index)
         self.assertIn('class="skip-link"', index)
         self.assertIn('data-menu-toggle', index)
+        self.assertEqual(2, index.count("data-language-option="))
+        self.assertEqual(3, index.count("data-theme-option="))
+        self.assertIn('data-theme-option="light"', index)
+        self.assertIn('data-theme-option="dark"', index)
         self.assertIn('prefers-reduced-motion: reduce', (SITE / "css" / "styles.css").read_text())
         fallback = (SITE / "404.html").read_text(encoding="utf-8")
         self.assertGreaterEqual(fallback.count('href="/LocalAgentBenchmark/"'), 2)

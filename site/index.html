@@ -35,22 +35,41 @@
 
       <div class="header-panel" id="site-navigation" data-header-panel>
         <nav class="primary-nav" aria-label="Primary" data-i18n-aria-label="nav_label">
-          <a href="#why" data-i18n="nav_why"></a>
-          <a href="#method" data-i18n="nav_method"></a>
-          <a href="#quick" data-i18n="nav_quick"></a>
-          <a href="#dashboard" data-i18n="nav_dashboard"></a>
-          <a href="#start" data-i18n="nav_start"></a>
+          <a href="#why" data-i18n="why_index"></a>
+          <a href="#method" data-i18n="method_index"></a>
+          <a href="#quick" data-i18n="quick_index"></a>
+          <a href="#dashboard" data-i18n="dashboard_index"></a>
+          <a href="#interpretation" data-i18n="limits_index"></a>
+          <a href="#immersion" data-i18n="immersion_index"></a>
+          <a href="#start" data-i18n="start_index"></a>
+          <a href="#docs" data-i18n="docs_index"></a>
         </nav>
 
         <div class="header-tools">
-          <label class="compact-control">
-            <span data-i18n="language"></span>
-            <select data-language-select></select>
-          </label>
-          <label class="compact-control">
-            <span data-i18n="theme"></span>
-            <select data-theme-select></select>
-          </label>
+          <div class="preference-group language-switch" role="group" aria-labelledby="language-switch-label">
+            <span class="visually-hidden" id="language-switch-label" data-i18n="language"></span>
+            <button type="button" data-language-option="it" aria-pressed="false">
+              <span aria-hidden="true">ITA</span><span class="visually-hidden" data-i18n="language_it"></span>
+            </button>
+            <button type="button" data-language-option="en" aria-pressed="false">
+              <span aria-hidden="true">ENG</span><span class="visually-hidden" data-i18n="language_en"></span>
+            </button>
+          </div>
+          <div class="preference-group theme-switch" role="group" aria-labelledby="theme-switch-label">
+            <span class="visually-hidden" id="theme-switch-label" data-i18n="theme"></span>
+            <button type="button" data-theme-option="auto" data-i18n-title="theme_auto" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 21h8M12 17v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              <span class="visually-hidden" data-i18n="theme_auto"></span>
+            </button>
+            <button type="button" data-theme-option="light" data-i18n-title="theme_light" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v2.2M12 19.8V22M2 12h2.2M19.8 12H22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M19.1 4.9l-1.6 1.6M6.5 17.5l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              <span class="visually-hidden" data-i18n="theme_light"></span>
+            </button>
+            <button type="button" data-theme-option="dark" data-i18n-title="theme_dark" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.1 15.2A8.5 8.5 0 0 1 8.8 3.9 8.5 8.5 0 1 0 20.1 15.2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+              <span class="visually-hidden" data-i18n="theme_dark"></span>
+            </button>
+          </div>
           <a class="home-link" href="https://glaucosilvestri.it" rel="noreferrer" data-i18n-aria-label="personal_site">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M3 10.8 12 3l9 7.8v9.7a.5.5 0 0 1-.5.5H15v-6H9v6H3.5a.5.5 0 0 1-.5-.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
@@ -249,7 +268,7 @@
         </figure>
       </section>
 
-      <section class="section section-limits">
+      <section class="section section-limits" id="interpretation">
         <div>
           <p class="section-index">05 — <span data-i18n="limits_index"></span></p>
           <h2 data-i18n="limits_title"></h2>
