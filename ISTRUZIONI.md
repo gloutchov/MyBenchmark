@@ -46,11 +46,11 @@ python3 benchmark.py run --profile standard
 
 ### Percorso rapido guidato senza comandi
 
-Aprire con doppio clic `launchers/LocalAgent-Benchmark.command` su macOS, `launchers\LocalAgent-Benchmark.cmd` su Windows o `launchers/LocalAgent-Benchmark.sh` su Linux. La finestra esegue `doctor`, rileva i modelli Ollama locali, permette di scegliere i partecipanti e mostra thinking, sandbox, timeout e warmup effettivi prima di chiedere conferma.
+Aprire con doppio clic `launchers/LocalAgent-Benchmark.command` su macOS, `launchers\LocalAgent-Benchmark.cmd` su Windows o `launchers/LocalAgent-Benchmark.sh` su Linux. La finestra esegue `doctor`, rileva i modelli Ollama locali, permette di scegliere i partecipanti e di ordinarli per nome, dimensione o thinking cliccando sulle intestazioni, quindi mostra thinking, sandbox, timeout e warmup effettivi prima di chiedere conferma.
 
-Il funnel esegue `smoke` su tutti i selezionati, usa l'ordine della leaderboard ufficiale per promuovere al massimo i primi quattro a `standard`, poi al massimo i primi due a `full`. I modelli esclusi o incompleti non proseguono; una task fallita o una fase parziale ferma il percorso. Al termine la dashboard ufficiale si apre sui tre run distinti. Il percorso non esegue `showcase` né il caso `results_dashboard`.
+Il funnel esegue `smoke` su tutti i selezionati, usa l'ordine della leaderboard ufficiale per promuovere al massimo i primi quattro a `standard`, poi al massimo i primi due a `full`. Un modello con task fallita viene escluso senza fermare gli altri quando la fase è completa e verificabile; una fase parziale o incompatibile ferma invece il percorso. Al termine la dashboard ufficiale si apre sui tre run distinti. Il percorso non esegue `showcase` né il caso `results_dashboard`.
 
-**Annulla** termina il gruppo di processi dopo conferma e conserva gli artefatti. Una sessione interrotta non è ripresa: risolvere il problema e crearne una nuova. **Riapri dashboard** riutilizza invece l'ultima sessione con tre run senza rieseguire i modelli, anche dopo il riavvio della GUI. La durata non è garantita. Procedura completa, comportamento per piattaforma e privacy: [QUICK-START_Guided.md](QUICK-START_Guided.md).
+**Annulla** termina il gruppo di processi dopo conferma e conserva gli artefatti. Una sessione interrotta non è ripresa: risolvere il problema e crearne una nuova. **Riapri dashboard** riutilizza invece da uno a tre run disponibili dell'ultima sessione senza rieseguire i modelli, anche dopo il riavvio della GUI. La durata non è garantita. Procedura completa, comportamento per piattaforma e privacy: [QUICK-START_Guided.md](QUICK-START_Guided.md).
 
 ### Confronto rapido
 
@@ -260,7 +260,7 @@ All'avvio `AGENTS.md`, `.gitignore`, manifesti, prompt, fixture, grader e rubric
 - `Ollama non raggiungibile`: avviare Ollama e verificare `ollama list`.
 - GUI guidata senza modelli o prerequisiti: usare **Rileva di nuovo** dopo aver avviato Ollama/installato Pi 0.85.1; gli input protetti sporchi devono essere revisionati e committati, non aggirati.
 - percorso guidato interrotto: consultare `results/guided-*/guided-run.json` e i run già creati; nessun risultato parziale viene promosso e nessun run precedente viene cancellato.
-- dashboard guidata non avviabile: usare **Riapri dashboard** dopo aver risolto il problema locale; i tre run completati non vengono rieseguiti.
+- dashboard guidata non avviabile: usare **Riapri dashboard** dopo aver risolto il problema locale; da uno a tre run disponibili vengono riutilizzati senza rieseguire i modelli.
 - `pi: comando non trovato`: installare Pi o modificare `pi.command` con il percorso corretto.
 - `Modelli non installati`: usare il nome esatto restituito da `doctor` oppure eseguire `ollama pull` separatamente.
 - `timeout`: aumentare `--timeout`; controllare anche memoria e log `stderr.log`.

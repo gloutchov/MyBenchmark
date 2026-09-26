@@ -35,6 +35,7 @@ def write_phase(
     disqualified: list[str] | None = None,
     incomplete: list[str] | None = None,
     failed: bool = False,
+    failed_models: list[str] | None = None,
     finished: bool = True,
     thinking_status: str = "passed",
     thinking_disqualified: list[str] | None = None,
@@ -43,6 +44,9 @@ def write_phase(
     run.mkdir(parents=True)
     disqualified = disqualified or []
     incomplete = incomplete or []
+    task_failures = set(failed_models or [])
+    if failed and models:
+        task_failures.add(models[0])
     results = []
     for model in models:
         if model in incomplete:
@@ -52,7 +56,7 @@ def write_phase(
                 "model": model,
                 "case_id": "case",
                 "repetition": 1,
-                "status": "error" if failed and model == models[0] else "ok",
+                "status": "error" if model in task_failures else "ok",
             }
         )
     manifest = {
@@ -94,9 +98,16 @@ def write_phase(
 
 
 class FakeRunner:
-    def __init__(self, rankings: dict[str, list[str]], *, cancel_profile: str | None = None) -> None:
+    def __init__(
+        self,
+        rankings: dict[str, list[str]],
+        *,
+        cancel_profile: str | None = None,
+        failures: dict[str, list[str]] | None = None,
+    ) -> None:
         self.rankings = rankings
         self.cancel_profile = cancel_profile
+        self.failures = failures or {}
         self.commands: list[list[str]] = []
         self.cancelled = False
 
@@ -110,10 +121,21 @@ class FakeRunner:
         models = command[model_start:model_end]
         if self.cancel_profile == profile:
             return ProcessResult(returncode=-15, cancelled=True, output_tail=())
-        write_phase(output.parent, profile, models, self.rankings[profile])
+        failed_models = self.failures.get(profile, [])
+        write_phase(
+            output.parent,
+            profile,
+            models,
+            self.rankings[profile],
+            failed_models=failed_models,
+        )
         if on_line:
             on_line(f"[1/1] {models[0]} · case · ripetizione 1")
-        return ProcessResult(returncode=0, cancelled=False, output_tail=())
+        return ProcessResult(
+            returncode=1 if failed_models else 0,
+            cancelled=False,
+            output_tail=(),
+        )
 
     def cancel(self):
         self.cancelled = True
@@ -160,7 +182,6 @@ class GuidedTests(unittest.TestCase):
     def test_phase_validation_rejects_partial_failed_and_unverified_runs(self):
         scenarios = (
             ({"finished": False}, "partial_run"),
-            ({"failed": True}, "task_failed"),
             ({"thinking_status": "unverified"}, "thinking_unverified"),
             ({"incomplete": ["beta"], "disqualified": ["beta"]}, "partial_run"),
         )
@@ -184,6 +205,30 @@ class GuidedTests(unittest.TestCase):
                         process_returncode=0,
                     )
                 self.assertEqual(code, raised.exception.code)
+
+    def test_failed_model_is_excluded_without_stopping_valid_promotions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            run = write_phase(
+                root,
+                "smoke",
+                ["failed", "winner", "valid"],
+                ["winner", "failed", "valid"],
+                failed=True,
+            )
+            outcome = evaluate_phase(
+                run,
+                root=root,
+                expected_profile="smoke",
+                expected_models=["failed", "winner", "valid"],
+                promotion_limit=4,
+                process_returncode=1,
+            )
+            self.assertEqual(("winner", "valid"), outcome.promoted)
+            self.assertEqual(
+                [{"model": "failed", "reason": "task_failed"}],
+                list(outcome.exclusions),
+            )
 
     def test_hostile_model_names_are_rejected_before_argument_construction(self):
         for name in ("--output", "model name", "model;touch-owned", "../model", "bad\nname"):
@@ -311,6 +356,73 @@ class GuidedTests(unittest.TestCase):
                 self.assertIsInstance(command, list)
                 self.assertNotIn("shell=True", command)
 
+    def test_integration_continues_after_per_model_task_failures(self):
+        base = load_config(ROOT / "benchmark.json")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = replace(
+                base,
+                root=root,
+                dashboard=replace(
+                    base.dashboard,
+                    results_directory=root / "results",
+                    assets_directory=root / "dashboard",
+                    snapshot_source=root / "snapshot.json",
+                ),
+                guided=replace(base.guided, preferences_file=root / ".local" / "prefs.json"),
+            )
+            models = ["winner", "smoke-error", "standard-error", "valid"]
+            runner = FakeRunner(
+                {
+                    "smoke": ["winner", "smoke-error", "standard-error", "valid"],
+                    "standard": ["standard-error", "winner", "valid"],
+                    "full": ["valid", "winner"],
+                },
+                failures={
+                    "smoke": ["smoke-error"],
+                    "standard": ["standard-error"],
+                },
+            )
+            opened: list[list[Path]] = []
+            orchestrator = GuidedOrchestrator(
+                config,
+                root / "benchmark.json",
+                process_runner=runner,
+                dashboard_builder=lambda runs: opened.append(runs) or {},
+                dashboard_starter=lambda _args, *, cwd: object(),
+            )
+
+            manifest_path = orchestrator.run(
+                models,
+                {"ok": True, "models": [{"name": model} for model in models]},
+            )
+            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+            command_models = []
+            for command in runner.commands:
+                start = command.index("--models") + 1
+                end = command.index("--seed")
+                command_models.append(command[start:end])
+            self.assertEqual(
+                [
+                    models,
+                    ["winner", "standard-error", "valid"],
+                    ["winner", "valid"],
+                ],
+                command_models,
+            )
+            self.assertEqual("completed", payload["status"])
+            self.assertEqual(
+                [{"model": "smoke-error", "reason": "task_failed"}],
+                payload["phases"][0]["exclusions"],
+            )
+            self.assertEqual(
+                [{"model": "standard-error", "reason": "task_failed"}],
+                payload["phases"][1]["exclusions"],
+            )
+            self.assertEqual(1, len(opened))
+            self.assertEqual(3, len(opened[0]))
+
     def test_cancellation_stops_before_promotion_and_preserves_manifest(self):
         base = load_config(ROOT / "benchmark.json")
         with tempfile.TemporaryDirectory() as directory:
@@ -357,6 +469,10 @@ class GuidedTests(unittest.TestCase):
             payload = json.loads(orchestrator.manifest_path.read_text(encoding="utf-8"))
             self.assertEqual("failed", payload["status"])
             self.assertEqual([], payload["transitions"][0]["selected"])
+            self.assertEqual(
+                [payload["phases"][0]["run_directory"]],
+                payload["dashboard"]["run_directories"],
+            )
 
     def test_process_runner_uses_structured_arguments(self):
         runner = ManagedProcessRunner()
@@ -387,7 +503,7 @@ class GuidedTests(unittest.TestCase):
         self.assertTrue(result.cancelled)
         self.assertLess(time.monotonic() - started, 10)
 
-    def test_reopen_dashboard_uses_only_three_confined_runs(self):
+    def test_reopen_dashboard_uses_one_to_three_confined_runs(self):
         base = load_config(ROOT / "benchmark.json")
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -429,6 +545,28 @@ class GuidedTests(unittest.TestCase):
             self.assertEqual(manifest, find_latest_manifest(config))
             orchestrator.reopen_dashboard(manifest)
             self.assertEqual([[run.resolve() for run in runs]], built)
+            self.assertEqual(1, len(started))
+
+            manifest.write_text(
+                json.dumps(
+                    {
+                        "dashboard": {"status": "pending", "run_directories": []},
+                        "phases": [
+                            {
+                                "profile": "smoke",
+                                "status": "failed",
+                                "run_directory": str(runs[0].relative_to(root)),
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            built.clear()
+            started.clear()
+            self.assertEqual(manifest, find_latest_manifest(config))
+            orchestrator.reopen_dashboard(manifest)
+            self.assertEqual([[runs[0].resolve()]], built)
             self.assertEqual(1, len(started))
 
             manifest.write_text(

@@ -8,12 +8,39 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from localagent_bench.guided_ui import TEXT, _summary, load_preferences, save_preferences
+from localagent_bench.guided_ui import (
+    TEXT,
+    _sorted_model_indices,
+    _summary,
+    load_preferences,
+    save_preferences,
+)
 
 
 class GuidedUiTests(unittest.TestCase):
     def test_translations_remain_synchronized(self):
         self.assertEqual(set(TEXT["it"]), set(TEXT["en"]))
+
+    def test_model_sorting_is_numeric_stable_and_keeps_unknown_values_last(self):
+        models = [
+            {"name": "zeta", "size": 2, "thinking_capable": False},
+            {"name": "Alpha", "size": 10, "thinking_capable": True},
+            {"name": "middle", "size": None, "thinking_capable": None},
+        ]
+
+        def names(column, descending=False):
+            return [
+                models[index]["name"]
+                for index in _sorted_model_indices(models, column, descending)
+            ]
+
+        self.assertEqual(["Alpha", "middle", "zeta"], names("name"))
+        self.assertEqual(["zeta", "Alpha", "middle"], names("size"))
+        self.assertEqual(["Alpha", "zeta", "middle"], names("size", True))
+        self.assertEqual(["zeta", "Alpha", "middle"], names("thinking"))
+        self.assertEqual(["Alpha", "zeta", "middle"], names("thinking", True))
+        with self.assertRaises(ValueError):
+            _sorted_model_indices(models, "unsupported", False)
 
     def test_preferences_round_trip_and_reject_unknown_values(self):
         with tempfile.TemporaryDirectory() as directory:

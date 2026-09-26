@@ -37,7 +37,9 @@ La finestra esegue i controlli equivalenti a `doctor`, rileva i modelli tramite 
 - modalità thinking, sandbox, timeout e warmup effettivi letti da `benchmark.json`;
 - un avviso che la durata dipende da modelli, hardware e casi e non è garantita.
 
-The window performs the equivalent of `doctor`, detects Ollama models, and displays the selected models, funnel, promotion limits, thinking mode, sandbox, timeout, warmup, and an explicit duration warning. The benchmark starts only after confirmation.
+Fare clic sull'intestazione modello, dimensione o thinking per ordinare la tabella; un secondo clic inverte l'ordine e la freccia mostra la direzione attiva. La selezione resta invariata durante il riordino.
+
+The window performs the equivalent of `doctor`, detects Ollama models, and displays the selected models, funnel, promotion limits, thinking mode, sandbox, timeout, warmup, and an explicit duration warning. Click the model, size, or thinking column heading to sort it; a second click reverses the order and the arrow shows the active direction. Selection is preserved while sorting. The benchmark starts only after confirmation.
 
 Lingua e tema seguono il sistema per default. Gli override vengono salvati soltanto in `.localagent-benchmark/guided-preferences.json`, dentro la root e ignorato da Git.
 
@@ -45,9 +47,9 @@ Language and theme follow the operating system by default. Overrides are stored 
 
 ## Selezione e risultati / Selection and results
 
-Il flusso non ricalcola la classifica: usa nell'ordine la `leaderboard` già prodotta dal report ufficiale. Modelli esclusi per integrità, controllo thinking non verificato o incompletezza non vengono promossi. Se i classificabili sono meno di quattro o due, proseguono tutti quelli disponibili; se non ne resta nessuno, il percorso si ferma senza trasformare un fallimento in successo.
+Il flusso non ricalcola la classifica: usa nell'ordine la `leaderboard` già prodotta dal report ufficiale. Modelli esclusi per integrità, controllo thinking non verificato, incompletezza o task fallita non vengono promossi. Una task fallita esclude il solo modello interessato quando il report della fase è completo e compatibile; gli altri continuano. Se i classificabili sono meno di quattro o due, proseguono tutti quelli disponibili; se non ne resta nessuno, il percorso si ferma senza trasformare un fallimento in successo.
 
-The flow does not reimplement ranking: it consumes the official report `leaderboard` in its existing order. Integrity exclusions, unverified thinking controls, incomplete runs, failed tasks, and empty leaderboards never become successful promotions. Fewer candidates simply means a smaller next stage.
+The flow does not reimplement ranking: it consumes the official report `leaderboard` in its existing order. Integrity exclusions, unverified thinking controls, incomplete models, and failed tasks never become successful promotions. A failed task excludes only its model when the stage report is complete and compatible, allowing other valid models to continue. Fewer candidates simply means a smaller next stage.
 
 Ogni sessione crea una directory simile a:
 
@@ -69,9 +71,9 @@ Il pulsante **Annulla / Cancel** chiede conferma, termina il runner e i suoi pro
 
 **Cancel** asks for confirmation, stops the runner process tree, and preserves completed or diagnostic artifacts. Interrupted sessions are not resumed or partially promoted; fix the issue and start a new session.
 
-Al completamento viene validato in memoria il dataset ridotto dei tre run e viene avviata la dashboard ufficiale su `127.0.0.1`. **Riapri dashboard / Reopen dashboard** usa l'ultima sessione con tre run registrati e non riesegue il benchmark. Funziona anche dopo aver riaperto la GUI. La dashboard non è la dashboard candidata del profilo `showcase`.
+Al completamento viene validato in memoria il dataset ridotto dei tre run e viene avviata la dashboard ufficiale su `127.0.0.1`. Se il funnel si ferma, **Riapri dashboard / Reopen dashboard** può usare da uno a tre run già disponibili e mostrare i risultati parziali senza reinterpretarli come completamento. Funziona anche dopo aver riaperto la GUI e non riesegue il benchmark. La dashboard non è la dashboard candidata del profilo `showcase`.
 
-After completion the reduced three-run dataset is validated in memory and the official loopback dashboard is launched. **Reopen dashboard** reuses the latest recorded three-run session, including after restarting the GUI, without rerunning models.
+After completion the reduced three-run dataset is validated in memory and the official loopback dashboard is launched. If the funnel stops, **Reopen dashboard** can reuse one to three available runs and show partial results without presenting them as a completed funnel. It also works after restarting the GUI and never reruns models.
 
 ## Configurazione / Configuration
 

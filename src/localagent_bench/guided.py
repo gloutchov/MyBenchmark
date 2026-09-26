@@ -157,13 +157,19 @@ def evaluate_phase(
     results = report.get("results")
     if not isinstance(results, list):
         raise GuidedError("invalid_report", "Risultati ufficiali mancanti")
-    failed_results = [
-        item
-        for item in results
-        if not isinstance(item, dict) or item.get("status") != "ok"
-    ]
-    if failed_results:
-        raise GuidedError("task_failed", "Una o più task non sono terminate correttamente")
+    expected_set = set(expected_models)
+    failed_models: set[str] = set()
+    for item in results:
+        if not isinstance(item, dict):
+            raise GuidedError("invalid_report", "Risultato ufficiale non valido")
+        model = item.get("model")
+        status = item.get("status")
+        if not isinstance(model, str) or model not in expected_set:
+            raise GuidedError("invalid_report", "Modello inatteso nei risultati ufficiali")
+        if not isinstance(status, str) or not status:
+            raise GuidedError("invalid_report", "Stato task non valido")
+        if status != "ok":
+            failed_models.add(model)
     integrity = report.get("integrity")
     if not isinstance(integrity, dict):
         raise GuidedError("invalid_report", "Riepilogo integrità mancante")
@@ -182,14 +188,13 @@ def evaluate_phase(
     unexpected_incomplete = incomplete - thinking_disqualified
     if unexpected_incomplete:
         raise GuidedError("partial_run", "Il run contiene modelli incompleti non esclusi")
-    expected_set = set(expected_models)
     leaderboard = _public_leaderboard(report.get("leaderboard"), expected_set)
     ranked = {str(row["model"]) for row in leaderboard}
     if ranked & disqualified:
         raise GuidedError("invalid_report", "La leaderboard include modelli esclusi")
     exclusions: list[dict[str, str]] = []
     for model in expected_models:
-        if model in ranked:
+        if model in ranked and model not in failed_models:
             continue
         if model in thinking_disqualified:
             reason = "thinking_control"
@@ -197,6 +202,8 @@ def evaluate_phase(
             reason = "incomplete"
         elif model in disqualified:
             reason = "integrity"
+        elif model in failed_models:
+            reason = "task_failed"
         else:
             reason = "not_ranked"
         exclusions.append({"model": model, "reason": reason})
@@ -204,7 +211,15 @@ def evaluate_phase(
         raise GuidedError("phase_failed", f"La fase è terminata con codice {process_returncode}")
     if process_returncode == 1 and not exclusions:
         raise GuidedError("phase_failed", "La fase ha segnalato un errore senza esclusioni verificabili")
-    promoted = select_promoted(leaderboard, promotion_limit) if promotion_limit is not None else ()
+    eligible_models = expected_set - disqualified - incomplete - failed_models
+    eligible_leaderboard = tuple(
+        row for row in leaderboard if str(row["model"]) in eligible_models
+    )
+    promoted = (
+        select_promoted(eligible_leaderboard, promotion_limit)
+        if promotion_limit is not None
+        else ()
+    )
     return PhaseOutcome(
         profile=expected_profile,
         run_directory=resolved_run,
@@ -245,6 +260,26 @@ def _write_manifest(path: Path, payload: dict[str, Any], *, root: Path) -> None:
     finally:
         if temporary:
             Path(temporary).unlink(missing_ok=True)
+
+
+def _manifest_run_directories(payload: dict[str, Any]) -> list[Any]:
+    dashboard = payload.get("dashboard")
+    if isinstance(dashboard, dict):
+        recorded = dashboard.get("run_directories")
+        if isinstance(recorded, list) and recorded:
+            return recorded
+    available: list[Any] = []
+    phases = payload.get("phases")
+    if not isinstance(phases, list):
+        return available
+    for phase in phases:
+        if not isinstance(phase, dict):
+            continue
+        profile = phase.get("profile")
+        directory = phase.get("run_directory")
+        if profile in {"smoke", "standard", "full"} and isinstance(directory, str):
+            available.append(directory)
+    return available
 
 
 def _error_from_doctor(payload: dict[str, Any]) -> GuidedError:
@@ -381,8 +416,12 @@ class GuidedOrchestrator:
         ]
 
     def _dashboard_command(self, run_directories: list[Path]) -> list[str]:
-        if len(run_directories) != 3 or len(set(run_directories)) != 3:
-            raise GuidedError("dashboard_failed", "La dashboard richiede tre run distinti")
+        if not 1 <= len(run_directories) <= 3 or len(set(run_directories)) != len(
+            run_directories
+        ):
+            raise GuidedError(
+                "dashboard_failed", "La dashboard richiede da uno a tre run distinti"
+            )
         return [
             python_executable(),
             str(self.config.root / "dashboard.py"),
@@ -560,6 +599,12 @@ class GuidedOrchestrator:
                     }
                 )
                 completed_runs.append(output.resolve())
+                manifest["dashboard"] = {
+                    "status": "available",
+                    "run_directories": [
+                        _relative(path, self.config.root) for path in completed_runs
+                    ],
+                }
                 if limit is not None:
                     manifest["transitions"].append(
                         {
@@ -624,12 +669,11 @@ class GuidedOrchestrator:
 
     def reopen_dashboard(self, manifest_path: Path) -> None:
         payload = _read_object(manifest_path, root=self.config.root)
-        dashboard = payload.get("dashboard")
-        if not isinstance(dashboard, dict):
-            raise GuidedError("dashboard_failed", "Manifesto privo dei run dashboard")
-        raw_directories = dashboard.get("run_directories")
-        if not isinstance(raw_directories, list) or len(raw_directories) != 3:
-            raise GuidedError("dashboard_failed", "Servono tre run completati per la dashboard")
+        raw_directories = _manifest_run_directories(payload)
+        if not 1 <= len(raw_directories) <= 3:
+            raise GuidedError(
+                "dashboard_failed", "Nessun run disponibile per la dashboard"
+            )
         runs: list[Path] = []
         for value in raw_directories:
             if not isinstance(value, str):
@@ -660,12 +704,8 @@ def find_latest_manifest(config: BenchmarkConfig) -> Path | None:
             payload = _read_object(path, root=config.root)
         except GuidedError:
             continue
-        dashboard = payload.get("dashboard")
-        if (
-            isinstance(dashboard, dict)
-            and isinstance(dashboard.get("run_directories"), list)
-            and len(dashboard["run_directories"]) == 3
-        ):
+        run_directories = _manifest_run_directories(payload)
+        if 1 <= len(run_directories) <= 3:
             candidates.append(path)
     return max(candidates, key=lambda path: path.stat().st_mtime, default=None)
 

@@ -213,6 +213,51 @@ def _size_text(value: Any) -> str:
     return "—"
 
 
+def _sorted_model_indices(
+    models: list[dict[str, Any]], column: str, descending: bool
+) -> tuple[int, ...]:
+    indexed = list(enumerate(models))
+    if column == "name":
+        indexed.sort(
+            key=lambda item: (str(item[1].get("name", "")).casefold(), item[0]),
+            reverse=descending,
+        )
+        return tuple(index for index, _model in indexed)
+    if column == "size":
+        known = [
+            item
+            for item in indexed
+            if isinstance(item[1].get("size"), int) and item[1]["size"] >= 0
+        ]
+        unknown = [item for item in indexed if item not in known]
+        known.sort(
+            key=lambda item: (
+                int(item[1]["size"]),
+                str(item[1].get("name", "")).casefold(),
+            ),
+            reverse=descending,
+        )
+        unknown.sort(key=lambda item: str(item[1].get("name", "")).casefold())
+        return tuple(index for index, _model in (*known, *unknown))
+    if column == "thinking":
+        known = [
+            item
+            for item in indexed
+            if isinstance(item[1].get("thinking_capable"), bool)
+        ]
+        unknown = [item for item in indexed if item not in known]
+        known.sort(
+            key=lambda item: (
+                bool(item[1]["thinking_capable"]),
+                str(item[1].get("name", "")).casefold(),
+            ),
+            reverse=descending,
+        )
+        unknown.sort(key=lambda item: str(item[1].get("name", "")).casefold())
+        return tuple(index for index, _model in (*known, *unknown))
+    raise ValueError(f"Colonna modello non supportata: {column}")
+
+
 def _summary(payload: dict[str, Any]) -> str:
     lines = ["Italiano", ""]
     for phase in payload.get("phases", []):
@@ -274,6 +319,8 @@ class GuidedWindow:
         self.running = False
         self.close_requested = False
         self.latest_manifest = find_latest_manifest(self.config)
+        self.sort_column = "name"
+        self.sort_descending = False
         preferences = load_preferences(
             self.orchestrator.guided.preferences_file, root=self.config.root
         )
@@ -428,9 +475,7 @@ class GuidedWindow:
         self.language_label.configure(text=self.text("language"))
         self.theme_label.configure(text=self.text("theme"))
         self.models_frame.configure(text=self.text("models"))
-        self.model_tree.heading("name", text=self.text("model"))
-        self.model_tree.heading("size", text=self.text("size"))
-        self.model_tree.heading("thinking", text=self.text("thinking"))
+        self._configure_model_headings()
         if self.models:
             self._render_model_rows(set(self._selected_models()))
         self.all_button.configure(text=self.text("select_all"))
@@ -522,10 +567,37 @@ class GuidedWindow:
         self.detail_var.set("")
         self._set_busy(False)
 
+    def _configure_model_headings(self) -> None:
+        labels = {
+            "name": self.text("model"),
+            "size": self.text("size"),
+            "thinking": self.text("thinking"),
+        }
+        for column, label in labels.items():
+            arrow = " ▼" if self.sort_descending else " ▲"
+            text = f"{label}{arrow}" if column == self.sort_column else label
+            self.model_tree.heading(
+                column,
+                text=text,
+                command=lambda selected=column: self._sort_models(selected),
+            )
+
+    def _sort_models(self, column: str) -> None:
+        selected = set(self._selected_models())
+        if column == self.sort_column:
+            self.sort_descending = not self.sort_descending
+        else:
+            self.sort_column = column
+            self.sort_descending = False
+        self._render_model_rows(selected)
+
     def _render_model_rows(self, selected_names: set[str]) -> None:
         self.model_tree.delete(*self.model_tree.get_children())
         selected_items: list[str] = []
-        for index, model in enumerate(self.models):
+        for index in _sorted_model_indices(
+            self.models, self.sort_column, self.sort_descending
+        ):
+            model = self.models[index]
             thinking = model.get("thinking_capable")
             thinking_text = (
                 self.text("yes")
@@ -541,6 +613,7 @@ class GuidedWindow:
             if model["name"] in selected_names:
                 selected_items.append(str(index))
         self.model_tree.selection_set(selected_items)
+        self._configure_model_headings()
 
     def _select_all(self) -> None:
         children = self.model_tree.get_children()

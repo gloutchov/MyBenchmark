@@ -59,13 +59,13 @@ Per evitare di comporre comandi, aprire con doppio clic il launcher sorgente del
 - Windows: `launchers\LocalAgent-Benchmark.cmd`;
 - Linux: `launchers/LocalAgent-Benchmark.sh` e scegliere **Esegui** se richiesto dal file manager.
 
-La GUI rileva i modelli Ollama, mostra thinking e sandbox effettivi, chiede conferma, esegue `smoke` su tutti i selezionati, promuove al massimo `4` modelli a `standard` e al massimo `2` a `full`, quindi apre la dashboard ufficiale sui tre run. Il percorso non esegue `showcase` né chiede ai modelli di costruire una dashboard. Guida completa: [QUICK-START_Guided.md](QUICK-START_Guided.md).
+La GUI rileva i modelli Ollama, permette di ordinarli per nome, dimensione o thinking, mostra thinking e sandbox effettivi, chiede conferma, esegue `smoke` su tutti i selezionati, promuove al massimo `4` modelli a `standard` e al massimo `2` a `full`, quindi apre la dashboard ufficiale sui tre run. Una task fallita esclude il solo modello interessato se il resto della fase è completo e verificabile. Il percorso non esegue `showcase` né chiede ai modelli di costruire una dashboard. Guida completa: [QUICK-START_Guided.md](QUICK-START_Guided.md).
 
-For a command-free start, double-click the source launcher for macOS, Windows, or Linux. The GUI detects local Ollama models, shows effective thinking and sandbox settings, asks for confirmation, runs the `all → 4 → 2` funnel, and opens the official dashboard. It never runs `showcase` or asks models to build a dashboard. See [QUICK-START_Guided.md](QUICK-START_Guided.md).
+For a command-free start, double-click the source launcher for macOS, Windows, or Linux. The GUI detects local Ollama models, supports sorting by name, size, or thinking, shows effective settings, asks for confirmation, runs the `all → 4 → 2` funnel, and opens the official dashboard. A failed task excludes only its model when the remainder of the stage is complete and verifiable. It never runs `showcase` or asks models to build a dashboard. See [QUICK-START_Guided.md](QUICK-START_Guided.md).
 
-La durata dipende da hardware, modelli e casi e non è garantita. Annullamento ed errori preservano gli artefatti diagnosticabili senza promuovere dati parziali; **Riapri dashboard / Reopen dashboard** riutilizza l'ultima sessione completa senza rieseguire i modelli.
+La durata dipende da hardware, modelli e casi e non è garantita. Annullamento ed errori preservano gli artefatti diagnosticabili senza promuovere dati parziali; **Riapri dashboard / Reopen dashboard** riutilizza da uno a tre run disponibili dell'ultima sessione senza rieseguire i modelli.
 
-Duration depends on hardware, models, and cases and is not guaranteed. Cancellation and failures preserve diagnostic artifacts without promoting partial data; **Reopen dashboard** reuses the latest complete session without rerunning models.
+Duration depends on hardware, models, and cases and is not guaranteed. Cancellation and failures preserve diagnostic artifacts without promoting partial data; **Reopen dashboard** reuses one to three available runs from the latest session without rerunning models.
 
 Per il flusso da terminale / For the terminal workflow:
 
@@ -234,7 +234,7 @@ Il launcher usa soltanto la libreria standard, serve su `127.0.0.1`, sceglie una
 
 The official dashboard is maintained by the project and is not an output of the `showcase` test. Its standard-library launcher serves only allowlisted assets and an in-memory public dataset on `127.0.0.1`; it never exposes raw result files. Pass explicit run directories, `--dataset` for an existing sanitized export, `--no-open`, or `--port NUMBER` as needed. If no compatible run is found, the reviewed dashboard fixture is served in memory.
 
-Il percorso guidato le passa esattamente le directory `smoke`, `standard` e `full` della sessione completata; **Riapri dashboard** legge i tre path relativi dal manifesto locale senza creare un nuovo run. / The guided path passes exactly the completed session's `smoke`, `standard`, and `full` directories; **Reopen dashboard** reads those three relative paths from the local manifest without creating a new run.
+Il percorso guidato le passa le directory `smoke`, `standard` e `full` della sessione completata; se il funnel si arresta, **Riapri dashboard** può leggere dal manifesto locale anche uno o due run già disponibili, senza crearne di nuovi. / The guided path passes the completed session's `smoke`, `standard`, and `full` directories; if the funnel stops, **Reopen dashboard** can also reuse one or two available runs from the local manifest without creating new runs.
 
 La sezione **Mappa di efficienza / Efficiency map** visualizza per ogni run e modalità thinking due grafici distinti: qualità rispetto alla durata mediana e qualità rispetto ai token mediani di output. Gli assi orizzontali sono logaritmici e dichiarati; l’area desiderabile è in alto a sinistra. Il grafico usa `quality_score`, non il punteggio complessivo che incorpora già velocità ed efficienza, e non fonde mai coorti incompatibili. I punti e la legenda distinguono completamento pieno, parziale e assenza di task sopra soglia e sono consultabili anche da tastiera.
 

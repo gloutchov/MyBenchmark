@@ -46,11 +46,11 @@ python3 benchmark.py run --profile standard
 
 ### Command-free guided quick path
 
-Double-click `launchers/LocalAgent-Benchmark.command` on macOS, `launchers\LocalAgent-Benchmark.cmd` on Windows, or `launchers/LocalAgent-Benchmark.sh` on Linux. The window performs the equivalent of `doctor`, detects local Ollama models, lets you select participants, and shows effective thinking, sandbox, timeout, and warmup settings before asking for confirmation.
+Double-click `launchers/LocalAgent-Benchmark.command` on macOS, `launchers\LocalAgent-Benchmark.cmd` on Windows, or `launchers/LocalAgent-Benchmark.sh` on Linux. The window performs the equivalent of `doctor`, detects local Ollama models, lets you select participants and sort them by name, size, or thinking from the column headings, and shows effective settings before asking for confirmation.
 
-The funnel runs `smoke` on every selected model, consumes the official leaderboard order to promote up to four rankable models to `standard`, then up to two to `full`. Excluded or incomplete models do not continue; a failed task or partial stage stops the funnel. The official dashboard then opens on the three distinct runs. The path never runs `showcase` or `results_dashboard`.
+The funnel runs `smoke` on every selected model, consumes the official leaderboard order to promote up to four rankable models to `standard`, then up to two to `full`. A model with a failed task is excluded without stopping the others when the stage is complete and verifiable; a partial or incompatible stage still stops the funnel. The official dashboard then opens on the three distinct runs. The path never runs `showcase` or `results_dashboard`.
 
-**Cancel** asks for confirmation, terminates the process tree, and retains diagnostic artifacts. Interrupted sessions are not resumed; fix the issue and create a new session. **Reopen dashboard** reuses the latest recorded three-run session without rerunning models, including after restarting the GUI. Duration is not guaranteed. See [QUICK-START_Guided.md](QUICK-START_Guided.md) for platform behavior, configuration, troubleshooting, and privacy.
+**Cancel** asks for confirmation, terminates the process tree, and retains diagnostic artifacts. Interrupted sessions are not resumed; fix the issue and create a new session. **Reopen dashboard** reuses one to three available runs from the latest session without rerunning models, including after restarting the GUI. Duration is not guaranteed. See [QUICK-START_Guided.md](QUICK-START_Guided.md) for platform behavior, configuration, troubleshooting, and privacy.
 
 - `smoke` checks Pi/Ollama integration and basic tool calling.
 - `standard` covers a targeted patch, security hardening, validated configuration/i18n, and the exact multi-constraint `thinking_challenge` case.
