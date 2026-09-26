@@ -414,7 +414,10 @@ def prepare_sandbox_launch(
         host, port = _loopback_target(ollama_url)
         scratch = workspace / ".benchmark-scratch"
         scratch.mkdir(parents=True, exist_ok=True)
-        socket_path = scratch / "ollama.sock"
+        # Linux limits AF_UNIX paths to roughly 100 bytes. Both the broker and
+        # bubblewrapped child run from the workspace, so a relative path keeps
+        # the transport valid even when the checkout path is long.
+        socket_path = Path(".benchmark-scratch") / "ollama.sock"
         node_options, shim_sha256 = _network_shim(host, port, str(socket_path))
         transport = Path(__file__).with_name("sandbox_transport.py")
         bubblewrapped = _linux_command(executable, tuple(command), workspace, agent_dir, pi_command)
