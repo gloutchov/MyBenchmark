@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.11.1 (predisposta sul branch patch, non ancora pubblicata)**
+Versione corrente / Current version: **0.11.1**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -538,7 +538,7 @@ Versione corrente / Current version: **0.11.1 (predisposta sul branch patch, non
 - Test: test statici Python e Node della landing, suite Python completa, compileall, validazione dei casi e verifica browser locale desktop/mobile in entrambe le lingue e nei temi chiaro/scuro; CI multipiattaforma soltanto dopo il push autorizzato.
 - Documentazione: aggiornare README per versione e asset della landing, MAP per la nuova gerarchia e PLAN per il workflow della patch; `SECURITY_MODEL.md` resta invariato perché non cambiano rete, dati, storage, CSP o superfici operative.
 - Release: patch sorgente `v0.11.1`; GitHub Release esplicitamente autorizzata dal progettista il 2026-09-26.
-- Stato: **implementazione, documentazione, test automatici e verifica browser locale completati; la PR #6 è aperta e la CI multipiattaforma `36251430977` è verde su macOS, Ubuntu e Windows. Commit di revisione, push, PR/merge, tag, release e rimozione del branch sono stati autorizzati esplicitamente dal progettista il 2026-09-26.**
+- Stato: **patch chiusa, integrata e pubblicata il 2026-09-26. La PR #6 è stata integrata con merge commit `a277f63`; la CI è verde su macOS, Ubuntu e Windows sia sulla testa finale della PR (`36251652936`) sia su `main` dopo il merge (`36251839491`). Il workflow Pages `36251839489` ha pubblicato la landing aggiornata. Il tag annotato `v0.11.1` e la GitHub Release sorgente sono stati autorizzati esplicitamente dal progettista e pubblicati nel workflow di chiusura; non essendoci artifact binari di progetto, i checksum di artifact non sono applicabili. Il branch remoto è stato eliminato automaticamente dopo il merge e quello locale è stato rimosso dopo le verifiche.**
 
 ### Checklist patch 0.11.1
 
@@ -553,8 +553,8 @@ Versione corrente / Current version: **0.11.1 (predisposta sul branch patch, non
 - [x] Commit di revisione creato dopo il feedback del progettista
 - [x] Verifica locale e approvazione esplicita del progettista ottenute (2026-09-26)
 - [x] Push e PR #6 eseguiti soltanto dopo approvazione
-- [ ] CI verificata su PR e `main`
-- [ ] Merge e deploy Pages completati e verificati
-- [ ] Tag annotato `v0.11.1` creato e pubblicato
-- [ ] Decisione sulla GitHub Release patch registrata
-- [ ] Branch locale e remoto eliminato dopo tutte le verifiche previste
+- [x] CI verificata sulla testa finale della PR (`36251652936`) e su `main` dopo il merge (`36251839491`)
+- [x] Merge PR #6 (`a277f63`) e deploy Pages (`36251839489`) completati e verificati
+- [x] Tag annotato `v0.11.1` creato e pubblicato nel workflow di chiusura autorizzato
+- [x] GitHub Release sorgente autorizzata e pubblicata; nessun artifact binario, checksum non applicabili
+- [x] Branch remoto eliminato automaticamente dopo il merge e branch locale eliminato dopo tutte le verifiche previste
