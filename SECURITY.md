@@ -13,7 +13,7 @@ corrente. Le release precedenti potrebbero non ricevere backport.
 Do not open a public issue for a suspected vulnerability. Use GitHub's private
 vulnerability reporting form:
 
-https://github.com/gloutchov/MyBenchmark/security/advisories/new
+https://github.com/gloutchov/LocalAgentBenchmark/security/advisories/new
 
 Non aprire una issue pubblica per una possibile vulnerabilità. Usa il modulo
 privato GitHub indicato sopra.
