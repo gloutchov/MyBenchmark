@@ -1,0 +1,112 @@
+from __future__ import annotations
+
+import re
+import struct
+import unittest
+from html.parser import HTMLParser
+from pathlib import Path
+from urllib.parse import urlparse
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SITE = ROOT / "site"
+ALLOWED_EXTERNAL_HOSTS = {"github.com", "glaucosilvestri.it", "gloutchov.github.io"}
+
+
+class SiteParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.ids: set[str] = set()
+        self.references: list[tuple[str, str]] = []
+        self.images: list[dict[str, str]] = []
+        self.links: list[dict[str, str]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = {key: value or "" for key, value in attrs}
+        if values.get("id"):
+            self.ids.add(values["id"])
+        for attribute in ("href", "src", "srcset"):
+            if values.get(attribute):
+                self.references.append((attribute, values[attribute]))
+        if tag == "img":
+            self.images.append(values)
+        if tag == "a":
+            self.links.append(values)
+
+
+class LandingPageTests(unittest.TestCase):
+    def parse(self, name: str) -> tuple[str, SiteParser]:
+        text = (SITE / name).read_text(encoding="utf-8")
+        parser = SiteParser()
+        parser.feed(text)
+        return text, parser
+
+    def test_required_site_files_exist(self) -> None:
+        required = {
+            "index.html", "404.html", "css/styles.css", "js/app.js", "js/i18n.js",
+            "js/preferences.js", "js/theme-bootstrap.js", "assets/favicon.svg",
+            "assets/dashboard-overview.png", "assets/dashboard-overview.webp",
+            "assets/dashboard-efficiency.png", "assets/dashboard-efficiency.webp",
+        }
+        missing = sorted(item for item in required if not (SITE / item).is_file())
+        self.assertEqual([], missing)
+
+    def test_local_references_exist_and_external_hosts_are_allowlisted(self) -> None:
+        for name in ("index.html", "404.html"):
+            _, parser = self.parse(name)
+            for attribute, reference in parser.references:
+                value = reference.split()[0] if attribute == "srcset" else reference
+                if value.startswith("#"):
+                    continue
+                if value.startswith("/LocalAgentBenchmark/"):
+                    local_value = value.removeprefix("/LocalAgentBenchmark/")
+                    if local_value:
+                        self.assertTrue((SITE / local_value).is_file(), f"missing {value} referenced by {name}")
+                    continue
+                parsed = urlparse(value)
+                if parsed.scheme:
+                    self.assertEqual("https", parsed.scheme)
+                    self.assertIn(parsed.hostname, ALLOWED_EXTERNAL_HOSTS)
+                    continue
+                self.assertTrue((SITE / value).is_file(), f"missing {value} referenced by {name}")
+
+    def test_navigation_anchors_have_targets(self) -> None:
+        _, parser = self.parse("index.html")
+        anchors = {link["href"][1:] for link in parser.links if link.get("href", "").startswith("#")}
+        self.assertTrue(anchors.issubset(parser.ids), anchors - parser.ids)
+        self.assertTrue({"top", "why", "method", "dashboard", "start"}.issubset(parser.ids))
+
+    def test_images_have_dimensions_and_localised_alternatives(self) -> None:
+        _, parser = self.parse("index.html")
+        self.assertGreaterEqual(len(parser.images), 2)
+        for image in parser.images:
+            self.assertRegex(image.get("width", ""), r"^\d+$")
+            self.assertRegex(image.get("height", ""), r"^\d+$")
+            self.assertRegex(image.get("data-i18n-alt", ""), r"^[a-z0-9_]+$")
+            header = (SITE / image["src"]).read_bytes()[:24]
+            self.assertEqual(b"\x89PNG\r\n\x1a\n", header[:8])
+            width, height = struct.unpack(">II", header[16:24])
+            self.assertEqual((width, height), (int(image["width"]), int(image["height"])))
+
+    def test_metadata_csp_accessibility_and_pages_prefix(self) -> None:
+        index, _ = self.parse("index.html")
+        self.assertIn('href="https://gloutchov.github.io/LocalAgentBenchmark/"', index)
+        self.assertIn("connect-src 'none'", index)
+        self.assertIn('class="skip-link"', index)
+        self.assertIn('data-menu-toggle', index)
+        self.assertIn('prefers-reduced-motion: reduce', (SITE / "css" / "styles.css").read_text())
+        fallback = (SITE / "404.html").read_text(encoding="utf-8")
+        self.assertGreaterEqual(fallback.count('href="/LocalAgentBenchmark/"'), 2)
+        self.assertIn('src="/LocalAgentBenchmark/js/app.js"', fallback)
+        self.assertIn('href="/LocalAgentBenchmark/css/styles.css"', fallback)
+
+    def test_no_remote_assets_tracking_or_source_video(self) -> None:
+        all_text = "\n".join(path.read_text(encoding="utf-8") for path in SITE.rglob("*") if path.suffix in {".html", ".css", ".js"})
+        self.assertIsNone(re.search(r"<(?:script|img)[^>]+src=['\"]https?://", all_text, re.I))
+        self.assertIsNone(re.search(r"<link(?=[^>]+rel=['\"](?:stylesheet|icon)['\"])[^>]+href=['\"]https?://", all_text, re.I))
+        self.assertIsNone(re.search(r"googletagmanager|google-analytics|plausible\.io|segment\.com", all_text, re.I))
+        self.assertFalse((SITE / "assets" / "Dashboard.mov").exists())
+
+
+if __name__ == "__main__":
+    unittest.main()

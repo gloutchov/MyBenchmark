@@ -248,7 +248,7 @@ class DashboardDataTests(unittest.TestCase):
         )
         self.assertEqual([1, 2], schema["properties"]["schema_version"]["enum"])
         validate_dashboard_data(fixture)
-        self.assertEqual(1, fixture["schema_version"])
+        self.assertEqual(2, fixture["schema_version"])
         self.assertEqual(["smoke", "standard", "full"], fixture["profile_order"])
 
     def test_schema_four_exports_only_safe_thinking_metadata(self):

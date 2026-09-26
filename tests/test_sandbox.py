@@ -174,6 +174,12 @@ class SandboxTests(unittest.TestCase):
             self.assertNotIn("--unshare-net", launch.command)
             self.assertEqual("workspace-unix-socket", launch.metadata["network_transport"])
             self.assertEqual("127.0.0.1:11434", launch.metadata["network_target"])
+            socket_index = launch.command.index("--socket")
+            self.assertEqual(
+                Path(".benchmark-scratch") / "ollama.sock",
+                Path(launch.command[socket_index + 1]),
+            )
+            self.assertFalse(Path(launch.command[socket_index + 1]).is_absolute())
             self.assertIn("--import=data:text/javascript;base64,", launch.environment["NODE_OPTIONS"])
             self.assertEqual(64, len(str(launch.metadata["network_shim_sha256"])))
 

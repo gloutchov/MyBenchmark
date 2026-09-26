@@ -4,7 +4,7 @@ Benchmark personale, ripetibile e offline per confrontare modelli Ollama usati c
 
 Personal, repeatable, offline benchmark for comparing Ollama models used as coding agents through [Pi](https://pi.dev). Its scenarios derive from this repository's operating rules: small patches, modular architecture, tests, security, configuration, i18n, documentation, and Git discipline.
 
-Stato / Status: **0.9.0 – milestone 9 in sviluppo / milestone 9 in development**
+Stato / Status: **0.10.0 – landing page GitHub Pages completata localmente e in revisione / GitHub Pages landing page complete locally and under review**
 Piattaforme / Platforms: macOS, Windows, Linux
 Verifica reale / Real-world validation: **run benchmark Pi/Ollama reali verificati soltanto su macOS e Windows; Linux è coperto dalla CI, ma non è ancora stato validato con uno smoke Pi/Ollama reale. / Real Pi/Ollama benchmark runs have been verified only on macOS and Windows; Linux is covered by CI, but has not yet been validated with a real Pi/Ollama smoke run.**
 Licenza / License: Apache-2.0
@@ -226,6 +226,22 @@ Nel selettore **Scegli file / Choose files**, aprire esclusivamente uno o più f
 
 In **Choose files**, select only one or more `dashboard-data.json` exports created by `python3 benchmark.py dashboard-data ...`; do not select `run.json`, `report.json`, run directories, or raw artifacts. Import stays inside the browser and does not upload or commit files. Full instructions: [QUICK-START_Dashboard.md](QUICK-START_Dashboard.md).
 
+## Landing page / Project landing page
+
+La landing page pubblica vive sotto [`site/`](site/) ed è pronta per GitHub Pages all'indirizzo `https://gloutchov.github.io/LocalAgentBenchmark/`. Per l'anteprima locale dalla root del repository:
+
+```bash
+python3 -m http.server 8000 --bind 127.0.0.1 --directory site
+```
+
+Aprire `http://127.0.0.1:8000/` e terminare con `Ctrl+C`. La pagina rileva la lingua del browser, usa italiano soltanto per locale italiani e inglese negli altri casi; lingua e tema possono essere scelti manualmente e sono le sole preferenze salvate in `localStorage`. Tutto il sito è statico: HTML, CSS, JavaScript, font di sistema e immagini sono locali, senza CDN, analytics, telemetria, form o richieste runtime remote. I link a repository, release, documentazione e sito personale sono navigazioni esterne esplicite.
+
+The public landing page lives under [`site/`](site/) and is ready for GitHub Pages at `https://gloutchov.github.io/LocalAgentBenchmark/`. Preview it locally with the command above. The page detects browser language, defaults to Italian only for Italian locales and to English otherwise, and persists only explicit language and theme choices. All runtime assets are local and the site has no CDN, analytics, telemetry, forms, or remote runtime requests.
+
+I fotogrammi sotto `site/assets/` sono derivati ottimizzati del video locale `assets/Dashboard.mov`: il sorgente resta ignorato da Git, non viene pubblicato e non va modificato. Quando cambiano testi o UI, mantenere sincronizzati i dizionari in `site/js/i18n.js`, aggiornare entrambe le immagini fallback/WebP quando necessario e verificare `site/index.html`, `site/404.html`, il prefisso Pages `/LocalAgentBenchmark/` e i test statici.
+
+The optimized frames in `site/assets/` are derived from the local `assets/Dashboard.mov` source. The source remains Git-ignored, is never published, and must not be edited. Keep both dictionaries synchronized and verify the HTML, fallback/WebP images, Pages prefix, and static tests whenever the landing page changes.
+
 ## Configurazione / Configuration
 
 [`benchmark.json`](benchmark.json) centralizza URL Ollama, comando Pi, timeout task/preflight, thinking, timeout idle HTTP, retry agente/provider, contesto, token massimi, warmup, sandbox, profili, directory di discovery dei casi e opzioni locali della dashboard. Il default resta `thinking: "off"`, `http_idle_timeout_ms: 0` e zero retry. La sezione `dashboard` mantiene asset e risultati dentro il repository, impone l'host `127.0.0.1` e configura sorgente dati, porta e apertura automatica. L'eventuale `dashboard/data/snapshot.js` è un output locale ignorato da Git. Ogni `cases/<id>/case.json`, verificabile contro [`schemas/case.schema.json`](schemas/case.schema.json), contiene ID, titoli bilingui, categoria, peso e path relativi; i manifesti pre-0.4 inline restano leggibili per compatibilità. `"models": "installed"` rileva tutti i modelli da `/api/tags`; una lista esplicita rende il set stabile. `defaults.sandbox` accetta `audit`, `auto` o `required`; il default conservativo e retrocompatibile è `audit`.
@@ -253,8 +269,13 @@ The reduced dashboard dataset also remains potentially sensitive: it includes lo
 ```bash
 python3 -m compileall -q benchmark.py dashboard.py src cases tests
 python3 -m unittest discover -s tests -v
+node --test dashboard/tests/dashboard.test.js site/tests/site.test.js
 python3 benchmark.py case validate
 ```
+
+Per una verifica mirata della landing page: `python3 -m unittest tests.test_site tests.test_site_javascript -v`. Prima della pubblicazione controllare anche desktop/mobile, entrambe le lingue, tema automatico/chiaro/scuro, tastiera, focus, overflow, console e richieste di rete tramite browser reale.
+
+For a focused landing-page check, run `python3 -m unittest tests.test_site tests.test_site_javascript -v`. Before publishing, also verify desktop/mobile layouts, both languages, automatic/light/dark themes, keyboard focus, overflow, console output, and network requests in a real browser.
 
 Per rigenerare un report esistente:
 
@@ -268,7 +289,9 @@ Do not edit case inputs during a run. Use `case create`, customize the scaffold,
 
 ## Distribuzione / Distribution
 
-Il progetto viene eseguito direttamente dal checkout. I tag sorgente non includono ancora wheel o artifact binari; un'eventuale distribuzione fuori checkout richiederà packaging smoke e checksum SHA-256 secondo [`PLAN.md`](PLAN.md).
+Il progetto viene eseguito direttamente dal checkout. I tag sorgente non includono ancora wheel o artifact binari; un'eventuale distribuzione fuori checkout richiederà packaging smoke e checksum SHA-256 secondo [`PLAN.md`](PLAN.md). Il workflow [GitHub Pages](.github/workflows/pages.yml) valida e pubblica soltanto `site/` dopo un push autorizzato su `main` o un avvio manuale; configurazione Pages e primo deploy restano subordinati all'approvazione del progettista.
+
+The project runs directly from its checkout and source tags do not currently include wheels or binary artifacts. The [GitHub Pages workflow](.github/workflows/pages.yml) validates and publishes only `site/` after an authorized push to `main` or a manual dispatch; Pages configuration and the first deployment still require project-owner approval.
 
 ## Documentazione / Documentation
 
@@ -279,6 +302,7 @@ Il progetto viene eseguito direttamente dal checkout. I tag sorgente non includo
 - [Guida autore casi / Case author quick start](QUICK-START_Case-Author.md)
 - [Finalissima dashboard / Dashboard showcase](QUICK-START_Showcase.md)
 - [Dashboard ufficiale / Official results dashboard](QUICK-START_Dashboard.md)
+- [Landing page locale / Local landing page](site/)
 - [Modello di sicurezza bilingue](SECURITY_MODEL.md)
 - [Segnalazione vulnerabilità](SECURITY.md)
 - [Guida ai contributi](CONTRIBUTING.md)

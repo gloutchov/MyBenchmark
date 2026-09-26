@@ -49,6 +49,9 @@ jobs:
               "QUICK-START_Case-Author.md", "QUICK-START_Showcase.md",
               "QUICK-START_Dashboard.md",
               "schemas/case.schema.json", "schemas/dashboard-data.schema.json",
+              "site/index.html", "site/404.html", "site/css/styles.css",
+              "site/js/app.js", "site/js/i18n.js", "site/js/preferences.js",
+              ".github/workflows/pages.yml",
           ]
           missing = [name for name in required if not Path(name).is_file()]
           if missing:

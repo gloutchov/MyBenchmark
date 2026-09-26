@@ -163,6 +163,20 @@ python3 benchmark.py dashboard-data \
 
 Import stays in the browser tab's memory: no file is uploaded or committed. Reloading returns to the initial source. Language and theme are the only preferences stored in browser `localStorage`. An optional `file://` snapshot can be generated with `python3 dashboard.py --refresh-snapshot --force`; it is ignored by Git and must never be committed. See [QUICK-START_Dashboard.md](QUICK-START_Dashboard.md) for the complete short workflow.
 
+### Project landing page
+
+The public landing page is maintained under `site/` and is published at `https://gloutchov.github.io/LocalAgentBenchmark/`. Preview it from the repository root with:
+
+```bash
+python3 -m http.server 8000 --bind 127.0.0.1 --directory site
+```
+
+Open `http://127.0.0.1:8000/` and stop the server with `Ctrl+C`. The page introduces the purpose, criteria, profiles, methodology, controls, official dashboard, and quick start. Its buttons navigate explicitly to the repository, latest release, documentation, and project owner's website. It is not the results dashboard and never reads `results/` directories.
+
+The initial language follows the browser: Italian for Italian locales and English otherwise. The selector provides a manual override. Theme can be automatic, light, or dark. Only these two preferences are stored in `localStorage`; the page has no cookies, forms, analytics, or telemetry. Every runtime asset is local. External links perform a normal navigation only when activated.
+
+When maintaining the page, update both dictionaries in `site/js/i18n.js`, keep paths compatible with the `/LocalAgentBenchmark/` prefix, and verify images, alternative text, the 404 page, links, and metadata. Published images under `site/assets/` are optimized, reviewed frames; `assets/Dashboard.mov` remains a local Git-ignored source and must not be published. Run the checks listed in the README and complete a desktop/mobile browser review before every deployment.
+
 ## 5. Configuration
 
 `benchmark.json` is the central configuration file. It defines the Ollama URL, Pi command, model selection, task/preflight timeouts, repetitions, thinking level, HTTP idle timeout, agent/provider retries, warmup, context and output limits, temperature, sandbox mode, profiles, the in-repository case discovery directory, and official dashboard paths, loopback host, port, and browser behavior. Official defaults are thinking `off`, HTTP idle timeout `0`, and zero retries. Each `cases/<id>/case.json` holds bilingual titles, category, weight, and relative input paths.

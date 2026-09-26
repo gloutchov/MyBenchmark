@@ -39,6 +39,7 @@ function alternateDataset() {
       state: "passed",
     },
   ];
+  delete run.thinking_control;
   return {
     schema_version: 1,
     profile_order: ["custom"],
@@ -85,9 +86,9 @@ test("creates filtered and sorted views without mutating the dataset", () => {
   });
   assert.deepEqual(view.availableModels.includes("qwen3.5:9b-mlx"), true);
   assert.ok(view.leaderboard.every((row) => row.profile === "smoke" && row.model === "qwen3.5:9b-mlx"));
-  assert.ok(view.leaderboard.every((row) => row.thinking_mode === "unknown"));
+  assert.ok(view.leaderboard.every((row) => ["off", "medium"].includes(row.thinking_mode)));
   assert.ok(view.tasks.every((row) => row.model === "qwen3.5:9b-mlx"));
-  assert.ok(view.tasks.every((row) => row.thinking_mode === "unknown"));
+  assert.ok(view.tasks.every((row) => ["off", "medium"].includes(row.thinking_mode)));
   assert.ok(view.efficiency.every((cohort) => cohort.duration.points.length === 1));
   assert.ok(view.efficiency.every((cohort) => cohort.tokens.points.length === 1));
   assert.ok(view.efficiency.every((cohort) => cohort.duration.points[0].model === "qwen3.5:9b-mlx"));
@@ -97,14 +98,15 @@ test("creates filtered and sorted views without mutating the dataset", () => {
 
 test("builds separate efficiency cohorts with logarithmic domains and completion states", () => {
   const view = Core.createDashboardView(fixture, { profile: "all", model: "all" });
-  assert.equal(view.efficiency.length, fixture.runs.length);
-  assert.deepEqual(view.efficiency.map((cohort) => cohort.run_id), fixture.runs.map((run) => run.id));
+  const rankedRuns = fixture.runs.filter((run) => run.leaderboard.length > 0);
+  assert.equal(view.efficiency.length, rankedRuns.length);
+  assert.deepEqual(view.efficiency.map((cohort) => cohort.run_id), rankedRuns.map((run) => run.id));
   assert.ok(view.efficiency.every((cohort) => cohort.duration.domain.minimum > 0));
   assert.ok(view.efficiency.every((cohort) => cohort.duration.domain.maximum > cohort.duration.domain.minimum));
   assert.ok(view.efficiency.every((cohort) => cohort.tokens.domain.ticks.length <= 7));
-  const smoke = view.efficiency.find((cohort) => cohort.profile === "smoke");
+  const smoke = view.efficiency.find((cohort) => cohort.profile === "smoke" && cohort.thinking_mode === "off");
   assert.equal(smoke.duration.points.find((point) => point.model === "qwen3.5:9b-mlx").state, "complete");
-  assert.equal(smoke.duration.points.find((point) => point.model === "gpt-oss:20b").state, "below");
+  assert.equal(smoke.duration.points.find((point) => point.model === "qwen3:14b").state, "below");
 });
 
 test("handles degenerate and missing efficiency metrics without inventing points", () => {
@@ -140,8 +142,10 @@ test("merges alternate datasets, deduplicates identical runs, and rejects collis
   assert.equal(merged.runs.length, fixture.runs.length + 1);
   assert.deepEqual(merged.profile_order, ["smoke", "standard", "full", "custom"]);
   assert.deepEqual(merged.funnel.map((stage) => stage.profile), ["smoke", "standard", "full"]);
-  assert.ok(merged.runs.every((run) => run.thinking_control.status === "unverified"));
-  assert.ok(merged.runs.every((run) => run.thinking_control.source === "legacy_unverified"));
+  const legacyRun = merged.runs.find((run) => run.id === "alternate-run");
+  assert.equal(legacyRun.thinking_control.status, "unverified");
+  assert.equal(legacyRun.thinking_control.source, "legacy_unverified");
+  assert.ok(merged.runs.filter((run) => run.id !== "alternate-run").every((run) => run.thinking_control.source === "explicit_sampling_parameter"));
 
   const collision = alternateDataset();
   collision.runs[0].id = fixture.runs[0].id;
@@ -174,14 +178,17 @@ test("rebuilds neutral funnel semantics", () => {
   const merged = Core.mergeDashboardData([fixture]);
   const smoke = merged.funnel.find((stage) => stage.profile === "smoke");
   assert.ok(smoke.continued_to_next.includes("qwen3.5:9b-mlx"));
-  assert.ok(smoke.not_run_in_next.includes("gpt-oss:20b"));
+  assert.ok(smoke.not_run_in_next.includes("cogito:14b"));
   assert.equal(smoke.not_run_in_next.includes("qwen3.5:9b-mlx"), false);
   const view = Core.createDashboardView(merged, {});
   const uniqueDisqualified = new Set(
     merged.runs.flatMap((run) => run.integrity.disqualified_models)
   );
   assert.equal(view.summary.disqualifiedCount, uniqueDisqualified.size);
-  assert.equal(view.summary.unverifiedThinkingCount, view.runs.length);
+  assert.equal(
+    view.summary.unverifiedThinkingCount,
+    fixture.runs.filter((run) => run.thinking_control.status !== "passed").length
+  );
 });
 
 test("keeps Italian and English dictionaries synchronized", () => {

@@ -1,6 +1,6 @@
 # Piano di sviluppo / Development Plan
 
-Versione corrente / Current version: **0.9.0**
+Versione corrente / Current version: **0.10.0**
 
 ## Milestone 1 – Benchmark locale funzionale
 
@@ -417,3 +417,111 @@ Versione corrente / Current version: **0.9.0**
 - [x] CI macOS, Ubuntu e Windows verificata sulla PR (`35501206550`) e su `main` (`35501371878`)
 - [x] Tag annotato `v0.9.0` e GitHub Release stabile pubblicati senza artifact binari di progetto
 - [x] Branch obsoleto eliminato dal remoto e in locale dopo merge, CI, tag e release
+
+## Milestone 10 – Landing page bilingue su GitHub Pages
+
+- Obiettivo: creare una landing page pubblica, moderna e sobria che presenti LocalAgent Benchmark, spieghi cosa misura e come funziona il percorso `smoke` → `standard` → `full`, illustri dashboard e risultati senza sovraccaricare la pagina di testo e offra accessi chiari al repository, alla release più recente e al sito personale del progettista.
+- Branch previsto: `milestone/10-github-pages-landing`
+- Incremento versione: `+0.1.0`, da `0.9.0` a `0.10.0`, con tag previsto `v0.10.0`.
+- Architettura e pubblicazione: realizzare un sito statico dedicato sotto `site/`, con HTML, CSS e JavaScript modulari, asset locali e nessuna dipendenza runtime, CDN, font remoto, telemetria o analytics; aggiungere un workflow GitHub Pages dedicato che pubblichi esclusivamente il contenuto revisionato di `site/` all'indirizzo `https://gloutchov.github.io/LocalAgentBenchmark/`. Il workflow e la configurazione Pages possono essere attivati soltanto dopo l'approvazione esplicita del progettista.
+- Struttura dei contenuti: prevedere almeno hero e sintesi del progetto; panoramica delle capacità valutate; spiegazione dei profili e dei casi; metodologia, riproducibilità, sandbox, controllo thinking e limiti interpretativi; presentazione visuale della dashboard ufficiale; istruzioni rapide per eseguire o consultare il benchmark; collegamenti alla documentazione; call to action verso il repository `https://github.com/gloutchov/LocalAgentBenchmark` e verso `https://github.com/gloutchov/LocalAgentBenchmark/releases/latest`, chiarendo che il download disponibile è quello distribuito dalla release e senza promettere artifact non presenti; footer con indicazione e link alla Apache License 2.0.
+- Navigazione: inserire nell'header un menu che raggiunga tramite anchor le sezioni principali della landing page; immediatamente dopo il menu aggiungere un'icona a forma di casa, accessibile da tastiera e dotata di etichetta comprensibile, che apra `https://glaucosilvestri.it`. Rendere visibili focus, stato attivo e comportamento del menu su schermi stretti senza introdurre navigazioni inattese.
+- Lingua: rilevare `navigator.language` e usare italiano soltanto quando la lingua di sistema è italiana, inglese in tutti gli altri casi; offrire un controllo manuale `Italiano`/`English`, aggiornare correttamente l'attributo `lang` del documento e persistere la preferenza in `localStorage`; mantenere sincronizzati i dizionari e non lasciare stringhe user-facing hardcoded fuori dal sistema i18n.
+- Tema: usare `prefers-color-scheme` per il comportamento automatico e offrire un controllo manuale `Auto`/`Chiaro`/`Scuro` (`Auto`/`Light`/`Dark` in inglese), persistendo la preferenza in `localStorage`; evitare flash cromatici evidenti al caricamento e verificare contrasto, immagini, header, link, pulsanti, focus e stati hover/disabled in entrambi i temi.
+- Direzione visuale: adottare un linguaggio grafico contemporaneo ma misurato, coerente con un progetto tecnico e con la dashboard esistente; privilegiare gerarchia tipografica, griglia, spaziatura e contenuti reali rispetto a decorazioni, card annidate o animazioni gratuite; supportare `prefers-reduced-motion`; mantenere il percorso principale leggibile su desktop e mobile.
+- Materiale visuale: revisionare il file locale non tracciato `assets/Dashboard.mov` prima di utilizzarlo, verificando che non mostri path, dati sensibili o elementi non destinati alla pubblicazione; trattarlo come sorgente locale immutabile e non committarlo automaticamente. Estrarre fotogrammi rappresentativi della dashboard, ritagliarli e ottimizzarli in formati web moderni con fallback quando necessario; versionare sotto `site/assets/` soltanto immagini derivate, leggere, prive di metadati non necessari e approvate dal progettista, con dimensioni dichiarate, caricamento responsivo/lazy e testi alternativi bilingui. Un breve video ottimizzato potrà essere valutato solo se migliora davvero la comprensione senza penalizzare peso, accessibilità o prestazioni.
+- Sicurezza e privacy: pubblicare esclusivamente testo, link e asset revisionati; non incorporare risultati raw, path locali, prompt, risposte, reasoning, log o identificatori sensibili; non usare form, cookie, tracker o richieste remote; limitare `localStorage` a lingua e tema; definire una Content Security Policy compatibile con GitHub Pages e documentare in `SECURITY_MODEL.md` la superficie pubblica, i link esterni, lo storage locale e i limiti residui dell'hosting Pages.
+- Criteri di accettazione: apertura diretta sull'esperienza utile; contenuti completi e coerenti in italiano e inglese; selezione automatica e override persistente di lingua e tema; menu e icona casa corretti e accessibili; link a repository, release più recente, licenza e sito personale validi; immagini della dashboard nitide, responsive, non sensibili e non meramente decorative; assenza di overflow orizzontale e layout leggibile almeno a 390 px e 1440 px; navigazione completa da tastiera, focus visibile, contrasto adeguato, landmark semantici, skip link e rispetto di `prefers-reduced-motion`; nessuna richiesta verso CDN, font, analytics o altri asset remoti; percorsi relativi funzionanti sotto il prefisso Pages `/LocalAgentBenchmark/`; metadata essenziali per titolo, descrizione, social preview e URL canonico coerenti; pagina 404 o fallback di navigazione appropriato alla natura statica del sito; licenza Apache 2.0 indicata chiaramente.
+- Test richiesti: test unitari JavaScript senza dipendenze runtime per selezione/persistenza di lingua e tema e sincronizzazione dei dizionari; controllo statico di link, anchor, asset, `lang`, testi alternativi, metadata e assenza di URL remoti non autorizzati; verifica locale tramite server statico; test browser su desktop e mobile in italiano/inglese e tema auto/chiaro/scuro; prova tastiera, focus, menu responsive, preferenze persistenti, `prefers-reduced-motion`, console, overflow e richieste di rete; controllo dei link esterni senza dipendere dalla rete nella suite ordinaria; esecuzione di compileall, unittest, test Node esistenti, validazione dei casi e CI multipiattaforma per assicurare che la landing page non introduca regressioni nel benchmark.
+- Documentazione: aggiornare `README.md`, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md` e questo piano; aggiungere istruzioni per anteprima locale, manutenzione dei contenuti/asset, aggiornamento dei link e funzionamento del deploy Pages; sincronizzare la versione `0.10.0` in tutti i punti canonici soltanto durante l'implementazione della milestone. Tutti gli aggiornamenti documentali devono essere completati e revisionati sul branch della milestone prima dell'approvazione al merge, così che `main` riceva insieme funzionalità, documentazione e modello di sicurezza coerenti.
+- Release: creare il tag sorgente `v0.10.0`; per decisione esplicita del progettista non creare una GitHub Release, perché la milestone aggiunge presentazione e pubblicazione web senza modificare il comportamento funzionale del benchmark. Il link “ultima release” della landing page resta stabile tramite `/releases/latest` e continua a puntare all'ultima GitHub Release effettivamente pubblicata.
+- Gate di approvazione: all'avvio dei lavori creare il branch dedicato, ma mantenere tutte le modifiche non committate per consentire la verifica personale locale del progettista. Prima dell'avallo esplicito sono vietati commit, push, apertura PR, merge, tag, GitHub Release, attivazione/deploy Pages e rimozione del branch. Dopo test automatici e verifica browser, presentare diff, anteprima locale, elenco degli asset derivati, risultati dei test e limiti residui; procedere con ciascuna operazione Git e di pubblicazione soltanto nell'ambito autorizzato dal progettista.
+- Stato: **implementazione e documentazione completate e approvate dal progettista il 2026-09-26 prima del primo commit, inclusi i fotogrammi derivati, la rinomina del repository in `LocalAgentBenchmark` e il deploy Pages. Il repository remoto è stato rinominato, il commit funzionale `56c4a60` è stato pubblicato sul branch dedicato e la PR #4 è aperta; CI, merge, tag, deploy e rimozione branch restano da verificare. I test locali sono verdi (compileall, 113 test Python con 12 skip ambientali, 15 test Node e validazione dei sei casi); la verifica browser copre desktop/mobile, lingua, temi, persistenza, tastiera, overflow, console, asset lazy e sole richieste same-origin. `assets/Dashboard.mov` è rimasto immutato e ignorato. Per decisione esplicita non verrà creata una GitHub Release.**
+
+### Checklist milestone 10
+
+- [x] Branch `milestone/10-github-pages-landing` creato senza commit iniziali non autorizzati
+- [x] Brief dei contenuti, architettura informativa e direzione visuale revisionati
+- [x] `assets/Dashboard.mov` ispezionato per privacy e contenuti pubblicabili senza modificarne l'originale
+- [x] Fotogrammi derivati selezionati, ottimizzati, privati dei metadati superflui e approvati
+- [x] Struttura statica modulare sotto `site/` implementata senza dipendenze runtime o asset remoti
+- [x] Header, menu per sezioni e icona casa verso `https://glaucosilvestri.it` implementati e accessibili
+- [x] Contenuti completi e sincronizzati in italiano e inglese
+- [x] Rilevamento automatico e override persistente della lingua verificati
+- [x] Tema automatico, chiaro e scuro con override persistente verificati
+- [x] Sezioni descrittive, metodologia, sicurezza, dashboard, quick start e call to action completate
+- [x] Link a repository, `/releases/latest`, documentazione e Apache License 2.0 verificati
+- [x] Responsive, accessibilità, tastiera, contrasto, focus e `prefers-reduced-motion` verificati
+- [x] Metadata, social preview, URL canonico, percorsi `/LocalAgentBenchmark/` e fallback 404 verificati
+- [x] Assenza di CDN, font remoti, telemetria, tracker, richieste inattese e dati sensibili verificata
+- [x] Test JavaScript, controlli statici, compileall, unittest, validazione casi e suite esistenti verdi
+- [x] Verifica browser locale completata a 1440×900 e 390×844 in entrambe le lingue e in tutti i temi
+- [x] Workflow GitHub Pages preparato ma non attivato né pubblicato prima dell'avallo
+- [x] Versione `0.10.0` predisposta e sincronizzata nei punti canonici
+- [x] README, manuali, SECURITY_MODEL, MAP, AGENTS e PLAN aggiornati e revisionati sul branch prima del merge
+- [x] Diff completo, anteprima locale, asset derivati, test e limiti residui presentati al progettista
+- [x] Approvazione esplicita del progettista ottenuta prima del primo commit
+- [x] Commit autorizzati creati sul branch dedicato
+- [x] Push e PR eseguiti soltanto dopo autorizzazione esplicita
+- [ ] CI verificata sul branch/PR e, dopo merge autorizzato, su `main`
+- [ ] Merge verso `main` eseguito soltanto dopo autorizzazione esplicita
+- [ ] Tag annotato `v0.10.0` creato dopo autorizzazione; GitHub Release intenzionalmente non prevista
+- [ ] Deploy GitHub Pages verificato all'URL pubblico dopo autorizzazione esplicita
+- [ ] Link della landing page, repository, release più recente, licenza e sito personale verificati sul sito pubblicato
+- [ ] Branch obsoleto eliminato soltanto dopo merge, CI, tag e deploy verificati
+
+## Milestone 11 – Percorso rapido guidato del benchmark
+
+- Obiettivo: offrire a chi non è a proprio agio con il terminale una procedura guidata, avviabile senza comporre comandi, che rilevi i modelli Ollama installati, esegua in sequenza il funnel `smoke` → `standard` → `full`, promuova automaticamente i modelli meglio classificati e apra infine la dashboard ufficiale sui tre run prodotti.
+- Dipendenza: iniziare questa milestone soltanto dopo la chiusura e l'integrazione della milestone 10, perché la landing page realizzata in quella milestone dovrà essere aggiornata nello stesso branch per presentare il nuovo percorso rapido.
+- Branch previsto: `milestone/11-guided-benchmark-funnel`
+- Incremento versione: `+0.1.0`, da `0.10.0` a `0.11.0`, con tag previsto `v0.11.0`.
+- Flusso funzionale: eseguire prima i controlli equivalenti a `doctor` e rilevare i modelli tramite l'adapter Ollama esistente; mostrare l'elenco rilevato e le impostazioni effettive prima della conferma di avvio; eseguire `smoke` su tutti i modelli locali selezionati, leggere la leaderboard ufficiale del relativo `report.json` e promuovere al massimo i primi quattro modelli classificabili; eseguire `standard` su questi candidati, quindi promuovere al massimo i primi due classificabili; eseguire `full` sui finalisti; costruire il dataset ridotto in memoria attraverso i componenti esistenti e aprire automaticamente la dashboard ufficiale con i run `smoke`, `standard` e `full`. Se i candidati validi sono meno del limite, proseguire con quelli disponibili; se nessun modello è classificabile, interrompere il funnel con un messaggio chiaro e conservare gli artefatti già prodotti.
+- Selezione e riproducibilità: riusare senza duplicarla la logica di ordinamento della leaderboard ufficiale, inclusi punteggio composito e tie-break esistenti; non promuovere modelli esclusi per integrità, controllo thinking non verificato o run incompleto; registrare in un manifesto del percorso modelli scoperti e selezionati, directory dei tre run, seed, impostazioni effettive, graduatorie, motivi di esclusione e passaggi di selezione. I limiti predefiniti `4` e `2`, i profili e le altre opzioni modificabili devono stare nella configurazione centrale, essere validati all'avvio e non introdurre fallback silenziosi.
+- Interfaccia e piattaforme: mantenere il core in moduli Python testabili e senza nuove dipendenze runtime; fornire un launcher sottile e documentato per l'avvio con doppio clic almeno su macOS e Windows, con il miglior equivalente ragionevole su Linux, senza richiedere all'utente di scrivere comandi. L'interfaccia deve mostrare stato corrente, modello/caso in esecuzione, avanzamento fra le tre fasi, directory dei risultati, tempi potenzialmente lunghi, errori e azione di annullamento; un'interruzione deve terminare in modo controllato i processi avviati e preservare i run completati o diagnosticabili, senza promuovere risultati parziali.
+- Configurazione operativa: usare `benchmark.json` come fonte unica per endpoint Ollama, Pi, timeout, warmup, thinking, retry, sandbox e directory dei risultati; il percorso guidato deve mostrare almeno thinking e sandbox effettivi prima dell'avvio, mantenere il default ufficiale `thinking: off`, non degradare silenziosamente il sandbox e non aggirare preflight, snapshot, input puliti, hash, audit, unload/warmup o altri controlli già applicati dal runner.
+- Esclusione della finalissima: il percorso rapido non deve eseguire il profilo `showcase`, non deve lanciare il caso `results_dashboard`, non deve chiedere ai modelli di creare una dashboard e non deve modificare o congelare `cases/results_dashboard/fixture/dashboard-data.json`; apre soltanto la dashboard ufficiale mantenuta dal progetto per analizzare i risultati del funnel.
+- Sicurezza e privacy: invocare i processi con argomenti strutturati, senza interpolare nomi modello in comandi shell; restare su Ollama locale e sul server dashboard `127.0.0.1`; non introdurre rete Internet, telemetria o scritture fuori dalla root; applicare gli stessi controlli di path, input, sandbox, thinking e integrità della CLI; trattare `results/` e il manifesto del percorso come dati locali potenzialmente sensibili; richiedere conferma esplicita prima dell'avvio e prima di eventuali operazioni distruttive, senza cancellazioni automatiche dei run precedenti.
+- Stati ed errori: distinguere prerequisiti mancanti, Ollama non raggiungibile, nessun modello rilevato, input Git sporchi, modello escluso, task fallita, fase senza candidati, annullamento utente e dashboard non avviabile; non continuare automaticamente con dati incompleti o incompatibili. Al termine mostrare un riepilogo bilingue con promossi/esclusi, punteggi, percorsi relativi dei run e possibilità di riprovare l'apertura della dashboard senza rieseguire il benchmark.
+- Criteri di accettazione: da un checkout valido l'utente avvia il percorso senza digitare comandi; vede e conferma i modelli Ollama locali e le impostazioni; lo `smoke` usa il set selezionato, lo `standard` riceve esattamente i primi quattro classificabili o meno se non disponibili e il `full` riceve esattamente i primi due classificabili o meno se non disponibili; ogni fase usa una directory distinta e verificabile; esclusioni e interruzioni non vengono reinterpretate come successi; la dashboard ufficiale si apre con i tre run prodotti e mostra il funnel coerente; nessuna task `results_dashboard` e nessun run `showcase` vengono creati; il flusso funziona almeno su macOS e Windows e degrada con un messaggio documentato quando un prerequisito di piattaforma manca.
+- Test richiesti: unit test per discovery, configurazione, macchina a stati, selezione top 4/top 2, tie-break, meno candidati del limite, leaderboard vuota, esclusioni d'integrità/thinking, run parziale, annullamento e costruzione sicura degli argomenti; integration test con adapter e runner simulati per verificare ordine delle fasi, directory distinte, provenienza e apertura dashboard; test negativi per nomi modello ostili, path non confinati, output esistente, Ollama/Pi indisponibili e input protetti sporchi; smoke manuale del launcher su macOS e Windows, e su Linux quando disponibile; verifica browser della dashboard finale, funnel e assenza di richieste remote; esecuzione di `python3 -m compileall -q benchmark.py dashboard.py src cases tests`, `python3 -m unittest discover -s tests -v`, suite JavaScript, validazione di tutti i casi e CI multipiattaforma.
+- Landing page: aggiungere una sezione bilingue “Percorso rapido / Quick path” che descriva rilevamento automatico, selezione progressiva `tutti` → `4` → `2`, durata indicativa non garantita, risultati locali e apertura della dashboard; chiarire che il metodo riduce il lavoro sui modelli meno promettenti ma non altera punteggi o controlli e non include la finalissima in cui i modelli costruiscono una dashboard. Aggiornare call to action, quick start e link senza introdurre download o capacità non realmente distribuiti.
+- Documentazione: creare un quick start bilingue dedicato al percorso guidato e aggiornare `README.md`, `ISTRUZIONI.md`, `INSTRUCTIONS.md`, `SECURITY_MODEL.md`, `MAP.md`, `AGENTS.md`, la documentazione della dashboard, la landing page e questo piano; documentare installazione/prerequisiti, avvio per piattaforma, selezione automatica, configurazione, tempi attesi, arresto, ripresa o riapertura dei risultati, troubleshooting, privacy e limiti. Tutti gli aggiornamenti documentali devono essere completati e revisionati sul branch prima dell'approvazione al merge.
+- Release: milestone funzionale rilasciabile come `v0.11.0`, con GitHub Release prevista; verificare il tipo di distribuzione effettivamente disponibile e non promettere launcher o artifact binari non prodotti. Se vengono distribuiti nuovi artifact, generarli per le piattaforme supportate, verificarli fuori dal checkout e pubblicare checksum SHA-256, documentando chiaramente l'assenza di firma quando applicabile.
+- Gate di approvazione: all'avvio dell'implementazione creare il branch dedicato e mantenere le modifiche non committate per la verifica del progettista. Prima dell'avallo esplicito sono vietati il primo commit e ogni commit successivo, push, apertura PR, merge, tag, GitHub Release, pubblicazione di artifact, deploy della landing aggiornata e rimozione del branch. Dopo implementazione, test, smoke multipiattaforma e aggiornamento completo della documentazione, presentare diff, procedura locale, risultati, artefatti e limiti residui; procedere con ciascuna operazione soltanto nell'ambito autorizzato dal progettista.
+- Stato: **pianificata dopo la milestone 10; implementazione non avviata.**
+
+### Checklist milestone 11
+
+- [ ] Milestone 10 chiusa e integrata prima dell'avvio
+- [ ] Branch `milestone/11-guided-benchmark-funnel` creato senza commit iniziali non autorizzati
+- [ ] Flusso UX, configurazione e criteri di promozione revisionati
+- [ ] Core di orchestrazione modulare implementato senza nuove dipendenze runtime
+- [ ] Launcher senza composizione manuale di comandi disponibile per macOS e Windows; comportamento Linux documentato
+- [ ] Discovery dei modelli Ollama e riepilogo delle impostazioni effettive verificati
+- [ ] Preflight e controlli esistenti riusati senza bypass o fallback silenziosi
+- [ ] Run `smoke` eseguito sui modelli selezionati
+- [ ] Top 4 classificabili promossi automaticamente allo `standard`
+- [ ] Top 2 classificabili promossi automaticamente al `full`
+- [ ] Limiti inferiori, nessun candidato, errori, esclusioni e annullamento gestiti senza falsi successi
+- [ ] Manifesto del percorso con provenienza, seed, graduatorie e selezioni prodotto e validato
+- [ ] Profili `showcase` e caso `results_dashboard` esclusi dal percorso e fixture della finalissima non modificata
+- [ ] Dashboard ufficiale aperta sui tre run distinti con funnel coerente
+- [ ] Riepilogo bilingue finale e riapertura della dashboard senza rerun verificati
+- [ ] Test unitari e di integrazione del percorso guidato verdi
+- [ ] Compileall, unittest, test JavaScript e validazione completa dei casi verdi
+- [ ] Smoke manuale del launcher completato su macOS e Windows; Linux verificato oppure limite motivato
+- [ ] Dashboard finale verificata in browser per funnel, accessibilità di base, console, overflow e assenza di richieste remote
+- [ ] Landing page aggiornata con la sezione bilingue “Percorso rapido / Quick path” e call to action coerenti
+- [ ] Quick start dedicato, README, manuali, SECURITY_MODEL, MAP, AGENTS, documentazione dashboard e PLAN aggiornati e revisionati sul branch prima del merge
+- [ ] Versione `0.11.0` predisposta e sincronizzata in tutti i punti canonici
+- [ ] Diff completo, procedura locale, risultati dei test, artifact e limiti residui presentati al progettista
+- [ ] Approvazione esplicita del progettista ottenuta prima di qualunque commit
+- [ ] Commit autorizzati creati sul branch dedicato
+- [ ] Push e apertura PR eseguiti soltanto dopo autorizzazione esplicita
+- [ ] CI verificata sul branch/PR e, dopo merge autorizzato, su `main`
+- [ ] Merge verso `main` eseguito soltanto dopo autorizzazione esplicita
+- [ ] Tag annotato `v0.11.0` e GitHub Release creati soltanto dopo autorizzazione esplicita
+- [ ] Artifact e checksum verificati quando effettivamente previsti dalla release
+- [ ] Landing aggiornata pubblicata e verificata soltanto dopo autorizzazione esplicita
+- [ ] Branch obsoleto eliminato soltanto dopo merge, CI, tag, release e deploy verificati

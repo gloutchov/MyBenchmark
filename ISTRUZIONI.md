@@ -173,6 +173,20 @@ python3 benchmark.py dashboard-data \
 
 L'importazione resta nella memoria della scheda del browser: non invia dati in rete e non committa file. Ricaricando la pagina si torna alla sorgente iniziale. Lingua e tema sono le sole preferenze persistite nel `localStorage` del browser. Uno snapshot opzionale per `file://` può essere generato con `python3 dashboard.py --refresh-snapshot --force`: è ignorato da Git e non deve mai essere committato. La guida breve completa è [QUICK-START_Dashboard.md](QUICK-START_Dashboard.md).
 
+### Landing page del progetto
+
+La landing page pubblica è mantenuta sotto `site/` ed è pubblicata all'indirizzo `https://gloutchov.github.io/LocalAgentBenchmark/`. Per controllarla localmente dalla root del repository:
+
+```bash
+python3 -m http.server 8000 --bind 127.0.0.1 --directory site
+```
+
+Aprire `http://127.0.0.1:8000/` e terminare il server con `Ctrl+C`. La pagina presenta scopo, criteri, profili, metodo, controlli, dashboard e avvio rapido; i pulsanti portano esplicitamente al repository, all'ultima release, alla documentazione e al sito personale del progettista. Non è la dashboard dei risultati e non legge le directory `results/`.
+
+La lingua iniziale segue il browser: italiano per locale italiani, inglese in ogni altro caso. Il selettore consente l'override manuale. Il tema può essere automatico, chiaro o scuro. Soltanto queste due preferenze vengono salvate in `localStorage`; la pagina non usa cookie, form, analytics o telemetria. Tutti gli asset runtime sono locali. I link esterni effettuano una normale navigazione solo quando vengono attivati.
+
+Per manutenerla, aggiornare insieme i testi italiano/inglese in `site/js/i18n.js`, conservare i percorsi compatibili con il prefisso `/LocalAgentBenchmark/` e verificare immagini, testo alternativo, 404, link e metadata. Le immagini pubblicabili in `site/assets/` sono fotogrammi ottimizzati e revisionati; `assets/Dashboard.mov` resta un sorgente locale ignorato da Git e non deve essere pubblicato. Eseguire i test indicati nel README e una verifica browser desktop/mobile prima di ogni deploy.
+
 ## 5. Configurazione
 
 `benchmark.json` contiene tutti i parametri modificabili:
