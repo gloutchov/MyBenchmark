@@ -73,8 +73,9 @@ class GuidedUiTests(unittest.TestCase):
                 content = launcher.read_text(encoding="utf-8")
                 self.assertIn("guided_benchmark.py", content)
                 self.assertNotIn(str(ROOT), content)
-        self.assertTrue(launchers[0].stat().st_mode & 0o111)
-        self.assertTrue(launchers[2].stat().st_mode & 0o111)
+        if sys.platform != "win32":
+            self.assertTrue(launchers[0].stat().st_mode & 0o111)
+            self.assertTrue(launchers[2].stat().st_mode & 0o111)
 
     def test_completion_summary_is_bilingual_and_lists_runs_and_exclusions(self):
         payload = {
