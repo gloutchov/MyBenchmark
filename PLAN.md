@@ -538,7 +538,7 @@ Versione corrente / Current version: **0.11.1 (predisposta sul branch patch, non
 - Test: test statici Python e Node della landing, suite Python completa, compileall, validazione dei casi e verifica browser locale desktop/mobile in entrambe le lingue e nei temi chiaro/scuro; CI multipiattaforma soltanto dopo il push autorizzato.
 - Documentazione: aggiornare README per versione e asset della landing, MAP per la nuova gerarchia e PLAN per il workflow della patch; `SECURITY_MODEL.md` resta invariato perché non cambiano rete, dati, storage, CSP o superfici operative.
 - Release: patch sorgente `v0.11.1`; GitHub Release esplicitamente autorizzata dal progettista il 2026-09-26.
-- Stato: **implementazione, documentazione, test automatici e verifica browser locale completati; commit di revisione, push, PR/merge, tag, release e rimozione del branch autorizzati esplicitamente dal progettista il 2026-09-26.**
+- Stato: **implementazione, documentazione, test automatici e verifica browser locale completati; la PR #6 è aperta e la CI multipiattaforma `36251430977` è verde su macOS, Ubuntu e Windows. Commit di revisione, push, PR/merge, tag, release e rimozione del branch sono stati autorizzati esplicitamente dal progettista il 2026-09-26.**
 
 ### Checklist patch 0.11.1
 
@@ -552,7 +552,7 @@ Versione corrente / Current version: **0.11.1 (predisposta sul branch patch, non
 - [x] Correzione tipografica 06/07, menu completo e controlli compatti lingua/tema verificati
 - [x] Commit di revisione creato dopo il feedback del progettista
 - [x] Verifica locale e approvazione esplicita del progettista ottenute (2026-09-26)
-- [ ] Push e PR eseguiti soltanto dopo approvazione
+- [x] Push e PR #6 eseguiti soltanto dopo approvazione
 - [ ] CI verificata su PR e `main`
 - [ ] Merge e deploy Pages completati e verificati
 - [ ] Tag annotato `v0.11.1` creato e pubblicato
