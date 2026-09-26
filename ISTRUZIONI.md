@@ -44,6 +44,14 @@ python3 benchmark.py run --profile standard
 
 ## 4. Flussi principali
 
+### Percorso rapido guidato senza comandi
+
+Aprire con doppio clic `launchers/LocalAgent-Benchmark.command` su macOS, `launchers\LocalAgent-Benchmark.cmd` su Windows o `launchers/LocalAgent-Benchmark.sh` su Linux. La finestra esegue `doctor`, rileva i modelli Ollama locali, permette di scegliere i partecipanti e di ordinarli per nome, dimensione o thinking cliccando sulle intestazioni, quindi mostra thinking, sandbox, timeout e warmup effettivi prima di chiedere conferma.
+
+Il funnel esegue `smoke` su tutti i selezionati, usa l'ordine della leaderboard ufficiale per promuovere al massimo i primi quattro a `standard`, poi al massimo i primi due a `full`. Un modello con task fallita viene escluso senza fermare gli altri quando la fase è completa e verificabile; una fase parziale o incompatibile ferma invece il percorso. Al termine la dashboard ufficiale si apre sui tre run distinti. Il percorso non esegue `showcase` né il caso `results_dashboard`.
+
+**Annulla** termina il gruppo di processi dopo conferma e conserva gli artefatti. Una sessione interrotta non è ripresa: risolvere il problema e crearne una nuova. **Riapri dashboard** riutilizza invece da uno a tre run disponibili dell'ultima sessione senza rieseguire i modelli, anche dopo il riavvio della GUI. La durata non è garantita. Procedura completa, comportamento per piattaforma e privacy: [QUICK-START_Guided.md](QUICK-START_Guided.md).
+
 ### Confronto rapido
 
 Usare `smoke` con tutti i modelli. Serve soprattutto a individuare modelli che non emettono correttamente chiamate agli strumenti.
@@ -198,6 +206,7 @@ Per manutenerla, aggiornare insieme i testi italiano/inglese in `site/js/i18n.js
 - `profiles`: gruppi di casi;
 - `cases.directory`: directory, interna al repository, da cui scoprire i manifesti `case.json`.
 - `dashboard`: directory degli asset, directory dei risultati, sorgente dello snapshot, host loopback, porta e apertura automatica del browser.
+- `guided`: sequenza obbligatoria `smoke`, `standard`, `full`, limiti di promozione decrescenti `4`, `2` e file locale delle preferenze GUI.
 
 La configurazione viene validata all'avvio. Non contiene e non deve contenere segreti. Il valore `apiKey` generato per il provider Ollama è il placeholder letterale `ollama`, ignorato dal server locale.
 
@@ -249,6 +258,9 @@ All'avvio `AGENTS.md`, `.gitignore`, manifesti, prompt, fixture, grader e rubric
 ## 8. Risoluzione problemi
 
 - `Ollama non raggiungibile`: avviare Ollama e verificare `ollama list`.
+- GUI guidata senza modelli o prerequisiti: usare **Rileva di nuovo** dopo aver avviato Ollama/installato Pi 0.85.1; gli input protetti sporchi devono essere revisionati e committati, non aggirati.
+- percorso guidato interrotto: consultare `results/guided-*/guided-run.json` e i run già creati; nessun risultato parziale viene promosso e nessun run precedente viene cancellato.
+- dashboard guidata non avviabile: usare **Riapri dashboard** dopo aver risolto il problema locale; da uno a tre run disponibili vengono riutilizzati senza rieseguire i modelli.
 - `pi: comando non trovato`: installare Pi o modificare `pi.command` con il percorso corretto.
 - `Modelli non installati`: usare il nome esatto restituito da `doctor` oppure eseguire `ollama pull` separatamente.
 - `timeout`: aumentare `--timeout`; controllare anche memoria e log `stderr.log`.
@@ -277,7 +289,7 @@ Il runner restituisce exit code `1` se una o più task terminano con errore o ti
 
 ## 9. Sicurezza e privacy
 
-Non inserire dati privati, repository reali o credenziali nelle fixture. Manifesti e template non concedono permessi: un grader importato resta codice non fidato finché non viene revisionato, perché validazione e grading lo eseguono sul processo host. `audit` e il fallback di `auto` non sono sandbox. Il backend macOS restringe file utente esterni e rete salvo Ollama loopback ed è basato sulla deprecata interfaccia `sandbox-exec`. Su Linux Pi opera in un network namespace vuoto e raggiunge soltanto il broker Ollama tramite un socket Unix interno alla workspace. Su Windows AppContainer non riceve capability di rete e usa un named pipe dedicato al suo SID; ACL temporanee concedono solo i path necessari e un Job Object termina i discendenti. Broker e grader restano processi fidati eseguiti fuori sandbox. Il dataset dashboard omette contenuti raw ma conserva nomi modello, titoli, metriche e hash: resta un file locale potenzialmente sensibile e non deve essere pubblicato automaticamente. Il server ufficiale è confinato a `127.0.0.1`, serve soltanto asset autorizzati e il dataset pubblico in memoria, ma altri processi locali e le estensioni del browser restano fuori dal suo confine di fiducia. Consultare `SECURITY_MODEL.md`.
+Non inserire dati privati, repository reali o credenziali nelle fixture. Manifesti e template non concedono permessi: un grader importato resta codice non fidato finché non viene revisionato, perché validazione e grading lo eseguono sul processo host. `audit` e il fallback di `auto` non sono sandbox. Il percorso guidato usa argomenti strutturati senza shell, accetta soltanto Ollama locale, conserva manifesto e risultati dentro la root e richiede conferma prima dell'avvio e dell'annullamento; `results/` resta potenzialmente sensibile. Il backend macOS restringe file utente esterni e rete salvo Ollama loopback ed è basato sulla deprecata interfaccia `sandbox-exec`. Su Linux Pi opera in un network namespace vuoto e raggiunge soltanto il broker Ollama tramite un socket Unix interno alla workspace. Su Windows AppContainer non riceve capability di rete e usa un named pipe dedicato al suo SID; ACL temporanee concedono solo i path necessari e un Job Object termina i discendenti. Broker e grader restano processi fidati eseguiti fuori sandbox. Il dataset dashboard omette contenuti raw ma conserva nomi modello, titoli, metriche e hash: resta un file locale potenzialmente sensibile e non deve essere pubblicato automaticamente. Il server ufficiale è confinato a `127.0.0.1`, serve soltanto asset autorizzati e il dataset pubblico in memoria, ma altri processi locali e le estensioni del browser restano fuori dal suo confine di fiducia. Consultare `SECURITY_MODEL.md`.
 
 ## 10. Limiti noti
 
@@ -295,3 +307,5 @@ Non inserire dati privati, repository reali o credenziali nelle fixture. Manifes
 - Il grader della dashboard verifica trasformazioni e requisiti osservabili, ma responsive, resa visuale, tastiera e assenza di richieste remote richiedono anche una prova in browser e la rubrica manuale sul workspace candidato.
 - La dashboard ufficiale non rende anonimo un export e non pubblica risultati: nomi, punteggi e hash vanno revisionati prima di condividere lo snapshot o un `dashboard-data.json`.
 - Il preflight prova il comportamento osservabile dell'endpoint, non può dimostrare processi interni che Ollama o il modello non espongono. Un modello che non espone reasoning in modalità attiva viene escluso come non verificabile.
+- I launcher guidati sono script sorgente, non installer o applicazioni firmate; il doppio clic Linux dipende dal file manager e Tkinter deve essere incluso nella distribuzione Python.
+- Una sessione guidata annullata o fallita viene conservata ma non può essere ripresa dal punto interrotto; la dashboard può comunque riaprire da uno a tre run già disponibili senza un nuovo benchmark.

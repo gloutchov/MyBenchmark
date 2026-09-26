@@ -47,6 +47,7 @@ class LandingPageTests(unittest.TestCase):
             "js/preferences.js", "js/theme-bootstrap.js", "assets/favicon.svg",
             "assets/dashboard-overview.png", "assets/dashboard-overview.webp",
             "assets/dashboard-efficiency.png", "assets/dashboard-efficiency.webp",
+            "assets/guided-progress.png", "assets/guided-progress.webp",
         }
         missing = sorted(item for item in required if not (SITE / item).is_file())
         self.assertEqual([], missing)
@@ -74,7 +75,19 @@ class LandingPageTests(unittest.TestCase):
         _, parser = self.parse("index.html")
         anchors = {link["href"][1:] for link in parser.links if link.get("href", "").startswith("#")}
         self.assertTrue(anchors.issubset(parser.ids), anchors - parser.ids)
-        self.assertTrue({"top", "why", "method", "dashboard", "start"}.issubset(parser.ids))
+        self.assertTrue({"top", "why", "method", "quick", "dashboard", "start"}.issubset(parser.ids))
+
+    def test_quick_path_is_honest_and_links_its_guide(self) -> None:
+        index, parser = self.parse("index.html")
+        self.assertIn('href="#quick"', index)
+        self.assertIn("QUICK-START_Guided.md", index)
+        self.assertIn('<strong>4</strong>', index)
+        self.assertIn('<strong>2</strong>', index)
+        links = {link.get("href", "") for link in parser.links}
+        self.assertIn(
+            "https://github.com/gloutchov/LocalAgentBenchmark/blob/main/QUICK-START_Guided.md",
+            links,
+        )
 
     def test_images_have_dimensions_and_localised_alternatives(self) -> None:
         _, parser = self.parse("index.html")
@@ -106,6 +119,7 @@ class LandingPageTests(unittest.TestCase):
         self.assertIsNone(re.search(r"<link(?=[^>]+rel=['\"](?:stylesheet|icon)['\"])[^>]+href=['\"]https?://", all_text, re.I))
         self.assertIsNone(re.search(r"googletagmanager|google-analytics|plausible\.io|segment\.com", all_text, re.I))
         self.assertFalse((SITE / "assets" / "Dashboard.mov").exists())
+        self.assertFalse((SITE / "assets" / "Guided.mov").exists())
 
 
 if __name__ == "__main__":

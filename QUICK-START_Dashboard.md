@@ -4,6 +4,8 @@ Questa guida riguarda la dashboard mantenuta dal progetto in `dashboard/`. La da
 
 This guide covers the project-maintained dashboard in `dashboard/`. The candidate dashboard built by models in the `showcase` profile is a separate test outcome, not the official interface.
 
+Il percorso guidato 0.11.0 apre automaticamente questa dashboard con i tre run `smoke`, `standard` e `full` appena completati. Se il funnel si arresta, il pulsante **Riapri dashboard / Reopen dashboard** può rileggere dal manifesto anche uno o due run già disponibili, ricostruire il dataset ridotto in memoria e mostrarli senza rieseguire i modelli. / The 0.11.0 guided path opens this dashboard with its completed `smoke`, `standard`, and `full` runs. If the funnel stops, **Reopen dashboard** can also reuse one or two available runs from the guided manifest and never reruns models.
+
 ## Apertura immediata / Open immediately
 
 Dalla root del repository eseguire `python3 dashboard.py`. Il launcher cerca i risultati locali compatibili, serve la dashboard soltanto su loopback e apre il browser.
@@ -68,6 +70,8 @@ I path devono restare nella root del progetto. `--dataset` e le directory di run
 
 Paths must remain inside the project root. `--dataset` and positional run directories are mutually exclusive. Port `0`, the default, automatically selects an available port.
 
+Per una sessione guidata le sorgenti esplicite corrispondono a `results/guided-…/smoke`, `standard` e `full`. Non passare `guided-run.json` al file chooser: è un manifesto operativo locale, non un `dashboard-data.json`. / For a guided session, explicit sources are its `smoke`, `standard`, and `full` directories. Do not pass `guided-run.json` to the file chooser: it is a local operational manifest, not a `dashboard-data.json` export.
+
 ## Quale file scegliere / Which file to choose
 
 Il controllo **Scegli file / Choose files** della pagina accetta soltanto file `dashboard-data.json` compatibili. Non selezionare:
@@ -123,6 +127,7 @@ node --test dashboard/tests/dashboard.test.js
 
 - **`index.html` non mostra dati tramite `file://` / `index.html` shows no data through `file://`**: avviare `python3 dashboard.py` oppure generare prima lo snapshot locale opzionale.
 - **Il browser non si apre / The browser does not open**: usare `python3 dashboard.py --no-open` e aprire l'URL stampato.
+- **La dashboard del percorso guidato non parte / Guided dashboard does not start**: usare **Riapri dashboard / Reopen dashboard** nella GUI dopo aver risolto il problema locale. Da uno a tre run disponibili vengono riutilizzati e non modificati.
 - **Porta occupata / Port already in use**: omettere `--port`, usare `--port 0` o scegliere un altro numero.
 - **Run ignorato / Run skipped**: verificare che la directory immediatamente sotto `results/` contenga `run.json` e `report.json` schema 2, 3 o 4 compatibili. Passarla esplicitamente per ottenere un errore dettagliato.
 - **File rifiutato / File rejected**: verificare che sia un export dashboard schema 1 o 2 creato da `dashboard-data`, non un report raw, e che non superi 32 MiB.

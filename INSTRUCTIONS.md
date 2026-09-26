@@ -44,6 +44,14 @@ python3 benchmark.py run --profile standard
 
 ## 4. Main workflows
 
+### Command-free guided quick path
+
+Double-click `launchers/LocalAgent-Benchmark.command` on macOS, `launchers\LocalAgent-Benchmark.cmd` on Windows, or `launchers/LocalAgent-Benchmark.sh` on Linux. The window performs the equivalent of `doctor`, detects local Ollama models, lets you select participants and sort them by name, size, or thinking from the column headings, and shows effective settings before asking for confirmation.
+
+The funnel runs `smoke` on every selected model, consumes the official leaderboard order to promote up to four rankable models to `standard`, then up to two to `full`. A model with a failed task is excluded without stopping the others when the stage is complete and verifiable; a partial or incompatible stage still stops the funnel. The official dashboard then opens on the three distinct runs. The path never runs `showcase` or `results_dashboard`.
+
+**Cancel** asks for confirmation, terminates the process tree, and retains diagnostic artifacts. Interrupted sessions are not resumed; fix the issue and create a new session. **Reopen dashboard** reuses one to three available runs from the latest session without rerunning models, including after restarting the GUI. Duration is not guaranteed. See [QUICK-START_Guided.md](QUICK-START_Guided.md) for platform behavior, configuration, troubleshooting, and privacy.
+
 - `smoke` checks Pi/Ollama integration and basic tool calling.
 - `standard` covers a targeted patch, security hardening, validated configuration/i18n, and the exact multi-constraint `thinking_challenge` case.
 - `full` adds milestone closure, versioning, documentation, and Git discipline.
@@ -179,7 +187,7 @@ When maintaining the page, update both dictionaries in `site/js/i18n.js`, keep p
 
 ## 5. Configuration
 
-`benchmark.json` is the central configuration file. It defines the Ollama URL, Pi command, model selection, task/preflight timeouts, repetitions, thinking level, HTTP idle timeout, agent/provider retries, warmup, context and output limits, temperature, sandbox mode, profiles, the in-repository case discovery directory, and official dashboard paths, loopback host, port, and browser behavior. Official defaults are thinking `off`, HTTP idle timeout `0`, and zero retries. Each `cases/<id>/case.json` holds bilingual titles, category, weight, and relative input paths.
+`benchmark.json` is the central configuration file. It defines the Ollama URL, Pi command, model selection, task/preflight timeouts, repetitions, thinking level, HTTP idle timeout, agent/provider retries, warmup, context and output limits, temperature, sandbox mode, profiles, the in-repository case discovery directory, and official dashboard paths, loopback host, port, and browser behavior. Its `guided` section fixes the required `smoke`, `standard`, `full` progression, descending `4`, `2` promotion limits, and the local GUI preference file; guided profiles cannot include `results_dashboard`. Official defaults are thinking `off`, HTTP idle timeout `0`, and zero retries. Each `cases/<id>/case.json` holds bilingual titles, category, weight, and relative input paths.
 
 Configuration is validated at startup. It must not contain secrets. The generated Ollama provider uses the literal dummy key `ollama`, which the local server ignores.
 
@@ -229,6 +237,9 @@ Use the same configuration, profile, thinking mode, repetitions, seed, hardware,
 ## 8. Troubleshooting
 
 - `Ollama non raggiungibile`: start Ollama and check `ollama list`.
+- Guided GUI has no models or prerequisites: start Ollama or install Pi 0.85.1, then choose **Detect again**; review and commit dirty protected inputs rather than bypassing the preflight.
+- Guided path stopped: inspect `results/guided-*/guided-run.json` and existing stage runs; partial data is never promoted and earlier runs are never deleted.
+- Guided dashboard failed to start: resolve the local issue and use **Reopen dashboard**; completed run data is not regenerated.
 - `pi: command not found`: install Pi or update `pi.command`.
 - Missing model: use the exact name shown by `doctor`.
 - Timeout: increase `--timeout` and inspect `stderr.log`.
@@ -257,7 +268,7 @@ The runner exits with code `1` when one or more tasks end in an error or timeout
 
 ## 9. Security and privacy
 
-Do not add private data, real repositories, or credentials to cases. Manifests and templates do not grant trust: an imported grader remains untrusted until reviewed because validation and grading execute it on the host. `audit` and the `auto` fallback are not sandboxes. The macOS backend restricts external user files and networking except Ollama loopback and relies on the deprecated `sandbox-exec` interface. On Linux, Pi runs in an empty network namespace and reaches only the Ollama broker through a Unix socket inside the workspace. On Windows, AppContainer receives no network capabilities and uses a named pipe dedicated to its SID; temporary ACLs grant only required paths, and a Job Object terminates descendants. Brokers and graders remain trusted host processes outside the sandbox. The dashboard export omits raw content but retains model names, titles, metrics, and hashes; it remains potentially sensitive local data and must not be published automatically. The official server is bound to `127.0.0.1` and serves only allowlisted assets plus the public in-memory dataset, but other local processes and browser extensions remain outside its trust boundary. Read `SECURITY_MODEL.md` before extending the benchmark.
+Do not add private data, real repositories, or credentials to cases. Manifests and templates do not grant trust: an imported grader remains untrusted until reviewed because validation and grading execute it on the host. `audit` and the `auto` fallback are not sandboxes. The guided flow uses structured arguments without a shell, accepts local Ollama only, keeps its manifest/results inside the project root, and asks for confirmation before start and cancellation; `results/` remains potentially sensitive. The macOS backend restricts external user files and networking except Ollama loopback and relies on the deprecated `sandbox-exec` interface. On Linux, Pi runs in an empty network namespace and reaches only the Ollama broker through a Unix socket inside the workspace. On Windows, AppContainer receives no network capabilities and uses a named pipe dedicated to its SID; temporary ACLs grant only required paths, and a Job Object terminates descendants. Brokers and graders remain trusted host processes outside the sandbox. The dashboard export omits raw content but retains model names, titles, metrics, and hashes; it remains potentially sensitive local data and must not be published automatically. The official server is bound to `127.0.0.1` and serves only allowlisted assets plus the public in-memory dataset, but other local processes and browser extensions remain outside its trust boundary. Read `SECURITY_MODEL.md` before extending the benchmark.
 
 ## 10. Known limitations
 
@@ -275,3 +286,5 @@ Do not add private data, real repositories, or credentials to cases. Manifests a
 - The dashboard grader checks transformations and observable requirements, but responsive behavior, visual rendering, keyboard use, and absence of remote requests still require a real-browser review and the manual rubric on each candidate workspace.
 - The official dashboard does not anonymize or publish exports; review names, scores, and hashes before sharing a snapshot or `dashboard-data.json`.
 - The preflight verifies observable endpoint behavior, not internal processes hidden by Ollama or the model. An active model that exposes no reasoning signal is excluded as unverifiable.
+- Guided launchers are source scripts rather than signed installers or native apps; Linux double-click behavior depends on the file manager, and the Python distribution must include Tkinter.
+- A cancelled or failed guided session is preserved but cannot resume from its interrupted stage; the dashboard can still reopen one to three available runs without starting a new benchmark.
